@@ -1,0 +1,59 @@
+{
+  "hidden_finished": 0,
+  "terminals": [
+    {
+      "address": "t10",
+      "argv": ["/bin/bash"],
+      "cwd": "/home/test-user",
+      "foreground": { "argv": ["ssh", "test-box.example.com"], "cwd": "/home/test-user", "name": "ssh", "pid": 2778650 },
+      "labels": { "herdr.space": "sp43633628f8672c556204eacc52d997f6", "herdr.tab": "tbc58f390db61bf7ff356c0ddb3bb40dfe" },
+      "name": null,
+      "state": "live",
+      "status": null,
+      "title": "test-user@test-box: ~",
+      "turn": 0
+    },
+    {
+      "address": "t11",
+      "foreground": { "argv": ["claude"], "name": "claude", "pid": 100 },
+      "name": null,
+      "state": "live",
+      "status": { "app": "claude-code", "msg": "Edited the readme", "state": "done" },
+      "title": "Update the readme",
+      "turn": 223
+    },
+    {
+      "address": "t12",
+      "name": null,
+      "state": "live",
+      "status": { "app": "claude-code", "state": "working" },
+      "title": "Run the tests",
+      "turn": 0
+    },
+    {
+      "address": "t13",
+      "name": null,
+      "state": "live",
+      "status": { "app": "codex", "state": "blocked" },
+      "title": "codex",
+      "turn": 4
+    },
+    {
+      "address": "t14",
+      "exit_code": 0,
+      "name": null,
+      "state": "finished",
+      "status": null,
+      "title": "make build",
+      "turn": 0
+    },
+    {
+      "address": "t2j",
+      "name": null,
+      "state": "live",
+      "status": { "app": "claude-code", "state": "idle" },
+      "title": "",
+      "turn": 0
+    }
+  ]
+}

@@ -1,0 +1,60 @@
+{
+  "expo": {
+    "name": "Herdhand",
+    "slug": "herdhand",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "herdhand",
+    "userInterfaceStyle": "automatic",
+    "platforms": [
+      "android"
+    ],
+    "icon": "./assets/icon.png",
+    "android": {
+      "package": "com.pulseczar.herdhand",
+      "allowBackup": false,
+      "adaptiveIcon": {
+        "backgroundColor": "#0A0D0C",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-local-authentication",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "packagingOptions": {
+              "pickFirst": [
+                "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
+              ]
+            }
+          }
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "backgroundColor": "#FFFFFF",
+          "dark": {
+            "image": "./assets/android-icon-foreground.png",
+            "backgroundColor": "#0A0D0C"
+          }
+        }
+      ]
+    ],
+    "runtimeVersion": {
+      "policy": "appVersion"
+    }
+  }
+}

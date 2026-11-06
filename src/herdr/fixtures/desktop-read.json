@@ -1,0 +1,5 @@
+{
+  "complete": true,
+  "how": "history",
+  "text": "test-user@test-box:~$ ls\nREADME.md  src  package.json\ntest-user@test-box:~$ echo a line long enough to wrap on a phone screen, which the app wraps itself because the read gives logical lines\na line long enough to wrap on a phone screen, which the app wraps itself because the read gives logical lines\ntest-user@test-box:~$"
+}

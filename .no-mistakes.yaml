@@ -1,0 +1,8 @@
+# Per-repo no-mistakes settings.
+
+# The pipeline's test step runs this command itself, so it does not ask an
+# agent to find and run the tests. The pipeline copy has no node_modules, so
+# the command installs them first. Herdhand runs only on a phone, so there is
+# nothing to drive live from the pipeline.
+commands:
+  test: 'test -d node_modules || npm ci --prefer-offline --no-audit --no-fund; just check'

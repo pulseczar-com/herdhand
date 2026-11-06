@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="108" height="108">
+  <title>Herdhand icon (Ramp H), one color</title>
+  <!-- Same 108-unit grid and scale, no background: for the Android monochrome (themed) layer. -->
+  <g fill="#000000" transform="translate(3.78 3.78) scale(0.93)">
+    <rect x="27" y="31" width="10.8" height="46"/>
+    <rect x="41.4" y="48.6" width="10.8" height="10.8" opacity="0.53"/>
+    <rect x="55.8" y="48.6" width="10.8" height="10.8" opacity="0.77"/>
+    <rect x="70.2" y="31" width="10.8" height="46"/>
+  </g>
+</svg>

@@ -1,0 +1,24 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'com.pulseczar.herdhand.ssh'
+version = '0.1.0'
+
+android {
+  namespace "com.pulseczar.herdhand.ssh"
+  defaultConfig {
+    versionCode 1
+    versionName "0.1.0"
+  }
+  lintOptions {
+    abortOnError false
+  }
+}
+
+dependencies {
+  implementation 'com.hierynomus:sshj:0.41.2'
+  // sshj pulls BouncyCastle as a runtime dependency only; the module uses its provider class directly.
+  implementation 'org.bouncycastle:bcprov-jdk18on:1.84'
+}

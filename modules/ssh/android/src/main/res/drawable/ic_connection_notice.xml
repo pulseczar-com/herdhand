@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Herdhand mark (assets/brand/icon-mono.svg), cropped to the mark. Android draws a notification icon from its alpha only. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="60"
+    android:viewportHeight="60">
+  <group android:translateX="-24" android:translateY="-24">
+    <path android:fillColor="#FFFFFF" android:pathData="M27,31h10.8v46h-10.8z" />
+    <path android:fillColor="#FFFFFF" android:fillAlpha="0.53" android:pathData="M41.4,48.6h10.8v10.8h-10.8z" />
+    <path android:fillColor="#FFFFFF" android:fillAlpha="0.77" android:pathData="M55.8,48.6h10.8v10.8h-10.8z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M70.2,31h10.8v46h-10.8z" />
+  </group>
+</vector>
