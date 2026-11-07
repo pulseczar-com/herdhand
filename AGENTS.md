@@ -21,7 +21,7 @@ Herdhand is an Android app (Expo, React Native, TypeScript) that connects to a m
 
 ## Conventions
 
-- Native, generic Android look: the system light or dark theme through expo-router's `ThemeProvider`, with PulseCzar green as the one accent (`src/navigationTheme.ts`), and platform controls. No custom theme system.
+- Native, generic Android look: the system light or dark theme through expo-router's `ThemeProvider`, with green as the one accent (`src/navigationTheme.ts`), and platform controls. No custom theme system.
 - Pure logic lives in small modules with table-driven Jest tests; screens and hooks stay thin.
 - Secrets (passwords, host keys) go to expo-secure-store, never AsyncStorage.
 - Imports from `src/` use the `@/` alias.
