@@ -111,8 +111,10 @@ describe("PaneComposer", () => {
     { label: "Escape", key: "esc" },
     { label: "Up", key: "up" },
     { label: "Enter", key: "enter" },
+    { label: "Tab", key: "tab" },
     { label: "1", key: "1" },
     { label: "3", key: "3" },
+    { label: "6", key: "6" },
   ])("presses $key when $label is tapped", ({ label, key }) => {
     const backend = makeBackend();
     render(<PaneComposer backend={backend} paneId="t6" placeholder="Run a command" />);
@@ -122,18 +124,19 @@ describe("PaneComposer", () => {
     expect(backend.pressKey).toHaveBeenCalledWith("t6", key);
   });
 
-  it("has no digit keys beyond 1 to 3", () => {
+  // A question has at most four options, then "Type something" and "Chat about this".
+  it("has no digit keys beyond 1 to 6", () => {
     render(<PaneComposer backend={makeBackend()} paneId="t6" placeholder="Run a command" />);
 
-    expect(screen.queryByRole("button", { name: /^[04-9]$/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^[07-9]$/ })).toBeNull();
   });
 
-  it("shows exactly these keys, in this order, in one row that does not scroll", () => {
+  it("shows exactly these keys, in this order, in rows that do not scroll", () => {
     render(<PaneComposer backend={makeBackend()} paneId="t6" placeholder="Run a command" />);
 
     const names = screen.getAllByRole("button").map((button) => button.props.accessibilityLabel);
 
-    expect(names).toEqual(["Escape", "Control C", "Up", "Down", "Enter", "1", "2", "3", "Send"]);
+    expect(names).toEqual(["Escape", "Control C", "Tab", "Up", "Down", "Enter", "1", "2", "3", "4", "5", "6", "Send"]);
     expect(screen.UNSAFE_queryAllByType(ScrollView)).toHaveLength(0);
   });
 

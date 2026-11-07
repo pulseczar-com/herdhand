@@ -17,6 +17,7 @@ import {
   type Space,
   type Tab,
   toAgentState,
+  toBlockedKind,
 } from "./backend";
 
 // json-rpc-2.0 reports a timeout as an error reply with this code. Herdr's errors use the
@@ -122,7 +123,7 @@ type Terminal = {
   state?: string;
   title?: string;
   foreground?: { pid?: number } | null;
-  status?: { app?: string; state?: string; msg?: string } | null;
+  status?: { app?: string; state?: string; kind?: string | null; msg?: string } | null;
 };
 type TerminalList = { terminals?: Terminal[] };
 
@@ -183,5 +184,6 @@ function toPane(terminal: Terminal): Pane {
     columns,
     pid: terminal.foreground?.pid,
     message: status.msg,
+    blockedKind: toBlockedKind(status.kind),
   };
 }

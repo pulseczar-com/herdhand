@@ -12,7 +12,8 @@ import {
   View,
 } from "react-native";
 
-import { ChatView, NeedsYouBanner } from "@/components/ChatView";
+import { ChatView } from "@/components/ChatView";
+import { NeedsYouBanner } from "@/components/NeedsYouBanner";
 import { getColumnCount, PaneBlocks } from "@/components/PaneBlocks";
 import { PaneComposer } from "@/components/PaneComposer";
 import { SpaceBadge } from "@/components/SpaceBadge";
@@ -67,14 +68,14 @@ function PaneScreen({ connection }: { connection: MachineConnection }) {
   const { status, list } = connection;
   const located = findPane(list.spaces ?? [], paneId);
   const [view, setView] = useState<PaneView>("chat");
-  // The chat reads the pane fresh on each poll; the list does not refresh by itself.
-  const [chatPane, setChatPane] = useState<Pane | null>(null);
+  // The chat and the screen read the pane fresh on each poll; the list does not refresh by itself.
+  const [freshPane, setFreshPane] = useState<Pane | null>(null);
   // Android apps are edge-to-edge, so the window does not resize for the keyboard; the view pads
   // itself by the keyboard's height, below the header.
   const headerHeight = useHeaderHeight();
   const chatBackend = getChatBackend(status, located);
   const isChat = chatBackend !== null && view === "chat";
-  const shownPane = (isChat && chatPane) || located?.pane;
+  const shownPane = freshPane ?? located?.pane;
   const isClaude = located !== undefined && isClaudeAgent(located.pane);
   // Input goes to the agent when Herdr names one on the pane, else to the shell.
   const composerPlaceholder = shownPane?.agent ? "Message the agent" : "Run a command";
@@ -86,13 +87,14 @@ function PaneScreen({ connection }: { connection: MachineConnection }) {
         <>
           {chatBackend ? <ViewSwitch view={view} onChange={setView} /> : null}
           {isChat ? (
-            <ClaudeChat backend={chatBackend} paneId={paneId} onPaneChange={setChatPane} />
+            <ClaudeChat backend={chatBackend} paneId={paneId} onPaneChange={setFreshPane} />
           ) : (
             <PaneText
               backend={status.backend}
               paneId={paneId}
               paneColumns={located?.pane.columns ?? null}
               isClaude={isClaude}
+              onPaneChange={setFreshPane}
             />
           )}
           <PaneComposer backend={status.backend} paneId={paneId} placeholder={composerPlaceholder} />
@@ -191,12 +193,22 @@ function ClaudeChat({ backend, paneId, onPaneChange }: ClaudeChatProps) {
   );
 }
 
-type PaneTextProps = { backend: Backend; paneId: string; paneColumns: number | null; isClaude: boolean };
+type PaneTextProps = {
+  backend: Backend;
+  paneId: string;
+  paneColumns: number | null;
+  isClaude: boolean;
+  onPaneChange: (pane: Pane | null) => void;
+};
 
-/** The pane's text, reformatted to the phone's width, opening at its end. */
-function PaneText({ backend, paneId, paneColumns, isClaude }: PaneTextProps) {
+/**
+ * The pane's text, reformatted to the phone's width, opening at its end, and the banner while its
+ * agent is blocked. Each fresh read of the pane goes up to the header's state pill.
+ */
+function PaneText({ backend, paneId, paneColumns, isClaude, onPaneChange }: PaneTextProps) {
   const { colors } = useTheme();
-  const { text, dimLines, error } = usePaneText(backend, paneId);
+  const { text, dimLines, pane, error } = usePaneText(backend, paneId);
+  useEffect(() => onPaneChange(pane), [pane, onPaneChange]);
   const columnCount = useColumnCount();
   const { scrollRef, trackEnd, keepAtEnd } = useKeepAtEnd();
   const isLoading = text === null && !error;
@@ -222,6 +234,7 @@ function PaneText({ backend, paneId, paneColumns, isClaude }: PaneTextProps) {
           <PaneBlocks blocks={blocks} dimLines={dimLines} />
         </ScrollView>
       )}
+      <NeedsYouBanner pane={pane} />
     </>
   );
 }

@@ -38,7 +38,7 @@ export class FileReadError extends Error {
 export const READ_LINES = 200;
 
 /** The key row's keys, in its order, by Herdr's key names, which both kinds share. */
-export const PANE_KEYS = ["esc", "ctrl+c", "up", "down", "enter", "1", "2", "3"] as const;
+export const PANE_KEYS = ["esc", "ctrl+c", "tab", "up", "down", "enter", "1", "2", "3", "4", "5", "6"] as const;
 export type PaneKey = (typeof PANE_KEYS)[number];
 
 export type Space = { id: string; name: string; tabs: Tab[] };
@@ -49,8 +49,8 @@ export type Tab = { id: string; name: string; panes: Pane[] };
  * A pane. `agent` is null when Herdr names no agent; `state` is null for a plain shell.
  * `isFinished` is true when the program in the pane has exited but Herdr keeps the pane.
  * `columns` is the pane's width in terminal columns as Herdr reports it, or null when it gives none.
- * An agent pane on the desktop app also has its process id and the agent's own message, such as
- * what it asks while blocked; the TUI gives neither.
+ * An agent pane on the desktop app also has its process id, the agent's own message, such as
+ * what it asks while blocked, and what a blocked agent waits for when it says; the TUI gives none.
  */
 export type Pane = {
   id: string;
@@ -61,7 +61,17 @@ export type Pane = {
   columns: number | null;
   pid?: number;
   message?: string;
+  blockedKind?: BlockedKind;
 };
+
+/** What a blocked agent waits for: an approval, an answer to its question, or a sign-in. */
+const BLOCKED_KINDS = ["permission", "question", "auth"] as const;
+export type BlockedKind = (typeof BLOCKED_KINDS)[number];
+
+/** A blocked kind from Herdr, or undefined when the agent said none or one this app does not know. */
+export function toBlockedKind(value: unknown): BlockedKind | undefined {
+  return BLOCKED_KINDS.find((kind) => kind === value);
+}
 
 /** The desktop app reports `error`; the TUI reports `unknown`. */
 const AGENT_STATES = ["idle", "working", "blocked", "done", "error", "unknown"] as const;
