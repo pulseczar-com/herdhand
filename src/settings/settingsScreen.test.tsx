@@ -3,13 +3,40 @@ import { useTheme } from "expo-router";
 
 import SettingsScreen from "../../app/settings";
 
+import { getPhoneKey } from "@/ssh/pairing";
+
 jest.mock("expo-router", () => ({ useTheme: jest.fn() }));
 jest.mock("expo-application", () => ({ nativeApplicationVersion: "0.1.0" }));
+jest.mock("@/ssh/pairing", () => ({ getPhoneKey: jest.fn() }));
 jest.mock("./store", () => ({ getAppLockEnabled: jest.fn().mockResolvedValue(false), saveAppLockEnabled: jest.fn() }));
 
 const colors = { text: "#000", border: "#000", primary: "#000", background: "#fff", notification: "#f00" };
 
 describe("the Settings screen", () => {
+  beforeEach(() => {
+    jest.mocked(useTheme).mockReturnValue({ dark: false, colors } as never);
+    jest.mocked(getPhoneKey).mockResolvedValue({
+      line: "ecdsa-sha2-nistp256 AAAA herdhand-Pixel-8-2026-11-07",
+      comment: "herdhand-Pixel-8-2026-11-07",
+      fingerprint: "SHA256:phone",
+    });
+  });
+
+  it("shows the phone key's name and fingerprint, to find it on a machine", async () => {
+    render(<SettingsScreen />);
+
+    expect(await screen.findByText("herdhand-Pixel-8-2026-11-07")).toBeTruthy();
+    expect(screen.getByText("SHA256:phone")).toBeTruthy();
+  });
+
+  it("says why the phone key is not available", async () => {
+    jest.mocked(getPhoneKey).mockRejectedValue(new Error("Keystore is locked"));
+
+    render(<SettingsScreen />);
+
+    expect(await screen.findByText("The phone key is not available: Keystore is locked")).toBeTruthy();
+  });
+
   it.each([
     ["dark", true, require("../../assets/pulseczar-lockup-dark.png")],
     ["light", false, require("../../assets/pulseczar-lockup-light.png")],
