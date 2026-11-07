@@ -1,15 +1,26 @@
 import { render, screen, userEvent } from "@testing-library/react-native";
 
-import { DragHandle } from "./DragHandle";
+import { DragHandle, HandleButton } from "./DragHandle";
 
 const mockDrag = jest.fn();
 
 jest.mock("expo-router", () => ({
-  useTheme: () => ({ dark: false, colors: { text: "#000", border: "#000", background: "#fff", card: "#fff", primary: "#00f" } }),
+  useTheme: () => ({
+    dark: false,
+    colors: {
+      text: "#000",
+      border: "#000",
+      background: "#fff",
+      card: "#fff",
+      primary: "#00f",
+    },
+  }),
 }));
 
 // The library's drag runs on the native UI thread: only whether the handle starts it is checked here.
-jest.mock("react-native-reorderable-list", () => ({ useReorderableDrag: () => mockDrag }));
+jest.mock("react-native-reorderable-list", () => ({
+  useReorderableDrag: () => mockDrag,
+}));
 
 describe("DragHandle", () => {
   beforeEach(() => {
@@ -34,4 +45,22 @@ describe("DragHandle", () => {
 
     expect(mockDrag).toHaveBeenCalledTimes(starts);
   });
+
+  it.each([
+    { touch: "tap", hold: false, starts: 0 },
+    { touch: "hold", hold: true, starts: 1 },
+  ])(
+    "starts $starts drags from a handle outside a list on a $touch",
+    async ({ hold, starts }) => {
+      const onLongPress = jest.fn();
+      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+      render(<HandleButton name="test-box" onLongPress={onLongPress} />);
+      const handle = screen.getByLabelText("Drag test-box");
+
+      if (hold) await user.longPress(handle, { duration: 300 });
+      else await user.press(handle);
+
+      expect(onLongPress).toHaveBeenCalledTimes(starts);
+    },
+  );
 });

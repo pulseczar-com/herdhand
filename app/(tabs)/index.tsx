@@ -101,12 +101,12 @@ function MachineList({ onMore }: { onMore: (machineId: string) => void }) {
     );
   }
 
-  /** Headers outside the reorderable list: a touch on the handle folds the page and starts the drag there. */
+  /** Headers outside the reorderable list: a short hold on the handle folds the page and starts the drag there. */
   function renderHeaders(machinesToShow: Machine[]) {
     return (
       <View>
         {machinesToShow.map((machine) =>
-          renderHeader(machine, <HandleButton name={machine.name} onPressIn={() => setDraggedId(machine.id)} />),
+          renderHeader(machine, <HandleButton name={machine.name} onLongPress={() => setDraggedId(machine.id)} />),
         )}
       </View>
     );
