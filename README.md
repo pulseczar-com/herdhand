@@ -6,6 +6,9 @@
 
 A mobile client for [Herdr](https://github.com/herdrdev/herdr), built by [PulseCzar](https://pulseczar.com/?utm_source=github&utm_medium=readme&utm_campaign=herdhand).
 
+> [!WARNING]
+> **Experimental.** Herdhand is an early build that we use internally. You are welcome to try it, but expect bugs and changes. A Google Play test release is coming soon.
+
 Herdr is a terminal multiplexer: it keeps spaces, tabs and panes running on a machine, much like tmux. A pane can hold a shell, an SSH session or a coding agent. Herdhand is an Android app that connects to that machine over SSH, so you can check on your panes and answer your agents from your phone.
 
 <!-- Screenshot: the machine list and a connected machine. -->
