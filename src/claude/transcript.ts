@@ -1,4 +1,4 @@
-import type { Chat, ChatInfo, ChatItem, ToolItem, ToolResult } from "@/chat/chatItems";
+import type { AskedQuestion, Chat, ChatInfo, ChatItem, ToolItem, ToolResult } from "@/chat/chatItems";
 
 /**
  * Claude Code's transcript (one JSON record a line) as chat items. The format has no docs and
@@ -25,6 +25,7 @@ const SUMMARY_FIELDS = ["description", "command", "file_path", "path", "pattern"
 
 // Claude Code names the model of a reply it wrote itself, such as an error, this.
 const SYNTHETIC_MODEL = "<synthetic>";
+const ASK_TOOL = "AskUserQuestion";
 const IMAGE_TEXT = "[image]";
 const COMPACTED_TEXT = "Conversation compacted";
 
@@ -210,14 +211,26 @@ function addAssistantRecord({ items, orphans }: Working, record: ShownRecord) {
 
 function makeToolItem(block: ContentBlock, id: string, result: ToolResult | null): ToolItem {
   const input = block.input ?? {};
-  return {
-    kind: "tool",
-    id,
-    name: String(block.name ?? ""),
-    summary: getSummary(input),
-    input: getInputText(input),
-    result,
-  };
+  const name = String(block.name ?? "");
+  const item: ToolItem = { kind: "tool", id, name, summary: getSummary(input), input: getInputText(input), result };
+  const questions = name === ASK_TOOL ? getQuestions(input) : [];
+  return questions.length > 0 ? { ...item, questions } : item;
+}
+
+/** The questions of an AskUserQuestion call. A question with no text, and an option with no label, are skipped. */
+function getQuestions(input: Record<string, unknown>): AskedQuestion[] {
+  if (!Array.isArray(input.questions)) return [];
+  return input.questions.flatMap((asked: unknown) => {
+    const { question, multiSelect, options } = (typeof asked === "object" && asked !== null ? asked : {}) as Record<string, unknown>;
+    if (typeof question !== "string" || !question) return [];
+    const labels = Array.isArray(options) ? options.map(getOptionLabel).filter((label): label is string => label !== null) : [];
+    return [{ question, multiSelect: multiSelect === true, options: labels }];
+  });
+}
+
+function getOptionLabel(option: unknown): string | null {
+  const label = typeof option === "object" && option !== null ? (option as Record<string, unknown>).label : null;
+  return typeof label === "string" && label ? label : null;
 }
 
 /** The first summary field the call has. */

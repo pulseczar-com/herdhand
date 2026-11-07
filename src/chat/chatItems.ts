@@ -10,7 +10,10 @@ type PromptItem = { kind: "prompt"; id: string; text: string };
 /** The agent's answer, in Markdown. */
 type ReplyItem = { kind: "reply"; id: string; text: string };
 
-/** One tool call. `result` is null while the tool runs. */
+/** What a tool call asks the person: the question, whether several options can be picked, and the options' labels. */
+export type AskedQuestion = { question: string; multiSelect: boolean; options: string[] };
+
+/** One tool call. `result` is null while the tool runs. `questions` is set on a call that asks the person. */
 export type ToolItem = {
   kind: "tool";
   id: string;
@@ -18,6 +21,7 @@ export type ToolItem = {
   summary: string;
   input: string;
   result: ToolResult | null;
+  questions?: AskedQuestion[];
 };
 
 export type ToolResult = { text: string; isError: boolean };

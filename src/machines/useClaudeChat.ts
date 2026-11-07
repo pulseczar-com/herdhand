@@ -37,7 +37,8 @@ type Transcript = Transcribed & {
 const NO_TRANSCRIPT: Transcript = { path: null, firstLine: null, nextLine: null, chat: new Map(), orphans: new Map(), info: {} };
 
 /**
- * A Claude pane's chat, from Claude Code's transcript, and the pane as Herdr has it now. It polls
+ * A Claude pane's chat, from Claude Code's transcript, and the pane as Herdr has it now, with the
+ * pane's screen while it is blocked. It polls
  * on open and every REFRESH_INTERVAL_MS until the screen closes, one poll at a time and none while
  * the app is in the background. `loadEarlier` reads the page of lines before the first one shown.
  * Polls and page reads run one at a time. When a file is missing or names no session, the chat is
@@ -48,6 +49,7 @@ export function useClaudeChat(backend: ChatBackend, paneId: string) {
   const [info, setInfo] = useState<ChatInfo>({});
   const [hasEarlier, setHasEarlier] = useState(false);
   const [pane, setPane] = useState<Pane | null>(null);
+  const [screen, setScreen] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const loadEarlierRef = useRef(() => {});
   const loadEarlier = useCallback(() => loadEarlierRef.current(), []);
@@ -81,9 +83,15 @@ export function useClaudeChat(backend: ChatBackend, paneId: string) {
     async function readChat() {
       try {
         const polled = await backend.getPane(paneId);
-        const read = isClaudePane(polled) ? await readNewLines(backend, polled.pid, transcript) : null;
+        // A blocked agent can wait on something the transcript does not hold, so the screen goes with it.
+        const [read, polledScreen] = await Promise.all([
+          isClaudePane(polled) ? readNewLines(backend, polled.pid, transcript) : null,
+          // The screen only feeds the card: when its read fails, the chat still shows.
+          polled.state === "blocked" ? backend.readPane(paneId).catch(() => null) : null,
+        ]);
         if (!isOpen) return;
         setPane(polled);
+        setScreen(polledScreen);
         show(read ?? NO_TRANSCRIPT);
       } catch (failure) {
         if (isOpen) setError(`Could not read the chat: ${getErrorMessage(failure)}`);
@@ -120,7 +128,7 @@ export function useClaudeChat(backend: ChatBackend, paneId: string) {
     };
   }, [backend, paneId]);
 
-  return { chat, info, hasEarlier, loadEarlier, pane, error };
+  return { chat, info, hasEarlier, loadEarlier, pane, screen, error };
 }
 
 /**

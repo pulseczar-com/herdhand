@@ -36,7 +36,7 @@ function makeMachine(files: Record<string, string>) {
     return readLines(files[path], range);
   });
   const getPane = jest.fn(async () => claudePane());
-  const backend: ChatBackend = { getVersion: jest.fn(), listSpaces: jest.fn(), readPane: jest.fn(), sendLine: jest.fn(), pressKey: jest.fn(), getPane, readFile };
+  const backend: ChatBackend = { getVersion: jest.fn(), listSpaces: jest.fn(), readPane: jest.fn().mockResolvedValue(""), sendLine: jest.fn(), pressKey: jest.fn(), getPane, readFile };
   return { backend, files, readFile, getPane };
 }
 
@@ -345,6 +345,47 @@ describe("useClaudeChat", () => {
       });
 
       expect(hook.result.current.info).toEqual({ model: "claude-sonnet-5-5", folder: "old", branch: "main" });
+    });
+  });
+
+  describe("screen", () => {
+    it("reads the pane's screen on each poll while the agent is blocked", async () => {
+      const machine = makeMachine({ [SESSION_PATH]: session("s-1"), [TRANSCRIPT_PATH]: prompt(1) });
+      machine.getPane.mockResolvedValue(claudePane({ state: "blocked" }));
+      jest.mocked(machine.backend.readPane).mockResolvedValue("Do you trust this folder?");
+
+      const { result } = await openChat(machine.backend);
+      expect(result.current.screen).toBe("Do you trust this folder?");
+
+      jest.mocked(machine.backend.readPane).mockResolvedValue("Signed in.");
+      await waitForNextPoll();
+
+      expect(result.current.screen).toBe("Signed in.");
+    });
+
+    it("reads no screen while the agent is not blocked, and drops the last one when it stops being blocked", async () => {
+      const machine = makeMachine({ [SESSION_PATH]: session("s-1"), [TRANSCRIPT_PATH]: prompt(1) });
+      machine.getPane.mockResolvedValueOnce(claudePane({ state: "blocked" }));
+      jest.mocked(machine.backend.readPane).mockResolvedValue("Do you trust this folder?");
+      const { result } = await openChat(machine.backend);
+      expect(result.current.screen).toBe("Do you trust this folder?");
+
+      await waitForNextPoll();
+
+      expect(result.current.screen).toBeNull();
+      expect(machine.backend.readPane).toHaveBeenCalledTimes(1);
+    });
+
+    it("shows the chat with no screen when the screen cannot be read", async () => {
+      const machine = makeMachine({ [SESSION_PATH]: session("s-1"), [TRANSCRIPT_PATH]: prompt(1) });
+      machine.getPane.mockResolvedValue(claudePane({ state: "blocked" }));
+      jest.mocked(machine.backend.readPane).mockRejectedValue(new Error("timed out"));
+
+      const { result } = await openChat(machine.backend);
+
+      expect(getPromptTexts(result.current.chat)).toEqual(["Prompt 1"]);
+      expect(result.current.screen).toBeNull();
+      expect(result.current.error).toBeNull();
     });
   });
 });

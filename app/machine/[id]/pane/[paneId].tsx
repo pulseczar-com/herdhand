@@ -4,7 +4,6 @@ import { useContext, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,15 +11,18 @@ import {
   View,
 } from "react-native";
 
+import { AnswerCard } from "@/components/AnswerCard";
 import { ChatView } from "@/components/ChatView";
 import { NeedsYouBanner } from "@/components/NeedsYouBanner";
 import { getColumnCount, PaneBlocks } from "@/components/PaneBlocks";
 import { PaneComposer } from "@/components/PaneComposer";
+import { ScreenCard } from "@/components/ScreenCard";
 import { SpaceBadge } from "@/components/SpaceBadge";
-import { getPillBackground, StatePill, useToneColor } from "@/components/StatePill";
+import { StatePill } from "@/components/StatePill";
 import { useKeepAtEnd } from "@/components/useKeepAtEnd";
 import { hideClaudeInput } from "@/claude/inputLine";
 import { isClaudeAgent, isClaudePane } from "@/claude/paths";
+import { getPendingQuestion } from "@/claude/question";
 import { findPane, type LocatedPane } from "@/herdr/agentPanes";
 import type { Backend, Pane } from "@/herdr/backend";
 import { describePlace, getPaneBadge } from "@/herdr/badges";
@@ -32,12 +34,10 @@ import { type Block, reformatPane } from "@/pane/reformat";
 
 const CONTENT_PADDING = 16;
 
-type PaneView = "chat" | "screen";
-
 /**
  * One pane, with the key row and composer to type into it. A Claude pane on the desktop app opens
- * on its chat, with a switch to the screen. The screen is the pane's text, reformatted for the
- * phone and kept fresh.
+ * on its chat; any other pane, and a Claude pane with no chat, opens on its screen with a line that
+ * says why. The screen is the pane's text, reformatted for the phone and kept fresh.
  */
 export default function PaneRoute() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -67,15 +67,14 @@ function PaneScreen({ connection }: { connection: MachineConnection }) {
   const { paneId, title } = useLocalSearchParams<{ paneId: string; title?: string }>();
   const { status, list } = connection;
   const located = findPane(list.spaces ?? [], paneId);
-  const [view, setView] = useState<PaneView>("chat");
   // The chat and the screen read the pane fresh on each poll; the list does not refresh by itself.
   const [freshPane, setFreshPane] = useState<Pane | null>(null);
   // Android apps are edge-to-edge, so the window does not resize for the keyboard; the view pads
   // itself by the keyboard's height, below the header.
   const headerHeight = useHeaderHeight();
   const chatBackend = getChatBackend(status, located);
-  const isChat = chatBackend !== null && view === "chat";
   const shownPane = freshPane ?? located?.pane;
+  const paneColumns = located?.pane.columns ?? null;
   const isClaude = located !== undefined && isClaudeAgent(located.pane);
   // Input goes to the agent when Herdr names one on the pane, else to the shell.
   const composerPlaceholder = shownPane?.agent ? "Message the agent" : "Run a command";
@@ -85,15 +84,15 @@ function PaneScreen({ connection }: { connection: MachineConnection }) {
       <Stack.Screen options={getHeaderOptions(located, title ?? "", shownPane)} />
       {status.phase === "connected" ? (
         <>
-          {chatBackend ? <ViewSwitch view={view} onChange={setView} /> : null}
-          {isChat ? (
-            <ClaudeChat backend={chatBackend} paneId={paneId} onPaneChange={setFreshPane} />
+          {chatBackend ? (
+            <ClaudeChat backend={chatBackend} paneId={paneId} paneColumns={paneColumns} onPaneChange={setFreshPane} />
           ) : (
             <PaneText
               backend={status.backend}
               paneId={paneId}
-              paneColumns={located?.pane.columns ?? null}
+              paneColumns={paneColumns}
               isClaude={isClaude}
+              note={getNoChatNote(shownPane?.agent)}
               onPaneChange={setFreshPane}
             />
           )}
@@ -145,45 +144,45 @@ function PaneTitle({ located }: { located: LocatedPane }) {
   );
 }
 
-/** The Chat | Screen switch under the header. */
-function ViewSwitch({ view, onChange }: { view: PaneView; onChange: (view: PaneView) => void }) {
-  const { colors } = useTheme();
+type ClaudeChatProps = {
+  backend: ChatBackend;
+  paneId: string;
+  paneColumns: number | null;
+  onPaneChange: (pane: Pane | null) => void;
+};
 
-  return (
-    <View style={[styles.viewSwitch, { borderColor: colors.border }]} accessibilityRole="tablist">
-      <ViewTab label="Chat" isSelected={view === "chat"} onPress={() => onChange("chat")} />
-      <ViewTab label="Screen" isSelected={view === "screen"} onPress={() => onChange("screen")} />
-    </View>
-  );
-}
-
-function ViewTab({ label, isSelected, onPress }: { label: string; isSelected: boolean; onPress: () => void }) {
-  const { colors } = useTheme();
-  const activeColor = useToneColor("active");
-  const background = isSelected ? getPillBackground(activeColor) : "transparent";
-  const textColor = isSelected ? activeColor : colors.text;
-
-  return (
-    <Pressable
-      style={[styles.viewTab, { backgroundColor: background }]}
-      accessibilityRole="tab"
-      accessibilityLabel={label}
-      accessibilityState={{ selected: isSelected }}
-      onPress={onPress}
-    >
-      <Text style={[styles.viewTabLabel, { color: textColor }]}>{label}</Text>
-    </Pressable>
-  );
-}
-
-type ClaudeChatProps = { backend: ChatBackend; paneId: string; onPaneChange: (pane: Pane | null) => void };
-
-/** The pane's Claude chat. Each fresh read of the pane goes up to the header and the banner. */
-function ClaudeChat({ backend, paneId, onPaneChange }: ClaudeChatProps) {
-  const { chat, info, hasEarlier, loadEarlier, pane, error } = useClaudeChat(backend, paneId);
+/**
+ * The pane's Claude chat. Each fresh read of the pane goes up to the header and the banner. A
+ * blocked agent ends the chat with the buttons of its question, or with its screen when the
+ * transcript has no question the app can answer. With no chat to show, the pane shows its screen.
+ */
+function ClaudeChat({ backend, paneId, paneColumns, onPaneChange }: ClaudeChatProps) {
+  const { chat, info, hasEarlier, loadEarlier, pane, screen, error } = useClaudeChat(backend, paneId);
   useEffect(() => onPaneChange(pane), [pane, onPaneChange]);
+  const question = useMemo(() => (chat === null ? null : getPendingQuestion(chat)), [chat]);
+  // The question whose options the screen stopped showing: the screen takes its place.
+  const [staleQuestionId, setStaleQuestionId] = useState<string | null>(null);
+  const answerQuestion = question !== null && question.id !== staleQuestionId ? question : null;
 
-  return <ChatView chat={chat} info={info} hasEarlier={hasEarlier} onLoadEarlier={loadEarlier} error={error} />;
+  if (chat?.size === 0) {
+    return <PaneText backend={backend} paneId={paneId} paneColumns={paneColumns} isClaude note={NO_CHAT_FILE_NOTE} />;
+  }
+  return (
+    <>
+      <ChatView chat={chat} info={info} hasEarlier={hasEarlier} onLoadEarlier={loadEarlier} error={error} />
+      {answerQuestion ? (
+        <AnswerCard backend={backend} paneId={paneId} question={answerQuestion} onStale={() => setStaleQuestionId(answerQuestion.id)} />
+      ) : null}
+      {!answerQuestion && screen !== null ? <ScreenCard text={screen} /> : null}
+    </>
+  );
+}
+
+const NO_CHAT_FILE_NOTE = "No chat found for this agent yet: showing the screen.";
+
+/** The line over a screen shown in place of a chat: it says which pane has none. */
+function getNoChatNote(agent: string | null | undefined): string {
+  return `No chat for ${agent ?? "a shell"} here: showing the screen.`;
 }
 
 type PaneTextProps = {
@@ -191,17 +190,20 @@ type PaneTextProps = {
   paneId: string;
   paneColumns: number | null;
   isClaude: boolean;
-  onPaneChange: (pane: Pane | null) => void;
+  /** A line over the text, such as why there is no chat. */
+  note?: string;
+  /** Gets each fresh read of the pane; left out where the chat already reports it. */
+  onPaneChange?: (pane: Pane | null) => void;
 };
 
 /**
  * The pane's text, reformatted to the phone's width, opening at its end. Each fresh read of the
  * pane goes up to the header and the banner.
  */
-function PaneText({ backend, paneId, paneColumns, isClaude, onPaneChange }: PaneTextProps) {
+function PaneText({ backend, paneId, paneColumns, isClaude, note, onPaneChange }: PaneTextProps) {
   const { colors } = useTheme();
   const { text, dimLines, pane, error } = usePaneText(backend, paneId);
-  useEffect(() => onPaneChange(pane), [pane, onPaneChange]);
+  useEffect(() => onPaneChange?.(pane), [pane, onPaneChange]);
   const columnCount = useColumnCount();
   const { scrollRef, trackEnd, keepAtEnd } = useKeepAtEnd();
   const isLoading = text === null && !error;
@@ -213,6 +215,7 @@ function PaneText({ backend, paneId, paneColumns, isClaude, onPaneChange }: Pane
 
   return (
     <>
+      {note ? <Text style={[styles.note, { color: colors.text }]}>{note}</Text> : null}
       {error ? <Text style={[styles.message, { color: colors.notification }]}>{error}</Text> : null}
       {isLoading ? <ActivityIndicator style={styles.message} /> : null}
       {/* Android runs scrollToEnd with the content height it has at that moment, which can be
@@ -270,6 +273,7 @@ const styles = StyleSheet.create({
   loading: { padding: 16 },
   screen: { flex: 1 },
   message: { fontSize: 15, padding: 16 },
+  note: { fontSize: 13, opacity: 0.7, paddingHorizontal: 16, paddingTop: 8 },
   // Short text sits at the bottom, as on a terminal.
   content: { flexGrow: 1, justifyContent: "flex-end", padding: CONTENT_PADDING },
   title: { flexDirection: "row", alignItems: "center", gap: 10, flexShrink: 1 },
@@ -277,7 +281,4 @@ const styles = StyleSheet.create({
   spaceName: { fontSize: 16, fontWeight: "600" },
   place: { fontSize: 12, opacity: 0.7 },
   headerRight: { flexDirection: "row", alignItems: "center", gap: 8 },
-  viewSwitch: { flexDirection: "row", marginHorizontal: 16, marginVertical: 8, borderWidth: 1, borderRadius: 999, overflow: "hidden" },
-  viewTab: { flex: 1, alignItems: "center", paddingVertical: 8 },
-  viewTabLabel: { fontSize: 15, fontWeight: "600" },
 });

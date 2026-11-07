@@ -18,8 +18,6 @@ function renderChat(chat: Chat | null, props: Partial<ComponentProps<typeof Chat
   render(<ChatView chat={chat} info={{}} hasEarlier={false} onLoadEarlier={jest.fn()} error={null} {...props} />);
 }
 
-const UNAVAILABLE_NOTE = "Chat is not available for this pane. Use Screen.";
-
 describe("ChatView", () => {
   const PROMPT: ChatItem = { kind: "prompt", id: "u1", text: "Fix the build" };
 
@@ -174,23 +172,10 @@ describe("ChatView", () => {
     expect(screen.getByText(expected)).toBeTruthy();
   });
 
-  it("shows one line in place of a chat with no items", () => {
-    renderChat(makeChat());
-
-    expect(screen.getByText(UNAVAILABLE_NOTE)).toBeTruthy();
-  });
-
-  it("shows a poll error above the note when the chat is empty", () => {
-    renderChat(makeChat(), { error: "The request timed out" });
+  it("shows a poll error above the chat", () => {
+    renderChat(makeChat({ kind: "prompt", id: "u1", text: "Fix the build" }), { error: "The request timed out" });
 
     const rendered = JSON.stringify(screen.toJSON());
-    expect(rendered).toContain("The request timed out");
-    expect(rendered.indexOf("The request timed out")).toBeLessThan(rendered.indexOf(UNAVAILABLE_NOTE));
-  });
-
-  it("shows no note while the chat loads", () => {
-    renderChat(null);
-
-    expect(screen.queryByText(UNAVAILABLE_NOTE)).toBeNull();
+    expect(rendered.indexOf("The request timed out")).toBeLessThan(rendered.indexOf("Fix the build"));
   });
 });
