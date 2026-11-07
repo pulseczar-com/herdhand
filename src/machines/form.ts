@@ -30,6 +30,6 @@ export function parseMachineForm(values: MachineFormValues): ParsedMachineForm {
   return { machine: { name, host, port, user }, password: values.password };
 }
 
-function isPort(value: number): boolean {
+export function isPort(value: number): boolean {
   return Number.isInteger(value) && value >= MIN_PORT && value <= MAX_PORT;
 }

@@ -7,7 +7,7 @@ import { ConnectError } from "@/ssh/errors";
 import { pairMachine } from "@/ssh/pairing";
 
 import { MachineConnectionContext } from "./MachineConnection";
-import { addMachine, addPairedMachine, getMachine, getPassword, type Machine, updateMachine } from "./store";
+import { addMachine, addPairedMachine, getMachine, getSignInPassword, type Machine, updateMachine } from "./store";
 
 jest.mock("expo-router", () => ({
   router: { back: jest.fn() },
@@ -20,7 +20,7 @@ jest.mock("./store", () => ({
   addMachine: jest.fn(),
   addPairedMachine: jest.fn(),
   getMachine: jest.fn(),
-  getPassword: jest.fn(),
+  getSignInPassword: jest.fn(),
   updateMachine: jest.fn(),
 }));
 jest.mock("@/ssh/pairing", () => ({ pairMachine: jest.fn() }));
@@ -165,7 +165,7 @@ describe("the Add a machine screen", () => {
     function renderEdit(openId: string | null, machine: Machine = saved, password: string | null = "old-secret") {
       jest.mocked(useLocalSearchParams).mockReturnValue({ id: "m3" });
       jest.mocked(getMachine).mockResolvedValue(machine);
-      jest.mocked(getPassword).mockResolvedValue(password);
+      jest.mocked(getSignInPassword).mockResolvedValue(password);
       jest.mocked(updateMachine).mockResolvedValue();
       const connection = openId ? ({ id: openId, reconnect } as never) : null;
       render(

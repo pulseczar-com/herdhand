@@ -78,7 +78,7 @@ export function describeConnectError(error: ConnectError, machine: DescribedMach
     case "unreachable":
       return `Cannot reach ${machine.host}.`;
     case "pairingRefused":
-      return `${machine.host} refused the pairing code. A code works once, for 5 minutes. Run the command again.`;
+      return describeRefusedCode(machine);
     case "pairingNotFinished":
       return "Pairing did not finish. Run the command again.";
     case "herdrNotFound":
@@ -105,10 +105,14 @@ export function describePairingError(error: ConnectError, machine: DescribedMach
     case "hostKeyChanged":
       return `The host key of ${machine.host} does not match the pairing code. Herdhand will not connect.`;
     case "loginFailed":
-      return describeConnectError(new ConnectError("pairingRefused", error.message), machine);
+      return describeRefusedCode(machine);
     case "unreachable":
       return `Cannot reach ${machine.host}. Check the address, then try again.`;
     default:
       return describeConnectError(error, machine);
   }
+}
+
+function describeRefusedCode(machine: DescribedMachine): string {
+  return `${machine.host} refused the pairing code. A code works once, for 5 minutes. Run the command again.`;
 }

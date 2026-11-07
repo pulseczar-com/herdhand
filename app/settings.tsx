@@ -6,7 +6,7 @@ import { Image, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View }
 import { getErrorMessage } from "@/errorMessage";
 import { RELOCK_AFTER_MS } from "@/lock/appLock";
 import { getAppLockEnabled, saveAppLockEnabled } from "@/settings/store";
-import { getPhoneKey, type PhoneKey } from "@/ssh/pairing";
+import { getPhoneKey, type PhoneKeyInfo } from "@/ssh/pairing";
 
 const REPOSITORY_URL = "https://github.com/pulseczar-com/herdhand";
 const MS_PER_MINUTE = 60_000;
@@ -62,7 +62,7 @@ function AppLockSection() {
 /** The phone key's name and fingerprint, so the person can find it in a machine's authorized_keys. */
 function PhoneKeySection() {
   const { colors } = useTheme();
-  const [phoneKey, setPhoneKey] = useState<PhoneKey | null>(null);
+  const [phoneKey, setPhoneKey] = useState<PhoneKeyInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {

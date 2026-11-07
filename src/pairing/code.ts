@@ -1,3 +1,5 @@
+import { isPort } from "@/machines/form";
+
 /**
  * What a pairing code from `scripts/pair.sh` holds: where the machine is, its host keys, and a
  * one-time key that the machine accepts once, until the code expires.
@@ -19,7 +21,6 @@ const PREFIX = "herdhand://pair?";
 const VERSION = "1";
 // 32 bytes in base64 without padding: a SHA-256 fingerprint, or an Ed25519 seed.
 const BASE64_32_BYTES = /^[A-Za-z0-9+/]{43}$/;
-const MAX_PORT = 65535;
 const MS_PER_SECOND = 1000;
 
 const NOT_A_CODE = { error: "This is not a Herdhand pairing code." };
@@ -45,9 +46,7 @@ export function parsePairingCode(text: string): PairingCode | { error: string } 
   const isValid =
     !!user &&
     !!host &&
-    Number.isInteger(port) &&
-    port >= 1 &&
-    port <= MAX_PORT &&
+    isPort(port) &&
     fingerprints.every((fingerprint) => BASE64_32_BYTES.test(fingerprint)) &&
     BASE64_32_BYTES.test(seed) &&
     Number.isInteger(expiresAt) &&

@@ -6,6 +6,7 @@ import {
   addPairedMachine,
   getMachine,
   getPassword,
+  getSignInPassword,
   getTrustedFingerprint,
   listMachines,
   moveMachine,
@@ -62,6 +63,16 @@ describe("machines store", () => {
     expect(await getMachine(machine.id)).toEqual({ id: machine.id, ...newMachine, signIn: "phoneKey" });
     expect(await getTrustedFingerprint(machine.id)).toBe("SHA256:paired");
     expect(await getPassword(machine.id)).toBeNull();
+  });
+
+  it.each([
+    { signIn: undefined, expected: "secret" },
+    { signIn: "password", expected: "secret" },
+    { signIn: "phoneKey", expected: null },
+  ] as const)("logs a machine with sign-in $signIn in with password $expected", async ({ signIn, expected }) => {
+    const machine = await addMachine(newMachine, "secret");
+
+    expect(await getSignInPassword({ ...machine, signIn })).toBe(expected);
   });
 
   it("starts with an empty list", async () => {

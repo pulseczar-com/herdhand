@@ -5,11 +5,11 @@ import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, TextInpu
 import { getErrorMessage } from "@/errorMessage";
 import { type MachineFormValues, type ParsedMachine, parseMachineForm } from "@/machines/form";
 import { MachineConnectionContext, useMachines } from "@/machines/MachineConnection";
-import { addMachine, addPairedMachine, getMachine, getPassword, type NewMachine, updateMachine } from "@/machines/store";
+import { addMachine, addPairedMachine, getMachine, getSignInPassword, type NewMachine, updateMachine } from "@/machines/store";
 import { getAccentInk } from "@/navigationTheme";
 import { isExpired, type PairingCode } from "@/pairing/code";
 import { PairingScanner } from "@/pairing/PairingScanner";
-import { describePairingError, toConnectError } from "@/ssh/errors";
+import { ConnectError, describePairingError } from "@/ssh/errors";
 import { pairMachine } from "@/ssh/pairing";
 
 const DEFAULT_SSH_PORT = "22";
@@ -50,7 +50,7 @@ export default function NewMachineScreen() {
     setValues({ name: scanned.name, host: scanned.host, port: String(scanned.port), user: scanned.user, password: null });
   }
 
-  const actionLabel = isEditing ? "Save" : !code ? "Connect" : isPairing ? "Pairing…" : "Pair and connect";
+  const actionLabel = getActionLabel(isEditing, code !== null, isPairing);
 
   return (
     <KeyboardAvoidingView style={styles.screen} behavior="height">
@@ -89,16 +89,23 @@ export default function NewMachineScreen() {
   );
 }
 
+function getActionLabel(isEditing: boolean, hasCode: boolean, isPairing: boolean): string {
+  if (isEditing) return "Save";
+  if (!hasCode) return "Connect";
+  if (isPairing) return "Pairing…";
+  return "Pair and connect";
+}
+
 /** The form's values: empty for a new machine, or the edited machine's details once they load. */
 function useFormValues(editId: string | undefined) {
   const [values, setValues] = useState<MachineFormValues>(EMPTY_FORM);
 
   useEffect(() => {
     if (editId === undefined) return;
-    void Promise.all([getMachine(editId), getPassword(editId)]).then(([machine, password]) => {
+    void getMachine(editId).then(async (machine) => {
       if (!machine) return;
-      const formPassword = machine.signIn === "phoneKey" ? null : (password ?? "");
-      setValues({ name: machine.name, host: machine.host, port: String(machine.port), user: machine.user, password: formPassword });
+      const password = await getSignInPassword(machine);
+      setValues({ name: machine.name, host: machine.host, port: String(machine.port), user: machine.user, password });
     });
   }, [editId]);
 
@@ -161,18 +168,18 @@ function useSaveMachine(editId: string | undefined, code: PairingCode | null) {
   async function savePaired(pairingCode: PairingCode, machine: NewMachine): Promise<string | null> {
     if (isExpired(pairingCode, Date.now())) return EXPIRED;
     setIsPairing(true);
-    let fingerprint: string;
     try {
-      fingerprint = await pairMachine(pairingCode, machine);
+      const fingerprint = await pairMachine(pairingCode, machine);
+      const saved = await addPairedMachine(machine, fingerprint);
+      await reload();
+      openMachine(saved.id);
+      return null;
     } catch (failure) {
-      return describePairingError(toConnectError(failure), machine);
+      if (failure instanceof ConnectError) return describePairingError(failure, machine);
+      throw failure;
     } finally {
       setIsPairing(false);
     }
-    const saved = await addPairedMachine(machine, fingerprint);
-    await reload();
-    openMachine(saved.id);
-    return null;
   }
 
   return { save, error, isPairing };

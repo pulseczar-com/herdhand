@@ -75,6 +75,9 @@ class SshModule : Module() {
   // other modules (secure storage, the app lock) and never race each other.
   private val sshThread = Executors.newSingleThreadExecutor()
   private val sshQueue = CoroutineScope(sshThread.asCoroutineDispatcher() + SupervisorJob())
+  // Pairing waits for the machine for several seconds; on its own queue it does not hold up the
+  // open connection's commands.
+  private val pairQueue = CoroutineScope(Executors.newSingleThreadExecutor().asCoroutineDispatcher() + SupervisorJob())
 
   override fun definition() = ModuleDefinition {
     Name("Ssh")
@@ -94,9 +97,9 @@ class SshModule : Module() {
 
     AsyncFunction("close") { close() }.runOnQueue(sshQueue)
 
-    AsyncFunction("getPhoneKey") { PhoneKey.describe() }.runOnQueue(sshQueue)
+    AsyncFunction("getPhoneKey") { PhoneKey.describe() }.runOnQueue(pairQueue)
 
-    AsyncFunction("pair") { options: PairOptions -> pair(options) }.runOnQueue(sshQueue)
+    AsyncFunction("pair") { options: PairOptions -> pair(options) }.runOnQueue(pairQueue)
 
     OnDestroy {
       listeningContext?.unregisterReceiver(disconnectReceiver)

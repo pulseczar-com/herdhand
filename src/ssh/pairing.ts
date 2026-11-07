@@ -8,12 +8,12 @@ import { makePhoneKeyComment } from "@/pairing/phoneKey";
 import { toConnectError } from "./errors";
 
 /** This phone's key: its authorized_keys line, the comment that ends it, and its fingerprint. */
-export type PhoneKey = { line: string; comment: string; fingerprint: string };
+export type PhoneKeyInfo = { line: string; comment: string; fingerprint: string };
 
 type PairTarget = { host: string; port: number; user: string };
 
 /** This phone's key. The native module makes it the first time. */
-export async function getPhoneKey(): Promise<PhoneKey> {
+export async function getPhoneKey(): Promise<PhoneKeyInfo> {
   const key = await Ssh.getPhoneKey();
   const model = (Platform.constants as { Model?: string }).Model;
   const comment = makePhoneKeyComment(model, key.createdAt);

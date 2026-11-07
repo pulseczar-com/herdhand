@@ -102,6 +102,12 @@ export function getPassword(id: string): Promise<string | null> {
   return SecureStore.getItemAsync(getPasswordKey(id));
 }
 
+/** The password the machine logs in with, or null when it logs in with the phone key. */
+export async function getSignInPassword(machine: Machine): Promise<string | null> {
+  if (machine.signIn === "phoneKey") return null;
+  return (await getPassword(machine.id)) ?? "";
+}
+
 export function getTrustedFingerprint(id: string): Promise<string | null> {
   return SecureStore.getItemAsync(getFingerprintKey(id));
 }

@@ -42,9 +42,7 @@ class PairingNotFinishedException : CodedException("PAIRING_NOT_FINISHED", "The 
  */
 fun pair(options: PairOptions): String {
   val verifier = TrustOnFirstUseVerifier(options.hostKeyFingerprints)
-  val ssh = SSHClient(strongConfig())
-  ssh.addHostKeyVerifier(verifier)
-  ssh.connectTimeout = TIMEOUT_MS
+  val ssh = makeClient(verifier)
   try {
     ssh.connect(options.host, options.port)
     ssh.authPublickey(options.user, makeOneTimeKey(options.oneTimeKeySeed))
@@ -76,19 +74,17 @@ private fun makeOneTimeKey(seedBase64: String): KeyProvider {
   return KeyPairWrapper(KeyPair(Ed25519KeyFactory.getPublicKey(publicKey), Ed25519KeyFactory.getPrivateKey(seed)))
 }
 
-/** Signs in with the phone key until it works, while the script appends it. */
+/** Signs in with the phone key until it works. The script appends it a second or two after the send. */
 private fun provePhoneKey(options: PairOptions, fingerprint: String) {
   val deadline = System.currentTimeMillis() + PROOF_TIMEOUT_MS
-  while (!canSignInWithPhoneKey(options, fingerprint)) {
+  do {
     if (System.currentTimeMillis() >= deadline) throw PairingNotFinishedException()
     Thread.sleep(PROOF_RETRY_MS)
-  }
+  } while (!canSignInWithPhoneKey(options, fingerprint))
 }
 
 private fun canSignInWithPhoneKey(options: PairOptions, fingerprint: String): Boolean {
-  val ssh = SSHClient(strongConfig())
-  ssh.addHostKeyVerifier(TrustOnFirstUseVerifier(listOf(fingerprint)))
-  ssh.connectTimeout = TIMEOUT_MS
+  val ssh = makeClient(TrustOnFirstUseVerifier(listOf(fingerprint)))
   return try {
     ssh.connect(options.host, options.port)
     ssh.authPublickey(options.user, PhoneKey.provider())
@@ -100,4 +96,11 @@ private fun canSignInWithPhoneKey(options: PairOptions, fingerprint: String): Bo
   } finally {
     closeQuietly(ssh)
   }
+}
+
+private fun makeClient(verifier: TrustOnFirstUseVerifier): SSHClient {
+  val ssh = SSHClient(strongConfig())
+  ssh.addHostKeyVerifier(verifier)
+  ssh.connectTimeout = TIMEOUT_MS
+  return ssh
 }

@@ -61,8 +61,19 @@ describe("the awk QR encoder", () => {
     ["version 1", "herdhand"],
     ["two blocks", "x".repeat(60)],
     ["version information", "y".repeat(140)],
-    ["a long link", `herdhand://pair?v=1&k=${"a+/b".repeat(150)}`],
+    // Three host keys and long names: about the longest link a machine gives.
+    ["a long link", `herdhand://pair?v=1&k=${"a+/b".repeat(40)}&c=${"s".repeat(43)}`],
   ];
+  let functions: string;
+
+  beforeAll(() => {
+    functions = writeFunctionsOnly();
+  });
+
+  afterAll(() => {
+    const folders = [dirname(functions), ...awks.map(([, bin]) => bin)];
+    folders.forEach((folder) => rmSync(folder, { recursive: true, force: true }));
+  });
 
   it("runs on at least one awk", () => {
     expect(awks.length).toBeGreaterThan(0);
@@ -70,7 +81,6 @@ describe("the awk QR encoder", () => {
 
   describe.each(awks)("with %s", (name, bin) => {
     it.each(payloads)("draws a code that decodes: %s", (_case, payload) => {
-      const functions = writeFunctionsOnly();
       const result = spawnSync("sh", ["-c", '. "$1"; draw_qr_with_awk "$2"', "sh", functions, payload], {
         encoding: "utf8",
         env: { ...process.env, PATH: `${bin}:${process.env.PATH}` },
@@ -116,17 +126,23 @@ describeWithSsh("a pairing run", () => {
     writeFileSync(authorizedKeys, OLD_LINE);
   });
 
-  it("shows a code for this machine whose one-time key matches the line it installs", async () => {
+  it("shows a code whose one-time key matches the line it installs, and removes it when stopped", async () => {
     const run = startScript();
     const output = await run.waitFor("Waiting for the phone.");
     const code = parsePairingCode(decodeQr(output) ?? "");
+    const oneTimeLine = readOneTimeLine();
 
     expect(code).toMatchObject({ host: "192.0.2.10", port: 2222, user: userInfo().username });
     if ("error" in code) return;
     expect(code.hostKeyFingerprints).toHaveLength(countHostKeys());
-    expect(publicKeyFromSeed(code.oneTimeKeySeed)).toEqual(readOneTimeLine().publicKey);
+    expect(publicKeyFromSeed(code.oneTimeKeySeed)).toEqual(oneTimeLine.publicKey);
+
     run.process.kill("SIGTERM");
-    await run.exit;
+    const { code: exitCode } = await run.exit;
+
+    expect(exitCode).toBe(143);
+    expect(readFileSync(authorizedKeys, "utf8")).toBe(`${OLD_LINE}\n`);
+    expect(existsSync(dirname(oneTimeLine.pendingFile))).toBe(false);
   }, SCRIPT_TIMEOUT_MS);
 
   it("adds the phone key once, removes the one-time line and says which phone paired", async () => {
@@ -156,19 +172,6 @@ describeWithSsh("a pairing run", () => {
     expect(readFileSync(authorizedKeys, "utf8")).toBe(`${OLD_LINE}\n`);
   }, SCRIPT_TIMEOUT_MS);
 
-  it("removes the one-time line when stopped", async () => {
-    const run = startScript();
-    await run.waitFor("Waiting for the phone.");
-    const pendingDir = dirname(readOneTimeLine().pendingFile);
-
-    run.process.kill("SIGTERM");
-    const { code } = await run.exit;
-
-    expect(code).toBe(143);
-    expect(readFileSync(authorizedKeys, "utf8")).toBe(`${OLD_LINE}\n`);
-    expect(existsSync(pendingDir)).toBe(false);
-  }, SCRIPT_TIMEOUT_MS);
-
   function startScript() {
     // A new session has no terminal, so the script skips its window size check.
     const child: ChildProcess = spawn("sh", [SCRIPT], {
@@ -179,7 +182,7 @@ describeWithSsh("a pairing run", () => {
     child.stdout?.on("data", (data: Buffer) => (output += data.toString()));
     child.stderr?.on("data", (data: Buffer) => (output += data.toString()));
     const exit = new Promise<{ code: number | null; output: string }>((resolve) =>
-      child.on("exit", (code, signal) => resolve({ code: code ?? (signal === "SIGTERM" ? 143 : null), output })),
+      child.on("exit", (code) => resolve({ code, output })),
     );
     return {
       process: child,
@@ -211,9 +214,10 @@ function runForcedCommand(command: string, phoneLine: string) {
   return spawnSync("sh", ["-c", command], { env: { ...process.env, SSH_ORIGINAL_COMMAND: phoneLine } });
 }
 
+/** The script without its last line, so a shell can load its functions without running it. */
 function writeFunctionsOnly(): string {
   const script = readFileSync(SCRIPT, "utf8");
-  const path = join(workDir, "functions.sh");
+  const path = join(mkdtempSync(join(tmpdir(), "pair-functions-")), "functions.sh");
   writeFileSync(path, script.replace(/\nmain "\$@"\n?$/, "\n"));
   return path;
 }

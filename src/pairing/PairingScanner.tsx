@@ -2,7 +2,7 @@ import * as Application from "expo-application";
 import { type BarcodeScanningResult, CameraView, useCameraPermissions } from "expo-camera";
 import { useTheme } from "expo-router";
 import { useRef, useState } from "react";
-import { Linking, Modal, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import { Linking, Modal, Pressable, ScrollView, Share, StyleSheet, Text } from "react-native";
 
 import { type PairingCode, parsePairingCode } from "./code";
 import { makePairCommand } from "./command";
