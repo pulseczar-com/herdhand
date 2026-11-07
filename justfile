@@ -23,9 +23,10 @@ test *args:
 dev:
     npx expo start --dev-client
 
-# Create the EAS project for your Expo account; put the id it prints in .env.
+# Create a new EAS project for your Expo account; put the id it prints in .env. The empty id
+# skips the Herdhand default, so `eas init` creates a project.
 eas-init:
-    npx eas-cli@latest init
+    HERDHAND_EAS_PROJECT_ID= npx eas-cli@latest init
 
 # Build the development client on EAS. Only needed when native code or native packages change.
 build-dev:

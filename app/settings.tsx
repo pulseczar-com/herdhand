@@ -98,6 +98,6 @@ const styles = StyleSheet.create({
   identity: { flexDirection: "row", alignItems: "center", gap: 12, marginVertical: 4 },
   appIcon: { width: 44, height: 44, borderRadius: 22 },
   byLine: { flexDirection: "row", alignItems: "center", gap: 6 },
-  // PulseCzar's inline lockup is 6.19 times as wide as it is high.
+  // The lockup image is 6.19 times as wide as it is high.
   lockup: { width: 87, height: 14 },
 });

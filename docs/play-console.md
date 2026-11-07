@@ -4,7 +4,7 @@ Answers for the Play Console and the steps to make a release build. The facts co
 
 ## Build
 
-1. In the EAS `production` environment, set `HERDHAND_EAS_PROJECT_ID` (and `HERDHAND_EAS_OWNER`, if you use it). Use the same commands as for the `development` environment in the README.
+1. In the EAS `production` environment, set `HERDHAND_EAS_PROJECT_ID` and `HERDHAND_EAS_OWNER` only if you build under your own Expo account. Use the same commands as for the `development` environment in the README.
 2. Run `just build-release`. EAS makes a signed app bundle (`.aab`) with EAS-managed credentials and raises the version code by one.
 3. Download the `.aab` from the build page.
 4. In the Play Console, create a release in a testing track and upload the `.aab`. The first upload needs the Play Console store listing, the declarations below and the privacy policy link.
