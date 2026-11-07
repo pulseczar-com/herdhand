@@ -1,6 +1,13 @@
+<p align="center">
+  <img src="assets/brand/icon.svg" alt="Herdhand logo" width="112">
+</p>
+
 # Herdhand
 
-A mobile client for [Herdr](https://github.com/herdrdev/herdr), built by PulseCzar.
+A mobile client for [Herdr](https://github.com/herdrdev/herdr), built by [PulseCzar](https://pulseczar.com/?utm_source=github&utm_medium=readme&utm_campaign=herdhand).
+
+> [!WARNING]
+> **Experimental.** Herdhand is an early build that we use internally. You are welcome to try it, but expect bugs and changes. A Google Play test release is coming soon.
 
 Herdr is a terminal multiplexer: it keeps spaces, tabs and panes running on a machine, much like tmux. A pane can hold a shell, an SSH session or a coding agent. Herdhand is an Android app that connects to that machine over SSH, so you can check on your panes and answer your agents from your phone.
 
@@ -13,8 +20,6 @@ Herdr is a terminal multiplexer: it keeps spaces, tabs and panes running on a ma
 - A pane's text, reformatted for the phone, with a composer for a line of input and a key row (Esc, ^C, Up, Down, Enter, 1 to 3).
 - A Claude Code pane on Herdr App opens as a chat: your prompts, the replies in Markdown, and each tool call as a row.
 - An app lock with fingerprint, face or the screen lock. It is on by default.
-
-Herdhand is early. Expect rough edges.
 
 ## How it connects
 
@@ -100,4 +105,19 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 Apache License 2.0. See [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE). The Herdhand name and icon are not covered by the license; see [`TRADEMARKS.md`](TRADEMARKS.md).
 
-Herdhand is not made by the Herdr project.
+---
+
+### Built by PulseCzar
+
+We manage our AI coding agents with Herdr, so we built Herdhand to make it easy to check on sessions from a phone. Herdhand is free and open source. Herdr is the work of its own maintainers. If you like Herdhand, give [Herdr](https://github.com/herdrdev/herdr) a star.
+
+PulseCzar provides uptime monitoring for websites, APIs and cron jobs. Check it out at [pulseczar.com](https://pulseczar.com/?utm_source=github&utm_medium=readme&utm_campaign=herdhand).
+
+<p align="center">
+  <a href="https://pulseczar.com/?utm_source=github&utm_medium=readme&utm_campaign=herdhand">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="assets/pulseczar-lockup-dark.png">
+      <img src="assets/pulseczar-lockup-light.png" alt="PulseCzar uptime monitoring" width="130">
+    </picture>
+  </a>
+</p>
