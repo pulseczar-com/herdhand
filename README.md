@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/brand/icon.svg" alt="Herdhand logo" width="112">
+</p>
+
 # Herdhand
 
 A mobile client for [Herdr](https://github.com/herdrdev/herdr), built by PulseCzar.
