@@ -14,18 +14,20 @@ Herdhand is an Android app published by PulseCzar. It is open source, so you can
 Herdhand saves these items on your phone, in Android's storage for the app:
 
 - In secure storage (`expo-secure-store`): the password and the trusted host key fingerprint of each machine.
+- In the Android Keystore: the phone key, the private key the phone logs in with on machines paired with a code. It never leaves the phone.
 - In app storage (`AsyncStorage`): each machine's name, address, port and user name, your folders and their order, which spaces are collapsed, and your settings.
 
-Herdhand does not back this data up (`allowBackup` is off). Removing a machine deletes its password and fingerprint. Uninstalling the app deletes all of it.
+Herdhand does not back this data up (`allowBackup` is off). Removing a machine deletes its password and fingerprint. Uninstalling the app deletes all of it, the phone key too.
 
 ## What passes over the connection
 
-Herdhand sends your user name, your password and your input to the machine you chose. It reads the text of your Herdr spaces, tabs and panes from that machine and shows it on the screen. This data goes only between your phone and your machine. Herdhand does not copy it anywhere else.
+Herdhand sends your user name, your password or a signature made with the phone key, and your input to the machine you chose. When you pair with a code, it sends the phone's public key to that machine. It reads the text of your Herdr spaces, tabs and panes from that machine and shows it on the screen. This data goes only between your phone and your machine. Herdhand does not copy it anywhere else.
 
 ## Permissions
 
 - Notifications: Herdhand shows one notification while a connection is open. It is a local notification.
 - Biometrics or screen lock: the app lock uses Android's own prompt. Herdhand never receives your fingerprint, face or PIN.
+- Camera: only to scan a pairing code, while the scanner is open. Herdhand saves no images and sends none anywhere.
 
 ## Dependencies
 
