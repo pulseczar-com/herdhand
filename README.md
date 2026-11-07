@@ -4,7 +4,7 @@
 
 # Herdhand
 
-A mobile client for [Herdr](https://github.com/herdrdev/herdr), built by PulseCzar.
+A mobile client for [Herdr](https://github.com/herdrdev/herdr), built by [PulseCzar](https://pulseczar.com/?utm_source=github&utm_medium=readme&utm_campaign=herdhand), makers of uptime monitoring for sites, APIs and cron jobs.
 
 Herdr is a terminal multiplexer: it keeps spaces, tabs and panes running on a machine, much like tmux. A pane can hold a shell, an SSH session or a coding agent. Herdhand is an Android app that connects to that machine over SSH, so you can check on your panes and answer your agents from your phone.
 
@@ -104,10 +104,16 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 Apache License 2.0. See [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE). The Herdhand name and icon are not covered by the license; see [`TRADEMARKS.md`](TRADEMARKS.md).
 
-Herdhand is not made by the Herdr project.
+---
+
+### Built by PulseCzar
+
+We run our coding agents in Herdr every day, and we wanted to check on them from a phone. So we built Herdhand and made it free and open source. Herdr is the work of its own maintainers. If you like Herdhand, give [Herdr](https://github.com/herdrdev/herdr) a star.
+
+PulseCzar is uptime monitoring for websites, APIs and cron jobs. It checks from several locations and alerts you by email and push when something goes down. See [pulseczar.com](https://pulseczar.com/?utm_source=github&utm_medium=readme&utm_campaign=herdhand).
 
 <p align="center">
-  <a href="https://pulseczar.com">
+  <a href="https://pulseczar.com/?utm_source=github&utm_medium=readme&utm_campaign=herdhand">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="assets/pulseczar-lockup-dark.png">
       <img src="assets/pulseczar-lockup-light.png" alt="PulseCzar uptime monitoring" width="130">
