@@ -1,7 +1,7 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "expo-router";
-import { type ReactElement, useCallback, useState } from "react";
-import { ActivityIndicator, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { type ReactElement, useCallback, useRef, useState } from "react";
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
 import ReorderableList from "react-native-reorderable-list";
 import { scheduleOnRN } from "react-native-worklets";
 
@@ -44,9 +44,13 @@ export function SpaceList({ machineId, list, spaceOrder, header, footer, onOpenP
   const { spaces, error, refreshing, refresh } = list;
   const { collapsedIds, toggle } = useCollapsedSpaces(machineId, spaces);
   const pullToRefresh = useRefreshOffDuringDrag();
+  const [listRef, onTouchEnd] = useScrollOnAfterTouch();
 
   return (
     <ReorderableList
+      ref={listRef}
+      onTouchEnd={onTouchEnd}
+      onTouchCancel={onTouchEnd}
       style={styles.list}
       data={spaceOrder.spaces}
       keyExtractor={(space) => space.id}
@@ -68,6 +72,17 @@ export function SpaceList({ machineId, list, spaceOrder, header, footer, onOpenP
       )}
     />
   );
+}
+
+/**
+ * The list turns scrolling off when a drag starts and on again when the drag's gesture ends. A touch
+ * on a handle that starts a drag but never moves can miss that end and leave the list stuck, so a
+ * finger lifted anywhere on the list turns scrolling on again. A drag is over once the finger is up.
+ */
+export function useScrollOnAfterTouch() {
+  const ref = useRef<FlatList<Space>>(null);
+  const onTouchEnd = useCallback(() => ref.current?.setNativeProps({ scrollEnabled: true }), []);
+  return [ref, onTouchEnd] as const;
 }
 
 /**
