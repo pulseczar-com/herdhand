@@ -105,3 +105,12 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md).
 Apache License 2.0. See [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE). The Herdhand name and icon are not covered by the license; see [`TRADEMARKS.md`](TRADEMARKS.md).
 
 Herdhand is not made by the Herdr project.
+
+<p align="center">
+  <a href="https://pulseczar.com">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="assets/pulseczar-lockup-dark.png">
+      <img src="assets/pulseczar-lockup-light.png" alt="PulseCzar uptime monitoring" width="130">
+    </picture>
+  </a>
+</p>
