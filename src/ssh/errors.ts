@@ -1,5 +1,6 @@
 import { getErrorMessage } from "@/errorMessage";
 import type { HerdrKind } from "@/herdr/kinds";
+import type { Machine } from "@/machines/store";
 import type { SshErrorCode } from "../../modules/ssh";
 import { RequestTimeoutError } from "@/rpc/client";
 
@@ -8,6 +9,8 @@ type ConnectFailure =
   | "hostKeyChanged"
   | "loginFailed"
   | "unreachable"
+  | "pairingRefused"
+  | "pairingNotFinished"
   | "herdrNotFound"
   | "noReply"
   | "closed"
@@ -37,6 +40,8 @@ const FAILURES_BY_CODE: Partial<Record<SshErrorCode, ConnectFailure>> = {
   HOST_KEY_CHANGED: "hostKeyChanged",
   AUTH_FAILED: "loginFailed",
   UNREACHABLE: "unreachable",
+  PAIRING_REFUSED: "pairingRefused",
+  PAIRING_NOT_FINISHED: "pairingNotFinished",
 };
 
 const FINGERPRINT_PATTERN = /SHA256:[A-Za-z0-9+/]+/;
@@ -61,16 +66,21 @@ function removeExpoPrefix(message: string): string {
   return at === -1 ? message : message.slice(at + EXPO_CAUSE_MARKER.length);
 }
 
+type DescribedMachine = Pick<Machine, "name" | "host" | "signIn">;
+
 /** A one-line message for the person, naming the machine. */
-export function describeConnectError(
-  error: ConnectError,
-  machine: { name: string; host: string },
-): string {
+export function describeConnectError(error: ConnectError, machine: DescribedMachine): string {
   switch (error.reason) {
     case "loginFailed":
-      return "Login failed. Check the user name and password.";
+      return machine.signIn === "phoneKey"
+        ? "The machine no longer accepts this phone's key. Remove the machine and pair it again."
+        : "Login failed. Check the user name and password.";
     case "unreachable":
       return `Cannot reach ${machine.host}.`;
+    case "pairingRefused":
+      return `${machine.host} refused the pairing code. A code works once, for 5 minutes. Run the command again.`;
+    case "pairingNotFinished":
+      return "Pairing did not finish. Run the command again.";
     case "herdrNotFound":
       return `No Herdr found on ${machine.name}.`;
     case "noReply":
@@ -83,5 +93,22 @@ export function describeConnectError(
       return `The connection to ${machine.name} closed: ${error.message}`;
     case "other":
       return error.message;
+  }
+}
+
+/**
+ * A one-line message for a failed pairing. The one-time key fails to log in once the code is
+ * used or expired, and the address in a code is the machine's best guess, so it may not reach.
+ */
+export function describePairingError(error: ConnectError, machine: DescribedMachine): string {
+  switch (error.reason) {
+    case "hostKeyChanged":
+      return `The host key of ${machine.host} does not match the pairing code. Herdhand will not connect.`;
+    case "loginFailed":
+      return describeConnectError(new ConnectError("pairingRefused", error.message), machine);
+    case "unreachable":
+      return `Cannot reach ${machine.host}. Check the address, then try again.`;
+    default:
+      return describeConnectError(error, machine);
   }
 }

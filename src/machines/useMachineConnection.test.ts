@@ -91,6 +91,19 @@ describe("useMachineConnection", () => {
     jest.spyOn(PermissionsAndroid, "request").mockResolvedValue("granted");
   });
 
+  it.each([
+    { signIn: undefined, password: "secret" },
+    { signIn: "password", password: "secret" },
+    { signIn: "phoneKey", password: null },
+  ] as const)("logs in to a machine with sign-in $signIn using password $password", async ({ signIn, password }) => {
+    jest.mocked(getMachine).mockResolvedValue({ ...machine, signIn });
+    mockBridges(makeBridge(makeBackend()));
+
+    renderConnection();
+
+    await waitFor(() => expect(openBridge).toHaveBeenCalledWith(expect.objectContaining({ password })));
+  });
+
   it("lets the person switch kind after the first kind failed, and connects with the other", async () => {
     const attempt: ConnectAttempt = { kind: "desktop", availableKinds: ["desktop", "tui"] };
     jest.mocked(openBridge).mockRejectedValueOnce(new ConnectError("noReply", "none", undefined, attempt));

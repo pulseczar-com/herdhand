@@ -16,6 +16,10 @@ describe("parseMachineForm", () => {
     expect(parsed).toMatchObject({ machine: { name: "test-box", host: "test-box.example.com" }, password: " pw " });
   });
 
+  it("needs no password for a machine paired by code", () => {
+    expect(parseMachineForm({ ...filled, password: null })).toMatchObject({ password: null });
+  });
+
   it("uses the address as the name when the name is empty", () => {
     expect(parseMachineForm({ ...filled, name: "" })).toMatchObject({ machine: { name: "test-box.example.com" } });
   });

@@ -88,7 +88,8 @@ export function useMachineConnection(id: string, isForeground: boolean) {
     const [password, trustedFingerprint] = await Promise.all([getPassword(saved.id), getTrustedFingerprint(saved.id)]);
     if (servedId.current !== saved.id) return;
     try {
-      const opened = await openBridge({ machine: saved, password: password ?? "", trustedFingerprint });
+      const signInPassword = saved.signIn === "phoneKey" ? null : (password ?? "");
+      const opened = await openBridge({ machine: saved, password: signInPassword, trustedFingerprint });
       // The hook moved on meanwhile. A screen that left keeps the bridge for its machine's next
       // screen. The next `openBridge` call, for another machine, closes it.
       if (servedId.current !== saved.id) return;

@@ -3,8 +3,10 @@ import { useTheme } from "expo-router";
 import { useEffect, useState } from "react";
 import { Image, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 
+import { getErrorMessage } from "@/errorMessage";
 import { RELOCK_AFTER_MS } from "@/lock/appLock";
 import { getAppLockEnabled, saveAppLockEnabled } from "@/settings/store";
+import { getPhoneKey, type PhoneKey } from "@/ssh/pairing";
 
 const REPOSITORY_URL = "https://github.com/pulseczar-com/herdhand";
 const MS_PER_MINUTE = 60_000;
@@ -14,11 +16,12 @@ const APP_ICON = require("../assets/icon.png");
 const DARK_LOCKUP = require("../assets/pulseczar-lockup-dark.png");
 const LIGHT_LOCKUP = require("../assets/pulseczar-lockup-light.png");
 
-/** Settings: the app lock, and About. */
+/** Settings: the app lock, the phone key, and About. */
 export default function SettingsScreen() {
   return (
     <ScrollView contentContainerStyle={styles.content}>
       <AppLockSection />
+      <PhoneKeySection />
       <AboutSection />
     </ScrollView>
   );
@@ -52,6 +55,37 @@ function AppLockSection() {
         </View>
         <Switch accessibilityLabel="App lock" value={isEnabled ?? false} disabled={isEnabled === null} onValueChange={saveIsEnabled} />
       </View>
+    </View>
+  );
+}
+
+/** The phone key's name and fingerprint, so the person can find it in a machine's authorized_keys. */
+function PhoneKeySection() {
+  const { colors } = useTheme();
+  const [phoneKey, setPhoneKey] = useState<PhoneKey | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    getPhoneKey().then(setPhoneKey, (failure: unknown) => setError(`The phone key is not available: ${getErrorMessage(failure)}`));
+  }, []);
+
+  return (
+    <View style={styles.section}>
+      <Text style={[styles.sectionTitle, { color: colors.primary }]}>Phone key</Text>
+      <Text style={[styles.rowDetail, { color: colors.text }]}>
+        Machines paired by code log in with this key. It never leaves this phone.
+      </Text>
+      {phoneKey ? (
+        <>
+          <Text selectable style={[styles.rowLabel, { color: colors.text }]}>
+            {phoneKey.comment}
+          </Text>
+          <Text selectable style={[styles.fingerprint, { color: colors.text }]}>
+            {phoneKey.fingerprint}
+          </Text>
+        </>
+      ) : null}
+      {error ? <Text style={[styles.rowDetail, { color: colors.notification }]}>{error}</Text> : null}
     </View>
   );
 }
@@ -95,6 +129,7 @@ const styles = StyleSheet.create({
   rowLabel: { fontSize: 16 },
   rowDetail: { fontSize: 14, opacity: 0.7 },
   link: { fontSize: 16, paddingVertical: 4 },
+  fingerprint: { fontFamily: "monospace", fontSize: 13 },
   identity: { flexDirection: "row", alignItems: "center", gap: 12, marginVertical: 4 },
   appIcon: { width: 44, height: 44, borderRadius: 22 },
   byLine: { flexDirection: "row", alignItems: "center", gap: 6 },

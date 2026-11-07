@@ -3,6 +3,7 @@ import * as SecureStore from "expo-secure-store";
 
 import {
   addMachine,
+  addPairedMachine,
   getMachine,
   getPassword,
   getTrustedFingerprint,
@@ -52,6 +53,14 @@ describe("machines store", () => {
     await removeMachine(machine.id);
 
     expect(await listMachines()).toEqual([]);
+    expect(await getPassword(machine.id)).toBeNull();
+  });
+
+  it("adds a machine paired by code with its host key and no password", async () => {
+    const machine = await addPairedMachine(newMachine, "SHA256:paired");
+
+    expect(await getMachine(machine.id)).toEqual({ id: machine.id, ...newMachine, signIn: "phoneKey" });
+    expect(await getTrustedFingerprint(machine.id)).toBe("SHA256:paired");
     expect(await getPassword(machine.id)).toBeNull();
   });
 
@@ -132,6 +141,15 @@ describe("machines store", () => {
       expect(names).toEqual(["first", "renamed", "last"]);
       expect(await getMachine(machine.id)).toEqual({ id: machine.id, ...newMachine, name: "renamed", user: "other-user", kind: "tui" });
       expect(await getPassword(machine.id)).toBe("new-secret");
+    });
+
+    it("leaves a machine paired by code without a password", async () => {
+      const machine = await addPairedMachine(newMachine, "SHA256:paired");
+
+      await updateMachine(machine.id, { ...newMachine, name: "renamed" }, null);
+
+      expect(await getMachine(machine.id)).toEqual({ id: machine.id, ...newMachine, name: "renamed", signIn: "phoneKey" });
+      expect(await getPassword(machine.id)).toBeNull();
     });
 
     it.each([

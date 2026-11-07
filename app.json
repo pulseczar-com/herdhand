@@ -29,6 +29,12 @@
       "expo-secure-store",
       "expo-local-authentication",
       [
+        "expo-camera",
+        {
+          "recordAudioAndroid": false
+        }
+      ],
+      [
         "expo-build-properties",
         {
           "android": {
