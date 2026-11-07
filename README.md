@@ -47,7 +47,7 @@ To build the app:
    just install
    ```
 
-2. Link your own EAS project. `eas init` prints a project id: put it in `.env` as `HERDHAND_EAS_PROJECT_ID`. Set `HERDHAND_EAS_OWNER` only when an Expo organization owns the project.
+2. Optional: link your own EAS project. The project id defaults to the Herdhand project. To build under your own Expo account, put the id that `eas init` prints in `.env` as `HERDHAND_EAS_PROJECT_ID`. Set `HERDHAND_EAS_OWNER` only when an Expo organization owns the project.
 
    ```sh
    cp .env.example .env
