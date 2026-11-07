@@ -31,7 +31,6 @@ const mockCode = {
   port: 2222,
   hostKeyFingerprints: ["SHA256:a"],
   oneTimeKeySeed: "seed",
-  expiresAt: Number.MAX_SAFE_INTEGER,
 };
 // The camera cannot run in a test, so a button stands in for a scan.
 jest.mock("@/pairing/PairingScanner", () => {
@@ -146,15 +145,20 @@ describe("the Add a machine screen", () => {
       expect(router.back).not.toHaveBeenCalled();
     });
 
-    it("refuses an expired code without trying it", async () => {
-      mockScannedCode = () => ({ ...mockCode, expiresAt: 0 });
+    it("replaces the loaded code with a new scan after pairing failed", async () => {
+      jest.mocked(pairMachine).mockRejectedValue(new ConnectError("pairingNotFinished", "late"));
       render(<NewMachineScreen />);
       scan();
-
       fireEvent.press(screen.getByText("Pair and connect"));
+      expect(await screen.findByText("Pairing did not finish. Run the command again.")).toBeTruthy();
+      mockScannedCode = () => ({ ...mockCode, host: "other-box.example.com", port: 22 });
 
-      expect(await screen.findByText("This pairing code has expired. Run the command again.")).toBeTruthy();
-      expect(pairMachine).not.toHaveBeenCalled();
+      fireEvent.press(screen.getByText("Scan another code"));
+      fireEvent.press(screen.getByText("Simulate scan"));
+
+      expect(screen.getByLabelText("Address").props.value).toBe("other-box.example.com");
+      expect(screen.getByLabelText("Port").props.value).toBe("22");
+      expect(screen.queryByText("Pairing did not finish. Run the command again.")).toBeNull();
     });
   });
 

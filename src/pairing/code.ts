@@ -2,7 +2,8 @@ import { isPort } from "@/machines/form";
 
 /**
  * What a pairing code from `scripts/pair.sh` holds: where the machine is, its host keys, and a
- * one-time key that the machine accepts once, until the code expires.
+ * one-time key that the machine accepts once, until the code expires. The machine enforces the
+ * expiry on its own clock, so the code's `x` field is not read here.
  */
 export type PairingCode = {
   name: string;
@@ -13,22 +14,19 @@ export type PairingCode = {
   hostKeyFingerprints: string[];
   /** The one-time key's 32-byte Ed25519 seed, in base64. */
   oneTimeKeySeed: string;
-  /** In milliseconds since 1970. */
-  expiresAt: number;
 };
 
 const PREFIX = "herdhand://pair?";
 const VERSION = "1";
 // 32 bytes in base64 without padding: a SHA-256 fingerprint, or an Ed25519 seed.
 const BASE64_32_BYTES = /^[A-Za-z0-9+/]{43}$/;
-const MS_PER_SECOND = 1000;
 
 const NOT_A_CODE = { error: "This is not a Herdhand pairing code." };
 const NEWER_VERSION = { error: "This pairing code needs a newer version of Herdhand." };
 const DAMAGED = { error: "This pairing code is damaged. Run the command again." };
 
 /**
- * Reads a scanned pairing code: `herdhand://pair?v=1&n=&u=&a=&p=&k=&c=&x=`. The name, user and
+ * Reads a scanned pairing code: `herdhand://pair?v=1&n=&u=&a=&p=&k=&c=`. The name, user and
  * address are percent-encoded. Base64 values keep their "+", so a "+" never means a space here.
  */
 export function parsePairingCode(text: string): PairingCode | { error: string } {
@@ -42,15 +40,12 @@ export function parsePairingCode(text: string): PairingCode | { error: string } 
   const port = Number(fields.get("p"));
   const fingerprints = (fields.get("k") ?? "").split(",");
   const seed = fields.get("c") ?? "";
-  const expiresAt = Number(fields.get("x"));
   const isValid =
     !!user &&
     !!host &&
     isPort(port) &&
     fingerprints.every((fingerprint) => BASE64_32_BYTES.test(fingerprint)) &&
-    BASE64_32_BYTES.test(seed) &&
-    Number.isInteger(expiresAt) &&
-    expiresAt > 0;
+    BASE64_32_BYTES.test(seed);
   if (!isValid) return DAMAGED;
 
   return {
@@ -60,12 +55,7 @@ export function parsePairingCode(text: string): PairingCode | { error: string } 
     port,
     hostKeyFingerprints: fingerprints.map((fingerprint) => `SHA256:${fingerprint}`),
     oneTimeKeySeed: seed,
-    expiresAt: expiresAt * MS_PER_SECOND,
   };
-}
-
-export function isExpired(code: Pick<PairingCode, "expiresAt">, now: number): boolean {
-  return now >= code.expiresAt;
 }
 
 // React Native's URLSearchParams lacks `get`, and it would turn "+" into a space.

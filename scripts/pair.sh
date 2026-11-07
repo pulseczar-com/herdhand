@@ -101,7 +101,7 @@ read_ed25519_seed() {
 # A forced command: whatever the client asks to run, sshd runs this instead. It writes the text
 # the client sent (the phone's key line) to the pending file, once (set -C refuses to overwrite)
 # and only before the deadline. The text stays in double quotes, so the shell never runs it.
-# The four no-* options, not "restrict", so OpenSSH before 7.2 and Dropbear accept the line.
+# The four no-* options, not "restrict", so OpenSSH before 7.2 accepts the line.
 install_one_time_key() {
   q="'"
   command="sh -c ${q}test \$(date +%s) -lt $deadline && set -C && printf \\\"%s\\n\\\" \\\"\$SSH_ORIGINAL_COMMAND\\\" > $pending_file${q}"

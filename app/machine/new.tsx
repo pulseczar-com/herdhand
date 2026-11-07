@@ -7,7 +7,7 @@ import { type MachineFormValues, type ParsedMachine, parseMachineForm } from "@/
 import { MachineConnectionContext, useMachines } from "@/machines/MachineConnection";
 import { addMachine, addPairedMachine, getMachine, getSignInPassword, type NewMachine, updateMachine } from "@/machines/store";
 import { getAccentInk } from "@/navigationTheme";
-import { isExpired, type PairingCode } from "@/pairing/code";
+import { type PairingCode } from "@/pairing/code";
 import { PairingScanner } from "@/pairing/PairingScanner";
 import { ConnectError, describePairingError } from "@/ssh/errors";
 import { pairMachine } from "@/ssh/pairing";
@@ -16,8 +16,6 @@ const DEFAULT_SSH_PORT = "22";
 const EMPTY_FORM: MachineFormValues = { name: "", host: "", port: DEFAULT_SSH_PORT, user: "", password: "" };
 
 type SetField = (field: keyof MachineFormValues) => (text: string) => void;
-
-const EXPIRED = "This pairing code has expired. Run the command again.";
 
 type FieldProps = {
   label: string;
@@ -43,10 +41,11 @@ export default function NewMachineScreen() {
   const { values, setValues, setField } = useFormValues(editId);
   const [code, setCode] = useState<PairingCode | null>(null);
   const [isScanning, setIsScanning] = useState(false);
-  const { save, error, isPairing } = useSaveMachine(editId, code);
+  const { save, error, clearError, isPairing } = useSaveMachine(editId, code);
 
   function fillFromCode(scanned: PairingCode) {
     setCode(scanned);
+    clearError();
     setValues({ name: scanned.name, host: scanned.host, port: String(scanned.port), user: scanned.user, password: null });
   }
 
@@ -59,21 +58,18 @@ export default function NewMachineScreen() {
         <Text style={[styles.intro, { color: colors.text }]}>
           Connect to any machine that runs Herdr: a server, a VPS or a Mac you can reach over SSH.
         </Text>
-        {isEditing || code ? null : (
+        {isEditing ? null : (
           <View style={styles.pairing}>
             <Text style={[styles.hint, { color: colors.text }]}>
-              Log in with this phone&apos;s key instead of a password: run a command on the machine and scan the code it shows.
+              {code
+                ? "From the pairing code. Herdhand logs in with this phone's key. Check the address, then pair."
+                : "Log in with this phone's key instead of a password: run a command on the machine and scan the code it shows."}
             </Text>
             <Pressable accessibilityRole="button" onPress={() => setIsScanning(true)}>
-              <Text style={[styles.link, { color: colors.primary }]}>Scan pairing code</Text>
+              <Text style={[styles.link, { color: colors.primary }]}>{code ? "Scan another code" : "Scan pairing code"}</Text>
             </Pressable>
           </View>
         )}
-        {code ? (
-          <Text style={[styles.hint, { color: colors.text }]}>
-            From the pairing code. Herdhand logs in with this phone&apos;s key. Check the address, then pair.
-          </Text>
-        ) : null}
         <MachineFields values={values} setField={setField} />
         {error ? <Text style={[styles.error, { color: colors.notification }]}>{error}</Text> : null}
         <Pressable
@@ -166,7 +162,6 @@ function useSaveMachine(editId: string | undefined, code: PairingCode | null) {
 
   /** Pairs, then saves and opens the machine. Resolves with why pairing failed, or null. */
   async function savePaired(pairingCode: PairingCode, machine: NewMachine): Promise<string | null> {
-    if (isExpired(pairingCode, Date.now())) return EXPIRED;
     setIsPairing(true);
     try {
       const fingerprint = await pairMachine(pairingCode, machine);
@@ -182,7 +177,7 @@ function useSaveMachine(editId: string | undefined, code: PairingCode | null) {
     }
   }
 
-  return { save, error, isPairing };
+  return { save, error, clearError: () => setError(null), isPairing };
 }
 
 function MachineFields({ values, setField }: { values: MachineFormValues; setField: SetField }) {

@@ -2,7 +2,7 @@ import * as Application from "expo-application";
 import { type BarcodeScanningResult, CameraView, useCameraPermissions } from "expo-camera";
 import { useTheme } from "expo-router";
 import { useRef, useState } from "react";
-import { Linking, Modal, Pressable, ScrollView, Share, StyleSheet, Text } from "react-native";
+import { Linking, Modal, Pressable, ScrollView, StyleSheet, Text } from "react-native";
 
 import { type PairingCode, parsePairingCode } from "./code";
 import { makePairCommand } from "./command";
@@ -13,7 +13,7 @@ type PairingScannerProps = {
   onClose: () => void;
 };
 
-const PAIR_COMMAND = makePairCommand(Application.nativeApplicationVersion);
+const PAIR_COMMAND = makePairCommand(Application.nativeApplicationVersion!);
 
 /**
  * Shows the command to run on the machine and the camera to scan the code it prints. A code it
@@ -51,9 +51,6 @@ export function PairingScanner({ visible, onScanned, onClose }: PairingScannerPr
         <Text selectable style={[styles.command, { color: colors.text, borderColor: colors.border, backgroundColor: colors.card }]}>
           {PAIR_COMMAND}
         </Text>
-        <Pressable accessibilityRole="button" onPress={() => void Share.share({ message: PAIR_COMMAND })}>
-          <Text style={[styles.link, { color: colors.primary }]}>Share the command</Text>
-        </Pressable>
         <Text style={[styles.text, { color: colors.text }]}>2. Point the camera at the code it shows.</Text>
         {visible ? <Camera onRead={read} /> : null}
         {error ? <Text style={[styles.text, { color: colors.notification }]}>{error}</Text> : null}

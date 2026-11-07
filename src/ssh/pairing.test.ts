@@ -18,7 +18,6 @@ const code: PairingCode = {
   port: 22,
   hostKeyFingerprints: ["SHA256:a", "SHA256:b"],
   oneTimeKeySeed: "seed",
-  expiresAt: CREATED_AT,
 };
 
 beforeEach(() => {

@@ -1,4 +1,4 @@
-import { isExpired, parsePairingCode } from "./code";
+import { parsePairingCode } from "./code";
 
 const FINGERPRINT_A = "Pyv+eAokr8pVq7UlZDh5pcC2Y8WEwixa/EggUE5onCY";
 const FINGERPRINT_B = "V311Nz7RqHdCHVkqfyuftsFVnYAYUsuul3gUvrcpAyk";
@@ -36,7 +36,6 @@ describe("parsePairingCode", () => {
       port: 2222,
       hostKeyFingerprints: [`SHA256:${FINGERPRINT_A}`, `SHA256:${FINGERPRINT_B}`],
       oneTimeKeySeed: SEED,
-      expiresAt: EXPIRES_AT_SECONDS * 1000,
     });
   });
 
@@ -70,7 +69,6 @@ describe("parsePairingCode", () => {
     ["a seed of the wrong length", { c: "abc" }],
     ["a port out of range", { p: "70000" }],
     ["a port that is not a number", { p: "ssh" }],
-    ["no expiry", { x: null }],
     ["bad percent encoding", { n: "%E0%A4%A" }],
   ])("refuses a code with %s", (_case, changes) => {
     expect(parsePairingCode(makeLink(changes))).toEqual(DAMAGED);
@@ -78,17 +76,5 @@ describe("parsePairingCode", () => {
 
   it("uses the address as the name when the name is empty", () => {
     expect(parsePairingCode(makeLink({ n: "" }))).toMatchObject({ name: "test-box.example.com" });
-  });
-});
-
-describe("isExpired", () => {
-  const code = { expiresAt: EXPIRES_AT_SECONDS * 1000 };
-
-  it.each([
-    ["before the deadline", -1, false],
-    ["at the deadline", 0, true],
-    ["after the deadline", 1, true],
-  ])("is %s: %s", (_case, offset, expected) => {
-    expect(isExpired(code, code.expiresAt + offset)).toBe(expected);
   });
 });

@@ -43,7 +43,7 @@ Herdhand installs nothing on the machine. Pairing leaves one line there: the pho
 
 3. Scan the code it shows, check the address, and tap **Pair and connect**. The terminal prints `Paired:` and the name of the phone key.
 
-The [script](scripts/pair.sh) needs `sh`, `awk` and `ssh-keygen`, and draws the code itself, so it runs on most Linux systems (BusyBox and Alpine too) and on macOS. It adds a one-time key that can only hand over the phone's public key, works once and expires after 5 minutes. When the phone's key arrives, the script adds it, removes the one-time key and stops. It also removes the one-time key on Ctrl-C or when time runs out. The code lets one phone log in, so show it only where you would type a password.
+The machine must run OpenSSH (`sshd` and `ssh-keygen`); other SSH servers, such as Dropbear, cannot pair. The [script](scripts/pair.sh) needs `sh`, `awk` and `ssh-keygen`, and draws the code itself, so it runs on most Linux systems (BusyBox and Alpine too) and on macOS. It adds a one-time key that can only hand over the phone's public key, works once and expires after 5 minutes. When the phone's key arrives, the script adds it, removes the one-time key and stops. It also removes the one-time key on Ctrl-C or when time runs out. The code lets one phone log in, so show it only where you would type a password.
 
 The phone must still reach the machine over the network. If the address in the code does not work from the phone, change it before you pair.
 
