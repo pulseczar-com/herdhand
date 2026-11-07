@@ -43,7 +43,7 @@ export function parseDetection(output: string): HerdrKind[] {
 }
 
 /** A value as one shell word: in single quotes, with each single quote written as `'\''`. */
-export function quoteShellWord(value: string): string {
+function quoteShellWord(value: string): string {
   return `'${value.replace(/'/g, "'\\''")}'`;
 }
 

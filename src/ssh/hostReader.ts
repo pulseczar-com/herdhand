@@ -1,3 +1,5 @@
+import type { RunResult } from "../../modules/ssh";
+
 import { findInSubfoldersCommand, NOT_A_FILE_EXIT_CODE, readLinesCommand } from "./commands";
 
 /** Which lines to read: from `offset` (the first line is 1), at most `limit`. */
@@ -14,9 +16,6 @@ export class FileReadError extends Error {
   }
 }
 
-/** How a one-shot command on the machine ended. */
-export type CommandResult = { output: string; exitCode: number };
-
 /**
  * Read-only looks at the files of the machine the phone is connected to, for any Herdr kind. A
  * relative path starts at the login folder, which is the home folder.
@@ -32,7 +31,7 @@ export type HostReader = {
 const ALL_LINES = 1_000_000_000;
 
 /** A HostReader that runs each look as one command through `run`. */
-export function makeHostReader(run: (command: string) => Promise<CommandResult>): HostReader {
+export function makeHostReader(run: (command: string) => Promise<RunResult>): HostReader {
   return {
     readFile: async (path, { offset = 1, limit = ALL_LINES } = {}) => {
       const { output, exitCode } = await run(readLinesCommand(path, offset, limit));
