@@ -1,6 +1,6 @@
 import { Stack, useLocalSearchParams, useTheme } from "expo-router";
 import { useHeaderHeight } from "expo-router/react-navigation";
-import { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -97,6 +97,7 @@ function PaneScreen({ connection }: { connection: MachineConnection }) {
               onPaneChange={setFreshPane}
             />
           )}
+          <NeedsYouBanner pane={freshPane} />
           <PaneComposer backend={status.backend} paneId={paneId} placeholder={composerPlaceholder} />
         </>
       ) : (
@@ -177,20 +178,12 @@ function ViewTab({ label, isSelected, onPress }: { label: string; isSelected: bo
 
 type ClaudeChatProps = { backend: ChatBackend; paneId: string; onPaneChange: (pane: Pane | null) => void };
 
-/**
- * The pane's Claude chat, and the banner while Claude is blocked. Each fresh read of the pane goes
- * up to the header's state pill.
- */
+/** The pane's Claude chat. Each fresh read of the pane goes up to the header and the banner. */
 function ClaudeChat({ backend, paneId, onPaneChange }: ClaudeChatProps) {
   const { chat, info, hasEarlier, loadEarlier, pane, error } = useClaudeChat(backend, paneId);
   useEffect(() => onPaneChange(pane), [pane, onPaneChange]);
 
-  return (
-    <>
-      <ChatView chat={chat} info={info} hasEarlier={hasEarlier} onLoadEarlier={loadEarlier} error={error} />
-      <NeedsYouBanner pane={pane} />
-    </>
-  );
+  return <ChatView chat={chat} info={info} hasEarlier={hasEarlier} onLoadEarlier={loadEarlier} error={error} />;
 }
 
 type PaneTextProps = {
@@ -202,8 +195,8 @@ type PaneTextProps = {
 };
 
 /**
- * The pane's text, reformatted to the phone's width, opening at its end, and the banner while its
- * agent is blocked. Each fresh read of the pane goes up to the header's state pill.
+ * The pane's text, reformatted to the phone's width, opening at its end. Each fresh read of the
+ * pane goes up to the header and the banner.
  */
 function PaneText({ backend, paneId, paneColumns, isClaude, onPaneChange }: PaneTextProps) {
   const { colors } = useTheme();
@@ -212,7 +205,11 @@ function PaneText({ backend, paneId, paneColumns, isClaude, onPaneChange }: Pane
   const columnCount = useColumnCount();
   const { scrollRef, trackEnd, keepAtEnd } = useKeepAtEnd();
   const isLoading = text === null && !error;
-  const blocks = text === null ? null : getScreenBlocks(text, isClaude, columnCount, paneColumns);
+  // A new read of the pane renders again with the same text, which needs no new blocks.
+  const blocks = useMemo(
+    () => (text === null ? null : getScreenBlocks(text, isClaude, columnCount, paneColumns)),
+    [text, isClaude, columnCount, paneColumns],
+  );
 
   return (
     <>
@@ -234,7 +231,6 @@ function PaneText({ backend, paneId, paneColumns, isClaude, onPaneChange }: Pane
           <PaneBlocks blocks={blocks} dimLines={dimLines} />
         </ScrollView>
       )}
-      <NeedsYouBanner pane={pane} />
     </>
   );
 }

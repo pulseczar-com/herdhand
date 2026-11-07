@@ -1,11 +1,10 @@
 import { useTheme } from "expo-router";
 import { StyleSheet, Text, View } from "react-native";
 
-import type { BlockedKind, Pane } from "@/herdr/backend";
+import { AGENT_STATE_LABELS, type BlockedKind, type Pane } from "@/herdr/backend";
+import { STATE_TONES } from "@/herdr/badges";
 
 import { getPillBackground, useToneColor } from "./StatePill";
-
-const TITLE = "Needs you";
 
 const BLOCKED_KIND_LABELS: Record<BlockedKind, string> = {
   permission: "Permission",
@@ -15,7 +14,7 @@ const BLOCKED_KIND_LABELS: Record<BlockedKind, string> = {
 
 /** "Needs you", what the agent waits for, and its own message, while the agent is blocked. */
 export function NeedsYouBanner({ pane }: { pane: Pane | null }) {
-  const color = useToneColor("attention");
+  const color = useToneColor(STATE_TONES.blocked);
   const { colors } = useTheme();
   if (pane?.state !== "blocked") return null;
 
@@ -27,9 +26,11 @@ export function NeedsYouBanner({ pane }: { pane: Pane | null }) {
   );
 }
 
+/** The blocked state's label, and what the agent waits for when it said. */
 function getTitle(blockedKind: BlockedKind | undefined): string {
-  if (!blockedKind) return TITLE;
-  return `${TITLE} · ${BLOCKED_KIND_LABELS[blockedKind]}`;
+  const title = AGENT_STATE_LABELS.blocked;
+  if (!blockedKind) return title;
+  return `${title} · ${BLOCKED_KIND_LABELS[blockedKind]}`;
 }
 
 const styles = StyleSheet.create({

@@ -31,7 +31,9 @@ export function usePaneText(backend: Backend, paneId: string) {
         return;
       }
       try {
-        const [loaded, polled] = await Promise.all([backend.readPane(paneId), backend.getPane?.(paneId)]);
+        // The pane only feeds the banner and the header: when its read fails, the text still shows.
+        const polledPane = backend.getPane?.(paneId).catch(() => null);
+        const [loaded, polled] = await Promise.all([backend.readPane(paneId), polledPane]);
         if (!isOpen) return;
         setRawText(loaded);
         setPane(polled ?? null);

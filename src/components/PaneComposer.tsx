@@ -27,9 +27,9 @@ const KEY_LABELS: Record<PaneKey, KeyLabel> = {
   6: { label: "6", spoken: "6" },
 };
 
-// Every key in one row would be too narrow to tap, so the keys go in rows of six.
-const KEYS_PER_ROW = 6;
-const KEY_ROWS = [PANE_KEYS.slice(0, KEYS_PER_ROW), PANE_KEYS.slice(KEYS_PER_ROW)];
+// Every key in one row would be too narrow to tap: the other keys go on one row, the digits on the next.
+const FIRST_DIGIT = PANE_KEYS.indexOf("1");
+const KEY_ROWS = [PANE_KEYS.slice(0, FIRST_DIGIT), PANE_KEYS.slice(FIRST_DIGIT)];
 
 type PaneComposerProps = { backend: Backend; paneId: string; placeholder: string };
 

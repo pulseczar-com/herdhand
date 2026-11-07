@@ -111,4 +111,15 @@ describe("usePaneText", () => {
     expect(result.current.text).toBe("$ ls");
     expect(result.current.pane).toBeNull();
   });
+
+  it("keeps the text and shows no error when only the pane read fails", async () => {
+    const backend = { ...makeBackend("$ ls"), getPane: jest.fn().mockRejectedValue(new Error("not_found")) };
+    const { result } = renderHook(() => usePaneText(backend, "t6"));
+
+    await act(() => jest.advanceTimersByTimeAsync(0));
+
+    expect(result.current.text).toBe("$ ls");
+    expect(result.current.pane).toBeNull();
+    expect(result.current.error).toBeNull();
+  });
 });
