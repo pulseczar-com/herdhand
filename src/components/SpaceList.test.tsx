@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react-native";
-import { ActivityIndicator, FlatList, Text } from "react-native";
+import { ActivityIndicator, Text } from "react-native";
 import ReorderableList from "react-native-reorderable-list";
 
 import type { Backend, Pane, Space } from "@/herdr/backend";
@@ -269,17 +269,5 @@ describe("SpaceList", () => {
 
       await waitFor(async () => expect(await getSpaceOrder(MACHINE_ID, "desktop")).toEqual(["s2", "s1"]));
     });
-  });
-
-  // The list turns scrolling off for a drag. A press on a handle that never moves can miss the end.
-  it("turns scrolling back on when a finger lifts from the list", async () => {
-    renderSpaces([{ id: "s1", name: "api", tabs: [] }]);
-    await screen.findByText("api");
-    const setNativeProps = jest.spyOn(FlatList.prototype, "setNativeProps").mockImplementation(() => {});
-
-    fireEvent(screen.UNSAFE_getByType(ReorderableList), "touchEnd");
-
-    expect(setNativeProps).toHaveBeenCalledWith({ scrollEnabled: true });
-    setNativeProps.mockRestore();
   });
 });

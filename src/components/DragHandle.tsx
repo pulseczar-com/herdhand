@@ -6,21 +6,29 @@ import { useReorderableDrag } from "react-native-reorderable-list";
 
 const ICON_SIZE = 20;
 const HIT_SLOP = 8;
+// A tap on the handle must not start a drag: the library's gesture can end before a drag from a press starts, and the list stays stuck.
+const DRAG_DELAY_MS = 150;
 
 /** The handle's look and its label, for a list item or for a header outside any list. */
-export function HandleButton({ name, onPressIn }: { name: string; onPressIn: () => void }) {
+export function HandleButton({ name, onPressIn, onLongPress }: { name: string; onPressIn?: () => void; onLongPress?: () => void }) {
   const { colors } = useTheme();
 
   return (
-    <Pressable accessibilityLabel={`Drag ${name}`} onPressIn={onPressIn} hitSlop={HIT_SLOP}>
+    <Pressable
+      accessibilityLabel={`Drag ${name}`}
+      onPressIn={onPressIn}
+      onLongPress={onLongPress}
+      delayLongPress={DRAG_DELAY_MS}
+      hitSlop={HIT_SLOP}
+    >
       <MaterialIcons name="drag-indicator" size={ICON_SIZE} color={colors.text} style={styles.dimmed} />
     </Pressable>
   );
 }
 
 /**
- * The handle of a row in a reorderable list: a touch on it starts the row's drag, so a scroll that
- * starts elsewhere on the row still scrolls. It works only inside a list item. With `startNow`
+ * The handle of a row in a reorderable list: a short hold on it starts the row's drag, so a tap or
+ * a scroll that starts elsewhere on the row still works. It works only inside a list item. With `startNow`
  * the row's drag starts when the handle first shows, for a touch that began on a handle outside the list.
  */
 export function DragHandle({ name, startNow = false }: { name: string; startNow?: boolean }) {
@@ -32,7 +40,7 @@ export function DragHandle({ name, startNow = false }: { name: string; startNow?
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return <HandleButton name={name} onPressIn={drag} />;
+  return <HandleButton name={name} onLongPress={drag} />;
 }
 
 const styles = StyleSheet.create({
