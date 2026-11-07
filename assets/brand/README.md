@@ -14,7 +14,7 @@ $resvg assets/brand/icon-mono.svg \
 fg | sed 's/#3DDC84/#17924F/' | $resvg - assets/splash-icon.png
 ```
 
-The "by PulseCzar" lockup in About is PulseCzar's inline lockup, `inline-dark.svg` and `inline-light.svg` from PulseCzar's brand files, rendered at three times its 14 px height:
+The "by" lockup in About is the inline lockup, `inline-dark.svg` and `inline-light.svg` from the brand files, rendered at three times its 14 px height:
 
 ```sh
 for cut in dark light; do
