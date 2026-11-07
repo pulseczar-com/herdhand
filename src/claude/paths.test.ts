@@ -2,14 +2,17 @@ import type { Pane } from "@/herdr/backend";
 
 import { getSessionPath, getTranscriptPath, isClaudePane, parseSession } from "./paths";
 
-function pane(agent: string | null, pid?: number): Pane {
-  return { id: "t1", title: "", agent, state: "idle", isFinished: false, columns: null, pid };
+function pane(agent: string | null, pid?: number, sessionId?: string): Pane {
+  return { id: "t1", title: "", agent, state: "idle", isFinished: false, columns: null, pid, sessionId };
 }
 
 describe("isClaudePane", () => {
   it.each([
     { where: "Claude Code with a process id", pane: pane("claude-code", 100), expected: true },
     { where: "Claude Code with no process id", pane: pane("claude-code"), expected: false },
+    { where: "Claude Code on the TUI with a session id", pane: pane("claude", undefined, "s-1"), expected: true },
+    { where: "Claude Code on the TUI with no session id", pane: pane("claude"), expected: false },
+    { where: "another agent with a session id", pane: pane("codex", undefined, "s-1"), expected: false },
     { where: "another agent", pane: pane("codex", 100), expected: false },
     { where: "a shell", pane: pane(null, 100), expected: false },
   ])("is $expected for $where", ({ pane: given, expected }) => {

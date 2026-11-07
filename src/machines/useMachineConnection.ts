@@ -4,6 +4,7 @@ import { PermissionsAndroid } from "react-native";
 import type { Backend } from "@/herdr/backend";
 import type { HerdrKind } from "@/herdr/kinds";
 import { getNotificationPermissionAsked, saveNotificationPermissionAsked } from "@/settings/store";
+import type { HostReader } from "@/ssh/hostReader";
 import { type Bridge, closeOpenBridge, DISCONNECT_REQUESTED, getOpenBridge, openBridge } from "@/ssh/bridge";
 import { type ConnectAttempt, ConnectError, describeConnectError, toConnectError } from "@/ssh/errors";
 
@@ -21,7 +22,7 @@ export type ConnectionStatus =
   | { phase: "trust"; fingerprint: string }
   /** The person disconnected from the notice. The app does not reconnect by itself. */
   | { phase: "disconnected" }
-  | { phase: "connected"; kind: HerdrKind; availableKinds: HerdrKind[]; version: string; backend: Backend }
+  | { phase: "connected"; kind: HerdrKind; availableKinds: HerdrKind[]; version: string; backend: Backend; host: HostReader }
   | {
       phase: "failed";
       message: string;
@@ -66,6 +67,7 @@ export function useMachineConnection(id: string, isForeground: boolean) {
       availableKinds: opened.availableKinds,
       version: opened.version,
       backend: opened.backend,
+      host: opened.host,
     });
     void opened.closed.then((reason) => {
       if (bridge.current !== opened || servedId.current !== saved.id) return;

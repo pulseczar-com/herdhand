@@ -5,8 +5,8 @@ import type { Pane } from "@/herdr/backend";
  * folder, which is the home folder where Herdr runs as the user.
  */
 
-// The agent name Claude Code reports to Herdr.
-const CLAUDE_AGENT = "claude-code";
+// The agent name Claude Code has in Herdr: the desktop app's, then the TUI's.
+const CLAUDE_AGENTS = ["claude-code", "claude"];
 const CLAUDE_FOLDER = ".claude";
 const NOT_LETTER_OR_DIGIT = /[^A-Za-z0-9]/g;
 
@@ -15,12 +15,23 @@ type ClaudeSession = { sessionId: string; cwd: string };
 
 /** A pane that runs Claude Code, as Herdr names its agent. */
 export function isClaudeAgent(pane: Pane): boolean {
-  return pane.agent === CLAUDE_AGENT;
+  return pane.agent !== null && CLAUDE_AGENTS.includes(pane.agent);
 }
 
-/** A Claude Code pane whose process the app can find the session of. */
-export function isClaudePane(pane: Pane): pane is Pane & { pid: number } {
-  return isClaudeAgent(pane) && pane.pid !== undefined;
+/**
+ * A Claude Code pane whose transcript the app can find: by its process (the desktop app) or by
+ * its session id (the TUI, with Herdr's Claude integration installed).
+ */
+export function isClaudePane(pane: Pane): boolean {
+  return isClaudeAgent(pane) && (pane.pid !== undefined || pane.sessionId !== undefined);
+}
+
+/** The folder of all transcripts, which holds one folder for each project. */
+export const TRANSCRIPTS_FOLDER = `${CLAUDE_FOLDER}/projects`;
+
+/** The name of the transcript file of a session. */
+export function getTranscriptFileName(sessionId: string): string {
+  return `${sessionId}.jsonl`;
 }
 
 /** The file where Claude Code names the session that a process runs. */
@@ -50,5 +61,5 @@ function parseObject(text: string): Record<string, unknown> | null {
  */
 export function getTranscriptPath(session: ClaudeSession): string {
   const projectFolder = session.cwd.replace(NOT_LETTER_OR_DIGIT, "-");
-  return `${CLAUDE_FOLDER}/projects/${projectFolder}/${session.sessionId}.jsonl`;
+  return `${TRANSCRIPTS_FOLDER}/${projectFolder}/${getTranscriptFileName(session.sessionId)}`;
 }

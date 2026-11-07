@@ -4,6 +4,7 @@ import type { Backend } from "@/herdr/backend";
 import type { HerdrKind } from "@/herdr/kinds";
 import type { Machine } from "@/machines/store";
 import type { ConnectionStatus } from "@/machines/useMachineConnection";
+import type { HostReader } from "@/ssh/hostReader";
 
 import { MachineSheet } from "./MachineSheet";
 
@@ -14,7 +15,7 @@ jest.mock("expo-router", () => ({
 const machine: Machine = { id: "m1", name: "test-box", host: "test-box.example.com", port: 22, user: "test-user" };
 
 function connected(kind: HerdrKind, availableKinds: HerdrKind[]): ConnectionStatus {
-  return { phase: "connected", kind, availableKinds, version: "0.1.17", backend: {} as Backend };
+  return { phase: "connected", kind, availableKinds, version: "0.1.17", backend: {} as Backend, host: {} as HostReader };
 }
 
 function makeActions() {

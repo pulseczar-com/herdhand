@@ -19,7 +19,7 @@ Herdr is a terminal multiplexer: it keeps spaces, tabs and panes running on a ma
 - An Agents tab that lists every agent by state.
 - A pane's text, reformatted for the phone, with a composer for a line of input and a key row (Esc, ^C, Tab, Up, Down, Enter, 1 to 6).
 - On Herdr App, a banner over a blocked agent's pane says what it waits for (a question, a permission or a sign-in) and shows its message.
-- A Claude Code pane on Herdr App opens as a chat: your prompts, the replies in Markdown, and each tool call as a row.
+- A Claude Code pane opens as a chat: your prompts, the replies in Markdown, and each tool call as a row. The app reads Claude's transcript over SSH. On Herdr TUI, the chat needs Herdr's Claude integration, which gives the app the session.
 - Log in with a password, or pair by scanning a code so the phone logs in with its own key.
 - An app lock with fingerprint, face or the screen lock. It is on by default.
 
@@ -115,7 +115,7 @@ For a signed Google Play bundle, run `just build-release` and follow [`docs/play
 |---|---|
 | `app/` | Screens ([expo-router](https://docs.expo.dev/router/introduction/)) |
 | `modules/ssh/` | The native SSH module: Kotlin on [sshj](https://github.com/hierynomus/sshj) |
-| `src/ssh/` | Opening the bridge over SSH and detecting Herdr |
+| `src/ssh/` | Opening the bridge over SSH, detecting Herdr and reading the machine's files |
 | `src/herdr/` | The Herdr App and Herdr TUI clients |
 | `src/chat/`, `src/claude/` | The chat view and how a Claude Code transcript becomes it |
 | `src/machines/` | The saved machines and the open connection |

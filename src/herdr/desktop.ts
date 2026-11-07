@@ -9,9 +9,6 @@ import { type HerdrClient, REQUEST_TIMEOUT_MS, RequestTimeoutError } from "@/rpc
 
 import {
   type Backend,
-  FileReadError,
-  type FileLines,
-  type LineRange,
   type Pane,
   READ_LINES,
   type Space,
@@ -83,7 +80,6 @@ export function makeDesktopBackend(client: HerdrClient): Backend {
       const terminal = (await client.request("terminal.get", { terminal: paneId })) as Terminal;
       return toPane(terminal);
     },
-    readFile: (path, lines) => readFile(client, path, lines),
   };
 }
 
@@ -93,22 +89,6 @@ async function getDesktopVersion(client: HerdrClient): Promise<string> {
     version?: unknown;
   };
   return String(hello.version ?? "unknown");
-}
-
-/** `file.read`. An error reply from Herdr (it carries a kind) means the file cannot be read. */
-async function readFile(client: HerdrClient, path: string, lines?: LineRange): Promise<FileLines> {
-  try {
-    return (await client.request("file.read", { path, ...lines })) as FileLines;
-  } catch (error) {
-    throw isHerdrError(error) ? new FileReadError(error.message) : error;
-  }
-}
-
-// A lost connection fails the request with the same exception, but with no kind.
-function isHerdrError(error: unknown): error is JSONRPCErrorException {
-  if (!(error instanceof JSONRPCErrorException)) return false;
-  const data = error.data as { kind?: unknown } | undefined;
-  return typeof data?.kind === "string";
 }
 
 // Shapes of the `doc.get` and `terminal.list` replies. The layout document has no schema, so
