@@ -39,6 +39,8 @@ Herdhand installs nothing on the machine. Pairing leaves one line there: the pho
    curl -fsSL https://raw.githubusercontent.com/pulseczar-com/herdhand/<tag>/scripts/pair.sh | sh
    ```
 
+   The command works only for a released version of Herdhand, whose tag holds `scripts/pair.sh`. On a version with no such release, such as a development build, copy `scripts/pair.sh` from your clone to the machine and run `sh pair.sh` there.
+
 3. Scan the code it shows, check the address, and tap **Pair and connect**. The terminal prints `Paired:` and the name of the phone key.
 
 The [script](scripts/pair.sh) needs `sh`, `awk` and `ssh-keygen`, and draws the code itself, so it runs on most Linux systems (BusyBox and Alpine too) and on macOS. It adds a one-time key that can only hand over the phone's public key, works once and expires after 5 minutes. When the phone's key arrives, the script adds it, removes the one-time key and stops. It also removes the one-time key on Ctrl-C or when time runs out. The code lets one phone log in, so show it only where you would type a password.
