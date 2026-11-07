@@ -3,9 +3,8 @@ import type { ComponentProps } from "react";
 import { StyleSheet } from "react-native";
 
 import type { Chat, ChatItem } from "@/chat/chatItems";
-import type { Pane } from "@/herdr/backend";
 
-import { ChatView, NeedsYouBanner, RESULT_LINES } from "./ChatView";
+import { ChatView, RESULT_LINES } from "./ChatView";
 
 jest.mock("expo-router", () => ({
   useTheme: () => ({ dark: true, colors: { text: "#eee", border: "#333", card: "#111", background: "#000", notification: "#f00" } }),
@@ -193,24 +192,5 @@ describe("ChatView", () => {
     renderChat(null);
 
     expect(screen.queryByText(UNAVAILABLE_NOTE)).toBeNull();
-  });
-});
-
-describe("NeedsYouBanner", () => {
-  function pane(fields: Partial<Pane>): Pane {
-    return { id: "t1", title: "", agent: "claude-code", state: "blocked", isFinished: false, columns: null, ...fields };
-  }
-
-  it("shows the agent's own message when it is blocked", () => {
-    render(<NeedsYouBanner pane={pane({ message: "approve Bash: npm test" })} />);
-
-    expect(screen.getByText("Needs you")).toBeTruthy();
-    expect(screen.getByText("approve Bash: npm test")).toBeTruthy();
-  });
-
-  it("shows nothing when the agent is not blocked", () => {
-    render(<NeedsYouBanner pane={pane({ state: "working", message: "Running tests" })} />);
-
-    expect(screen.queryByText("Needs you")).toBeNull();
   });
 });

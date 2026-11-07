@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react-native";
 import { AppState } from "react-native";
 
-import type { Backend } from "@/herdr/backend";
+import type { Backend, Pane } from "@/herdr/backend";
 
 import { REFRESH_INTERVAL_MS, usePaneText } from "./usePaneText";
 
@@ -89,5 +89,37 @@ describe("usePaneText", () => {
     await waitForNextRead();
 
     expect(result.current.text).toBe("$ date");
+  });
+
+  it("reads the pane's state with its text, where Herdr can read one pane", async () => {
+    const blocked: Pane = { id: "t6", title: "", agent: "codex", state: "blocked", isFinished: false, columns: null, blockedKind: "question" };
+    const backend = { ...makeBackend("$ codex"), getPane: jest.fn().mockResolvedValue(blocked) };
+    const { result } = renderHook(() => usePaneText(backend, "t6"));
+
+    await act(() => jest.advanceTimersByTimeAsync(0));
+
+    expect(result.current.pane).toBe(blocked);
+    expect(backend.getPane).toHaveBeenCalledWith("t6");
+  });
+
+  it("has no pane where Herdr cannot read one pane, as on the TUI", async () => {
+    const backend = makeBackend("$ ls");
+    const { result } = renderHook(() => usePaneText(backend, "t6"));
+
+    await act(() => jest.advanceTimersByTimeAsync(0));
+
+    expect(result.current.text).toBe("$ ls");
+    expect(result.current.pane).toBeNull();
+  });
+
+  it("keeps the text and shows no error when only the pane read fails", async () => {
+    const backend = { ...makeBackend("$ ls"), getPane: jest.fn().mockRejectedValue(new Error("not_found")) };
+    const { result } = renderHook(() => usePaneText(backend, "t6"));
+
+    await act(() => jest.advanceTimersByTimeAsync(0));
+
+    expect(result.current.text).toBe("$ ls");
+    expect(result.current.pane).toBeNull();
+    expect(result.current.error).toBeNull();
   });
 });

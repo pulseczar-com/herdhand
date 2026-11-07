@@ -13,7 +13,6 @@ import {
 } from "react-native";
 
 import type { Chat, ChatInfo, ChatItem, ToolItem } from "@/chat/chatItems";
-import type { Pane } from "@/herdr/backend";
 
 import { getPillBackground, useToneColor } from "./StatePill";
 import { useKeepAtEnd } from "./useKeepAtEnd";
@@ -293,22 +292,6 @@ function Note({ text }: { text: string }) {
   return <Text style={[styles.note, { color: colors.text }]}>{text}</Text>;
 }
 
-// ---- The banner ----
-
-/** "Needs you" and the agent's own message, while the agent is blocked. */
-export function NeedsYouBanner({ pane }: { pane: Pane | null }) {
-  const color = useToneColor("attention");
-  const { colors } = useTheme();
-  if (pane?.state !== "blocked") return null;
-
-  return (
-    <View style={[styles.banner, { borderColor: color, backgroundColor: getPillBackground(color) }]}>
-      <Text style={[styles.bannerTitle, { color }]}>Needs you</Text>
-      {pane.message ? <Text style={[styles.text, { color: colors.text }]}>{pane.message}</Text> : null}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   message: { fontSize: 15, padding: 16 },
   content: { flexGrow: 1, justifyContent: "flex-end", padding: 16, gap: 12 },
@@ -328,6 +311,4 @@ const styles = StyleSheet.create({
   detailText: { fontSize: 13, borderRadius: 8, padding: 8 },
   info: { alignSelf: "center", fontSize: 12, opacity: 0.6, paddingTop: 8 },
   note: { alignSelf: "center", fontSize: 12, opacity: 0.6 },
-  banner: { marginHorizontal: 10, marginBottom: 8, borderWidth: 1, borderRadius: 12, padding: 12, gap: 2 },
-  bannerTitle: { fontSize: 15, fontWeight: "700" },
 });

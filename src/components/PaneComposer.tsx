@@ -15,13 +15,21 @@ const SEND_ICON_SIZE = 22;
 const KEY_LABELS: Record<PaneKey, KeyLabel> = {
   esc: { label: "Esc", spoken: "Escape" },
   "ctrl+c": { label: "^C", spoken: "Control C" },
+  tab: { label: "Tab", spoken: "Tab" },
   up: { label: "↑", spoken: "Up" },
   down: { label: "↓", spoken: "Down" },
   enter: { label: "⏎", spoken: "Enter" },
   1: { label: "1", spoken: "1" },
   2: { label: "2", spoken: "2" },
   3: { label: "3", spoken: "3" },
+  4: { label: "4", spoken: "4" },
+  5: { label: "5", spoken: "5" },
+  6: { label: "6", spoken: "6" },
 };
+
+// Every key in one row would be too narrow to tap: the other keys go on one row, the digits on the next.
+const FIRST_DIGIT = PANE_KEYS.indexOf("1");
+const KEY_ROWS = [PANE_KEYS.slice(0, FIRST_DIGIT), PANE_KEYS.slice(FIRST_DIGIT)];
 
 type PaneComposerProps = { backend: Backend; paneId: string; placeholder: string };
 
@@ -38,11 +46,13 @@ export function PaneComposer({ backend, paneId, placeholder }: PaneComposerProps
   return (
     <View style={[styles.composer, { borderColor: colors.border, backgroundColor: colors.card }]}>
       {error ? <Text style={[styles.error, { color: colors.notification }]}>{error}</Text> : null}
-      <View style={styles.keys}>
-        {PANE_KEYS.map((key) => (
-          <KeyButton key={key} paneKey={key} onPress={() => void pressKey(key)} />
-        ))}
-      </View>
+      {KEY_ROWS.map((row) => (
+        <View key={row[0]} style={styles.keys}>
+          {row.map((key) => (
+            <KeyButton key={key} paneKey={key} onPress={() => void pressKey(key)} />
+          ))}
+        </View>
+      ))}
       <View style={styles.lineRow}>
         <TextInput
           style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}

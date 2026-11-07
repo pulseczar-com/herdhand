@@ -524,6 +524,20 @@ describe("Claude chat", () => {
     expect(screen.queryByText(/merge the branch/)).toBeNull();
   });
 
+  it("shows what any blocked agent waits for, with its message, above its screen", async () => {
+    const codexPane = { id: "t9", title: "Review", agent: "codex", state: "blocked" as const, isFinished: false, columns: null };
+    connectTo({
+      ...chatBackend,
+      listSpaces: jest.fn().mockResolvedValue([{ id: "s1", name: "api", tabs: [{ id: "t2", name: "agents", panes: [codexPane] }] }]),
+      getPane: jest.fn().mockResolvedValue({ ...codexPane, blockedKind: "question", message: "Which branch?" }),
+    });
+    renderMachine("/machine/m1/pane/t9");
+
+    expect(await screen.findByText("Needs you · Question")).toBeTruthy();
+    expect(screen.getByText("Which branch?")).toBeTruthy();
+    expect(screen.getByText(PANE_TEXT)).toBeTruthy();
+  });
+
   it("shows only the screen when Herdr cannot read files, as on the TUI", async () => {
     connectTo({ ...chatBackend, getPane: undefined, readFile: undefined });
     renderMachine("/machine/m1/pane/t8");

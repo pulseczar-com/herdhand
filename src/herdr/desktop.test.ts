@@ -71,6 +71,22 @@ describe("desktop backend: one pane and its files", () => {
     expect(pane).toMatchObject({ id: "t11", agent: "claude-code", state: "blocked", pid: 100, message: "approve Bash: npm test" });
   });
 
+  // The `kind` field of the terminal's status record, as hc 0.1.18's schema has it.
+  it.each([
+    { kind: "permission", expected: "permission" },
+    { kind: "question", expected: "question" },
+    { kind: "auth", expected: "auth" },
+    { kind: null, expected: undefined },
+    { kind: "something-new", expected: undefined },
+  ])("reads what a blocked agent waits for: $kind", async ({ kind, expected }) => {
+    const terminal = { address: "t12", title: "Review", status: { app: "codex", state: "blocked", kind, msg: "Pick one" } };
+    const { backend } = makeBackend(() => Promise.resolve(terminal));
+
+    const pane = await backend.getPane?.("t12");
+
+    expect(pane?.blockedKind).toBe(expected);
+  });
+
   it("reads a file's lines", async () => {
     const reply = { text: "a\nb\n", first: 3, last: 4, lines: 4 };
     const { backend, request } = makeBackend(() => Promise.resolve(reply));
