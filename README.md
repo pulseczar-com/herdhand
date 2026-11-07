@@ -132,15 +132,15 @@ Apache License 2.0. See [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE). The Herdhan
 
 ### Built by PulseCzar
 
-We manage our AI coding agents with Herdr, so we built Herdhand to make it easy to check on sessions from a phone. Herdhand is free and open source. Herdr is the work of its own maintainers. If you like Herdhand, give [Herdr](https://github.com/herdrdev/herdr) a star.
+We manage our AI coding agents and terminal/SSH sessions with Herdr, so we built Herdhand to make it easy to check on sessions from a phone. Herdhand is free and open source. Herdr is the work of its own maintainers. If you like Herdhand, give [Herdr](https://github.com/herdrdev/herdr) a star.
 
 PulseCzar provides uptime monitoring for websites, APIs and cron jobs. Check it out at [pulseczar.com](https://pulseczar.com/?utm_source=github&utm_medium=readme&utm_campaign=herdhand).
 
 <p align="center">
   <a href="https://pulseczar.com/?utm_source=github&utm_medium=readme&utm_campaign=herdhand">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="assets/pulseczar-lockup-dark.png">
-      <img src="assets/pulseczar-lockup-light.png" alt="PulseCzar uptime monitoring" width="130">
+      <source media="(prefers-color-scheme: dark)" srcset="assets/pulseczar-bars-dark.png">
+      <img src="assets/pulseczar-bars-light.png" alt="PulseCzar uptime monitoring" width="126">
     </picture>
   </a>
 </p>

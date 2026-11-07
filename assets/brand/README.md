@@ -24,3 +24,15 @@ done
 ```
 
 The splash is the mark in `#17924F` on white in light mode, and in `#3DDC84` on `#0A0D0C` in dark mode, where it reuses `android-icon-foreground.png` (see `app.json`).
+
+The `README.md` footer uses the same lockup without the background tile, as `assets/pulseczar-bars-dark.png` and `assets/pulseczar-bars-light.png`. Delete the `<rect width="96" height="96" .../>` line from the inline lockup and crop the `viewBox` to the bars and the word mark:
+
+```sh
+for cut in dark light; do
+  sed -e '/<rect width="96" height="96"/d' \
+    -e 's/viewBox="0 0 383.97 62.04" width="383.97"/viewBox="11.6 0 372.37 62.04" width="372.37"/' \
+    inline-$cut.svg \
+    | npx -y @resvg/resvg-js-cli@2.6.2-beta.1 --fit-height 42 \
+      - assets/pulseczar-bars-$cut.png
+done
+```
