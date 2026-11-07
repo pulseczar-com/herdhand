@@ -4,11 +4,33 @@ export type ConnectOptions = {
   host: string;
   port: number;
   user: string;
-  password: string;
+  /** Null signs in with the phone key. */
+  password: string | null;
   /** The saved "SHA256:..." fingerprint, or null on the first connect. */
   trustedFingerprint: string | null;
   /** The machine's name, shown in the notice that keeps the connection open in the background. */
   label: string;
+};
+
+export type PairOptions = {
+  host: string;
+  port: number;
+  user: string;
+  /** The "SHA256:..." fingerprints of the machine's host keys, from the pairing code. */
+  hostKeyFingerprints: string[];
+  /** The one-time key's 32-byte Ed25519 seed, in base64. */
+  oneTimeKeySeed: string;
+  /** The phone key's authorized_keys line, with its comment. */
+  phoneKeyLine: string;
+};
+
+export type PhoneKey = {
+  /** "ecdsa-sha2-nistp256 AAAA...", with no comment. */
+  publicKey: string;
+  /** "SHA256:..." */
+  fingerprint: string;
+  /** When the key was made, in milliseconds since 1970. */
+  createdAt: number;
 };
 
 export type SshModuleEvents = {
@@ -17,7 +39,7 @@ export type SshModuleEvents = {
 };
 
 /**
- * Error codes `connect` rejects with. For the two host key codes, the error message holds the
+ * Error codes `connect` and `pair` reject with. For the two host key codes, the error message holds the
  * "SHA256:..." fingerprint the host presented. Expo can put text before it.
  */
 export type SshErrorCode =
@@ -26,6 +48,8 @@ export type SshErrorCode =
   | "AUTH_FAILED"
   | "UNREACHABLE"
   | "NOT_CONNECTED"
+  | "PAIRING_REFUSED"
+  | "PAIRING_NOT_FINISHED"
   | "SSH_ERROR";
 
 declare class SshModule extends NativeModule<SshModuleEvents> {
@@ -40,6 +64,13 @@ declare class SshModule extends NativeModule<SshModuleEvents> {
   /** Writes to the running command's stdin. */
   write(text: string): Promise<void>;
   close(): Promise<void>;
+  /** This phone's key, made in the Android Keystore the first time. */
+  getPhoneKey(): Promise<PhoneKey>;
+  /**
+   * Gives the phone key to a machine that runs the pairing script, then signs in with it to
+   * prove it works. Uses connections of its own. Resolves with the host key fingerprint.
+   */
+  pair(options: PairOptions): Promise<string>;
 }
 
 export default requireNativeModule<SshModule>("Ssh");

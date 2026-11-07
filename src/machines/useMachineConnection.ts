@@ -9,7 +9,7 @@ import { type ConnectAttempt, ConnectError, describeConnectError, toConnectError
 
 import {
   getMachine,
-  getPassword,
+  getSignInPassword,
   getTrustedFingerprint,
   type Machine,
   saveMachineKind,
@@ -85,10 +85,10 @@ export function useMachineConnection(id: string, isForeground: boolean) {
     if (!saved || servedId.current !== saved.id) return;
     setMachine(saved);
     setStatus(CONNECTING);
-    const [password, trustedFingerprint] = await Promise.all([getPassword(saved.id), getTrustedFingerprint(saved.id)]);
+    const [password, trustedFingerprint] = await Promise.all([getSignInPassword(saved), getTrustedFingerprint(saved.id)]);
     if (servedId.current !== saved.id) return;
     try {
-      const opened = await openBridge({ machine: saved, password: password ?? "", trustedFingerprint });
+      const opened = await openBridge({ machine: saved, password, trustedFingerprint });
       // The hook moved on meanwhile. A screen that left keeps the bridge for its machine's next
       // screen. The next `openBridge` call, for another machine, closes it.
       if (servedId.current !== saved.id) return;

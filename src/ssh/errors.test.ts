@@ -1,6 +1,6 @@
 import { RequestTimeoutError } from "@/rpc/client";
 
-import { ConnectError, describeConnectError, toConnectError } from "./errors";
+import { ConnectError, describeConnectError, describePairingError, toConnectError } from "./errors";
 
 const machine = { name: "test-box", host: "test-box.example.com" };
 
@@ -31,6 +31,8 @@ describe("toConnectError", () => {
     { error: nativeError("HOST_KEY_UNKNOWN", "no key here"), reason: "hostKeyUnknown", fingerprint: undefined },
     { error: nativeError("AUTH_FAILED", "Login failed"), reason: "loginFailed", fingerprint: undefined },
     { error: nativeError("UNREACHABLE", "timeout"), reason: "unreachable", fingerprint: undefined },
+    { error: nativeError("PAIRING_REFUSED", "refused"), reason: "pairingRefused", fingerprint: undefined },
+    { error: nativeError("PAIRING_NOT_FINISHED", "late"), reason: "pairingNotFinished", fingerprint: undefined },
     { error: new RequestTimeoutError("hello"), reason: "noReply", fingerprint: undefined },
     { error: new Error("something else"), reason: "other", fingerprint: undefined },
   ])("maps $reason", ({ error, reason, fingerprint }) => {
@@ -77,5 +79,33 @@ describe("describeConnectError", () => {
     const error = new ConnectError(reason, "reset by peer");
 
     expect(describeConnectError(error, machine)).toBe(expected);
+  });
+
+  it("tells a machine paired by code to pair again when the phone key fails", () => {
+    const error = new ConnectError("loginFailed", "Login failed");
+
+    expect(describeConnectError(error, { ...machine, signIn: "phoneKey" })).toBe(
+      "The machine no longer accepts this phone's key. Remove the machine and pair it again.",
+    );
+  });
+});
+
+describe("describePairingError", () => {
+  const refused = "test-box.example.com refused the pairing code. A code works once, for 5 minutes. Run the command again.";
+
+  it.each([
+    {
+      reason: "hostKeyChanged",
+      expected: "The host key of test-box.example.com does not match the pairing code. Herdhand will not connect.",
+    },
+    { reason: "loginFailed", expected: refused },
+    { reason: "pairingRefused", expected: refused },
+    { reason: "pairingNotFinished", expected: "Pairing did not finish. Run the command again." },
+    { reason: "unreachable", expected: "Cannot reach test-box.example.com. Check the address, then try again." },
+    { reason: "other", expected: "reset by peer" },
+  ] as const)("describes $reason", ({ reason, expected }) => {
+    const error = new ConnectError(reason, "reset by peer");
+
+    expect(describePairingError(error, machine)).toBe(expected);
   });
 });

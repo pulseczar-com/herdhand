@@ -20,7 +20,7 @@ Privacy policy link: `https://github.com/pulseczar-com/herdhand/blob/main/PRIVAC
 | Can users ask to delete their data? | Not applicable. The developer holds no data. Removing a machine or uninstalling deletes the data on the phone. |
 | Does the app use analytics, ads or third-party SDKs that collect data? | No |
 
-Basis for "No": the developer never receives any data. The user name, password and typed input go only to the machine the user adds, over encrypted SSH, and the user starts each connection. Everything else stays on the phone. Check in the Console that Google's wording for data that is not collected covers this case.
+Basis for "No": the developer never receives any data. The user name, password or phone key signature, the phone's public key when pairing, and typed input go only to the machine the user adds, over encrypted SSH, and the user starts each connection. Everything else stays on the phone. Check in the Console that Google's wording for data that is not collected covers this case.
 
 ## Foreground service declaration
 
@@ -37,5 +37,5 @@ Text for the declaration form:
 
 ## Other declarations
 
-- Permissions: `POST_NOTIFICATIONS` for the foreground service notification, `FOREGROUND_SERVICE` and `FOREGROUND_SERVICE_SPECIAL_USE` for the service above.
+- Permissions: `POST_NOTIFICATIONS` for the foreground service notification, `FOREGROUND_SERVICE` and `FOREGROUND_SERVICE_SPECIAL_USE` for the service above, and `CAMERA` to scan a pairing code.
 - Target audience: adults. The app has no ads and no user-generated content.

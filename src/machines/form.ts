@@ -5,10 +5,11 @@ export type MachineFormValues = {
   host: string;
   port: string;
   user: string;
-  password: string;
+  /** Null for a machine paired by code, which logs in with the phone key. */
+  password: string | null;
 };
 
-export type ParsedMachine = { machine: NewMachine; password: string };
+export type ParsedMachine = { machine: NewMachine; password: string | null };
 
 type ParsedMachineForm = ParsedMachine | { error: string };
 
@@ -22,13 +23,13 @@ export function parseMachineForm(values: MachineFormValues): ParsedMachineForm {
   const port = Number(values.port.trim());
   if (!host) return { error: "Enter the address." };
   if (!user) return { error: "Enter the user name." };
-  if (!values.password) return { error: "Enter the password." };
+  if (values.password === "") return { error: "Enter the password." };
   if (!isPort(port)) return { error: `Enter a port from ${MIN_PORT} to ${MAX_PORT}.` };
 
   const name = values.name.trim() || host;
   return { machine: { name, host, port, user }, password: values.password };
 }
 
-function isPort(value: number): boolean {
+export function isPort(value: number): boolean {
   return Number.isInteger(value) && value >= MIN_PORT && value <= MAX_PORT;
 }

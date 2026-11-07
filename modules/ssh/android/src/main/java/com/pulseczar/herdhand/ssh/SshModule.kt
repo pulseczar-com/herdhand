@@ -28,11 +28,12 @@ import net.schmizz.keepalive.KeepAliveProvider
 import net.schmizz.keepalive.KeepAliveRunner
 import net.schmizz.sshj.DefaultConfig
 import net.schmizz.sshj.SSHClient
+import net.schmizz.sshj.common.SecurityUtils
 import net.schmizz.sshj.connection.channel.direct.Session
 import net.schmizz.sshj.userauth.UserAuthException
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 
-private const val TIMEOUT_MS = 15_000
+internal const val TIMEOUT_MS = 15_000
 private const val KEEPALIVE_SECONDS = 15
 // sshj drops the link after this many keepalives in a row get no reply: about 5 minutes, so a
 // short time in the background or a brief network gap does not end it. sshj's default is 5.
@@ -45,7 +46,8 @@ class ConnectOptions : Record {
   @Field val host: String = ""
   @Field val port: Int = 22
   @Field val user: String = ""
-  @Field val password: String = ""
+  /** Null signs in with the phone key. */
+  @Field val password: String? = null
   @Field val trustedFingerprint: String? = null
   @Field val label: String = ""
 }
@@ -73,6 +75,9 @@ class SshModule : Module() {
   // other modules (secure storage, the app lock) and never race each other.
   private val sshThread = Executors.newSingleThreadExecutor()
   private val sshQueue = CoroutineScope(sshThread.asCoroutineDispatcher() + SupervisorJob())
+  // Pairing waits for the machine for several seconds; on its own queue it does not hold up the
+  // open connection's commands.
+  private val pairQueue = CoroutineScope(Executors.newSingleThreadExecutor().asCoroutineDispatcher() + SupervisorJob())
 
   override fun definition() = ModuleDefinition {
     Name("Ssh")
@@ -91,6 +96,10 @@ class SshModule : Module() {
     AsyncFunction("write") { text: String -> write(text) }.runOnQueue(sshQueue)
 
     AsyncFunction("close") { close() }.runOnQueue(sshQueue)
+
+    AsyncFunction("getPhoneKey") { PhoneKey.describe() }.runOnQueue(pairQueue)
+
+    AsyncFunction("pair") { options: PairOptions -> pair(options) }.runOnQueue(pairQueue)
 
     OnDestroy {
       listeningContext?.unregisterReceiver(disconnectReceiver)
@@ -132,7 +141,7 @@ class SshModule : Module() {
 
   private fun connect(options: ConnectOptions) {
     close()
-    val verifier = TrustOnFirstUseVerifier(options.trustedFingerprint)
+    val verifier = TrustOnFirstUseVerifier(listOfNotNull(options.trustedFingerprint))
     val ssh = SSHClient(strongConfig())
     ssh.addHostKeyVerifier(verifier)
     ssh.connectTimeout = TIMEOUT_MS
@@ -141,13 +150,22 @@ class SshModule : Module() {
     (ssh.connection.keepAlive as KeepAliveRunner).maxAliveCount = KEEPALIVE_MAX_MISSED
     try {
       ssh.connect(options.host, options.port)
-      ssh.authPassword(options.user, options.password)
+      signIn(ssh, options)
     } catch (error: Exception) {
       closeQuietly(ssh)
       throw verifier.rejection() ?: toCodedException(error)
     }
     client = ssh
     startHold(options.label)
+  }
+
+  private fun signIn(ssh: SSHClient, options: ConnectOptions) {
+    val password = options.password
+    if (password == null) {
+      ssh.authPublickey(options.user, PhoneKey.provider())
+    } else {
+      ssh.authPassword(options.user, password)
+    }
   }
 
   /**
@@ -238,26 +256,30 @@ class SshModule : Module() {
     } catch (_: IOException) {
     }
   }
+}
 
-  private fun closeQuietly(ssh: SSHClient) {
-    try {
-      ssh.disconnect()
-    } catch (_: IOException) {
-    }
+internal fun closeQuietly(ssh: SSHClient) {
+  try {
+    ssh.disconnect()
+  } catch (_: IOException) {
   }
 }
 
 /**
- * Android ships a cut-down provider named "BC". sshj looks providers up by that name, so it
- * would get Android's copy and miss algorithms such as X25519. Put the full one in its place.
+ * Android ships a cut-down provider named "BC" that misses algorithms such as X25519, so the
+ * full one takes its place, first in the list. sshj then asks for no provider by name: the
+ * first that can do the job answers, which is BouncyCastle for everything but a Keystore key.
+ * Only the Keystore's own provider can sign with the phone key.
  */
 private fun useFullBouncyCastle() {
   Security.removeProvider(BouncyCastleProvider.PROVIDER_NAME)
   Security.insertProviderAt(BouncyCastleProvider(), 1)
+  SecurityUtils.setSecurityProvider(null)
+  SecurityUtils.setRegisterBouncyCastle(false)
 }
 
 /** sshj's defaults without SHA-1, MD5 or CBC algorithms. */
-private fun strongConfig(): DefaultConfig {
+internal fun strongConfig(): DefaultConfig {
   val config = DefaultConfig()
   // Sends keepalive requests and drops the connection after missed replies; the default only
   // sends ignore packets and never notices a dead link.
@@ -277,7 +299,7 @@ private fun isWeak(name: String): Boolean =
     name.startsWith("ssh-rsa") ||
     name.startsWith("ssh-dss")
 
-private fun toCodedException(error: Exception): CodedException = when (error) {
+internal fun toCodedException(error: Exception): CodedException = when (error) {
   is UserAuthException -> AuthFailedException(error)
   is UnknownHostException, is ConnectException, is NoRouteToHostException, is SocketTimeoutException ->
     UnreachableException(error)

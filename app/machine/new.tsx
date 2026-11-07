@@ -5,8 +5,12 @@ import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, TextInpu
 import { getErrorMessage } from "@/errorMessage";
 import { type MachineFormValues, type ParsedMachine, parseMachineForm } from "@/machines/form";
 import { MachineConnectionContext, useMachines } from "@/machines/MachineConnection";
-import { addMachine, getMachine, getPassword, updateMachine } from "@/machines/store";
+import { addMachine, addPairedMachine, getMachine, getSignInPassword, type NewMachine, updateMachine } from "@/machines/store";
 import { getAccentInk } from "@/navigationTheme";
+import { type PairingCode } from "@/pairing/code";
+import { PairingScanner } from "@/pairing/PairingScanner";
+import { ConnectError, describePairingError } from "@/ssh/errors";
+import { pairMachine } from "@/ssh/pairing";
 
 const DEFAULT_SSH_PORT = "22";
 const EMPTY_FORM: MachineFormValues = { name: "", host: "", port: DEFAULT_SSH_PORT, user: "", password: "" };
@@ -24,8 +28,9 @@ type FieldProps = {
 
 /**
  * The "Add a machine" form. Saves the machine, then goes back to the page with it open, to
- * connect. With an `id` param it edits that machine instead: the form starts with its details,
- * Save updates it in place, and the open machine reconnects with them.
+ * connect. A scanned pairing code fills the form and replaces the password with the phone key.
+ * With an `id` param it edits that machine instead: the form starts with its details, Save
+ * updates it in place, and the open machine reconnects with them.
  */
 export default function NewMachineScreen() {
   const { id: editId } = useLocalSearchParams<{ id?: string }>();
@@ -33,8 +38,18 @@ export default function NewMachineScreen() {
   const theme = useTheme();
   const { colors } = theme;
   const accentInk = getAccentInk(theme);
-  const { values, setField } = useFormValues(editId);
-  const { save, error } = useSaveMachine(editId);
+  const { values, setValues, setField } = useFormValues(editId);
+  const [code, setCode] = useState<PairingCode | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const { save, error, clearError, isPairing } = useSaveMachine(editId, code);
+
+  function fillFromCode(scanned: PairingCode) {
+    setCode(scanned);
+    clearError();
+    setValues({ name: scanned.name, host: scanned.host, port: String(scanned.port), user: scanned.user, password: null });
+  }
+
+  const actionLabel = getActionLabel(isEditing, code !== null, isPairing);
 
   return (
     <KeyboardAvoidingView style={styles.screen} behavior="height">
@@ -43,6 +58,18 @@ export default function NewMachineScreen() {
         <Text style={[styles.intro, { color: colors.text }]}>
           Connect to any machine that runs Herdr: a server, a VPS or a Mac you can reach over SSH.
         </Text>
+        {isEditing ? null : (
+          <View style={styles.pairing}>
+            <Text style={[styles.hint, { color: colors.text }]}>
+              {code
+                ? "From the pairing code. Herdhand logs in with this phone's key. Check the address, then pair."
+                : "Log in with this phone's key instead of a password: run a command on the machine and scan the code it shows."}
+            </Text>
+            <Pressable accessibilityRole="button" onPress={() => setIsScanning(true)}>
+              <Text style={[styles.link, { color: colors.primary }]}>{code ? "Scan another code" : "Scan pairing code"}</Text>
+            </Pressable>
+          </View>
+        )}
         <MachineFields values={values} setField={setField} />
         {error ? <Text style={[styles.error, { color: colors.notification }]}>{error}</Text> : null}
         <Pressable
@@ -50,11 +77,19 @@ export default function NewMachineScreen() {
           accessibilityRole="button"
           onPress={() => void save(values)}
         >
-          <Text style={[styles.connectLabel, { color: accentInk }]}>{isEditing ? "Save" : "Connect"}</Text>
+          <Text style={[styles.connectLabel, { color: accentInk }]}>{actionLabel}</Text>
         </Pressable>
       </ScrollView>
+      <PairingScanner visible={isScanning} onScanned={fillFromCode} onClose={() => setIsScanning(false)} />
     </KeyboardAvoidingView>
   );
+}
+
+function getActionLabel(isEditing: boolean, hasCode: boolean, isPairing: boolean): string {
+  if (isEditing) return "Save";
+  if (!hasCode) return "Connect";
+  if (isPairing) return "Pairing…";
+  return "Pair and connect";
 }
 
 /** The form's values: empty for a new machine, or the edited machine's details once they load. */
@@ -63,25 +98,28 @@ function useFormValues(editId: string | undefined) {
 
   useEffect(() => {
     if (editId === undefined) return;
-    void Promise.all([getMachine(editId), getPassword(editId)]).then(([machine, password]) => {
+    void getMachine(editId).then(async (machine) => {
       if (!machine) return;
-      setValues({ name: machine.name, host: machine.host, port: String(machine.port), user: machine.user, password: password ?? "" });
+      const password = await getSignInPassword(machine);
+      setValues({ name: machine.name, host: machine.host, port: String(machine.port), user: machine.user, password });
     });
   }, [editId]);
 
   const setField: SetField = (field) => (text) => setValues((current) => ({ ...current, [field]: text }));
 
-  return { values, setField };
+  return { values, setValues, setField };
 }
 
 /**
  * Checks and saves the form, then goes back. A new machine is added and opened; an edited one is
- * updated, and reconnects when it is the open machine. A second tap while saving does nothing.
+ * updated, and reconnects when it is the open machine. With a pairing code, the machine is saved
+ * only once the phone key logs in. A second tap while saving does nothing.
  */
-function useSaveMachine(editId: string | undefined) {
+function useSaveMachine(editId: string | undefined, code: PairingCode | null) {
   const connection = useContext(MachineConnectionContext);
   const { reload, openMachine } = useMachines();
   const [error, setError] = useState<string | null>(null);
+  const [isPairing, setIsPairing] = useState(false);
   const isSaving = useRef(false);
 
   async function save(values: MachineFormValues) {
@@ -93,7 +131,13 @@ function useSaveMachine(editId: string | undefined) {
     if (isSaving.current) return;
     isSaving.current = true;
     try {
-      if (editId === undefined) await saveNew(parsed);
+      if (code) {
+        const pairingFailure = await savePaired(code, parsed.machine);
+        if (pairingFailure) {
+          setError(pairingFailure);
+          return;
+        }
+      } else if (editId === undefined) await saveNew(parsed);
       else await saveEdit(editId, parsed);
       router.back();
     } catch (failure) {
@@ -104,7 +148,8 @@ function useSaveMachine(editId: string | undefined) {
   }
 
   async function saveNew(parsed: ParsedMachine) {
-    const machine = await addMachine(parsed.machine, parsed.password);
+    // Only a pairing code removes the password field, and a code saves through savePaired.
+    const machine = await addMachine(parsed.machine, parsed.password ?? "");
     await reload();
     openMachine(machine.id);
   }
@@ -115,7 +160,24 @@ function useSaveMachine(editId: string | undefined) {
     if (connection?.id === id) void connection.reconnect();
   }
 
-  return { save, error };
+  /** Pairs, then saves and opens the machine. Resolves with why pairing failed, or null. */
+  async function savePaired(pairingCode: PairingCode, machine: NewMachine): Promise<string | null> {
+    setIsPairing(true);
+    try {
+      const fingerprint = await pairMachine(pairingCode, machine);
+      const saved = await addPairedMachine(machine, fingerprint);
+      await reload();
+      openMachine(saved.id);
+      return null;
+    } catch (failure) {
+      if (failure instanceof ConnectError) return describePairingError(failure, machine);
+      throw failure;
+    } finally {
+      setIsPairing(false);
+    }
+  }
+
+  return { save, error, clearError: () => setError(null), isPairing };
 }
 
 function MachineFields({ values, setField }: { values: MachineFormValues; setField: SetField }) {
@@ -125,13 +187,15 @@ function MachineFields({ values, setField }: { values: MachineFormValues; setFie
       <Field label="Address" value={values.host} onChangeText={setField("host")} />
       <Field label="Port" value={values.port} onChangeText={setField("port")} numeric />
       <Field label="User" value={values.user} onChangeText={setField("user")} />
-      <Field
-        label="Password"
-        value={values.password}
-        onChangeText={setField("password")}
-        secure
-        hint="Saved on this phone only. The first time you connect, the app shows the machine's fingerprint for you to check."
-      />
+      {values.password === null ? null : (
+        <Field
+          label="Password"
+          value={values.password}
+          onChangeText={setField("password")}
+          secure
+          hint="Saved on this phone only. The first time you connect, the app shows the machine's fingerprint for you to check."
+        />
+      )}
     </>
   );
 }
@@ -165,6 +229,8 @@ const styles = StyleSheet.create({
   label: { fontSize: 13, fontWeight: "500" },
   input: { height: 46, borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, fontSize: 15 },
   hint: { fontSize: 13, opacity: 0.7 },
+  pairing: { gap: 4 },
+  link: { fontSize: 16, paddingVertical: 4 },
   error: { fontSize: 14 },
   connect: { height: 50, borderRadius: 12, alignItems: "center", justifyContent: "center", marginTop: 8 },
   connectLabel: { fontSize: 16, fontWeight: "600" },

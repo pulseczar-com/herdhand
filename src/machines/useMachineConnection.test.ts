@@ -6,7 +6,7 @@ import { getNotificationPermissionAsked, saveNotificationPermissionAsked } from 
 import { type Bridge, closeOpenBridge, DISCONNECT_REQUESTED, getOpenBridge, openBridge } from "@/ssh/bridge";
 import { type ConnectAttempt, ConnectError } from "@/ssh/errors";
 
-import { getMachine, getPassword, getTrustedFingerprint, saveMachineKind } from "./store";
+import { getMachine, getSignInPassword, getTrustedFingerprint, saveMachineKind } from "./store";
 import { type ConnectionStatus, PROBE_TIMEOUT_MS, useMachineConnection } from "./useMachineConnection";
 
 jest.mock("@/ssh/bridge", () => ({
@@ -21,7 +21,7 @@ jest.mock("@/settings/store", () => ({
 }));
 jest.mock("./store", () => ({
   getMachine: jest.fn(),
-  getPassword: jest.fn(),
+  getSignInPassword: jest.fn(),
   getTrustedFingerprint: jest.fn(),
   saveMachineKind: jest.fn(),
   saveTrustedFingerprint: jest.fn(),
@@ -81,7 +81,7 @@ describe("useMachineConnection", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.mocked(getMachine).mockResolvedValue(machine);
-    jest.mocked(getPassword).mockResolvedValue("secret");
+    jest.mocked(getSignInPassword).mockResolvedValue("secret");
     jest.mocked(getTrustedFingerprint).mockResolvedValue("SHA256:abc");
     jest.mocked(saveMachineKind).mockResolvedValue(undefined);
     jest.mocked(getOpenBridge).mockReturnValue(null);
@@ -89,6 +89,15 @@ describe("useMachineConnection", () => {
     jest.mocked(getNotificationPermissionAsked).mockResolvedValue(false);
     jest.mocked(saveNotificationPermissionAsked).mockResolvedValue(undefined);
     jest.spyOn(PermissionsAndroid, "request").mockResolvedValue("granted");
+  });
+
+  it("logs in with the phone key when the machine has no password", async () => {
+    jest.mocked(getSignInPassword).mockResolvedValue(null);
+    mockBridges(makeBridge(makeBackend()));
+
+    renderConnection();
+
+    await waitFor(() => expect(openBridge).toHaveBeenCalledWith(expect.objectContaining({ password: null })));
   });
 
   it("lets the person switch kind after the first kind failed, and connects with the other", async () => {
@@ -158,9 +167,9 @@ describe("useMachineConnection", () => {
 
     it("does not log in to a machine that was removed mid-connect", async () => {
       let givePassword: (password: string) => void = () => {};
-      jest.mocked(getPassword).mockReturnValue(new Promise((resolve) => (givePassword = resolve)));
+      jest.mocked(getSignInPassword).mockReturnValue(new Promise((resolve) => (givePassword = resolve)));
       const { result, rerender } = renderSwitchable();
-      await waitFor(() => expect(getPassword).toHaveBeenCalled());
+      await waitFor(() => expect(getSignInPassword).toHaveBeenCalled());
 
       await act(() => result.current.disconnect());
       // The page opens no machine after a remove; its id is then empty.

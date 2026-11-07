@@ -19,22 +19,44 @@ Herdr is a terminal multiplexer: it keeps spaces, tabs and panes running on a ma
 - An Agents tab that lists every agent by state.
 - A pane's text, reformatted for the phone, with a composer for a line of input and a key row (Esc, ^C, Up, Down, Enter, 1 to 3).
 - A Claude Code pane on Herdr App opens as a chat: your prompts, the replies in Markdown, and each tool call as a row.
+- Log in with a password, or pair by scanning a code so the phone logs in with its own key.
 - An app lock with fingerprint, face or the screen lock. It is on by default.
 
 ## How it connects
 
-1. You add a machine with its address, SSH port, user name and password.
-2. On the first connection, the app shows the machine's SHA-256 host key fingerprint. Compare it with the machine's own (`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`), then tap **Trust and connect**. The app pins that key; a different key later blocks the connection.
-3. The app signs in with the password and runs Herdr's own bridge as a plain command: `hc connect` for Herdr App, or `herdr remote-api-bridge` for Herdr TUI. The bridge speaks JSON over the SSH channel.
+1. You add a machine with its address, SSH port, user name and password, or you [pair it with a code](#pair-with-a-code).
+2. On the first connection with a password, the app shows the machine's SHA-256 host key fingerprint. Compare it with the machine's own (`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`), then tap **Trust and connect**. A pairing code carries the host keys, so the app checks them for you. The app pins that key; a different key later blocks the connection.
+3. The app logs in with the password or the phone key and runs Herdr's own bridge as a plain command: `hc connect` for Herdr App, or `herdr remote-api-bridge` for Herdr TUI. The bridge speaks JSON over the SSH channel.
 
-Herdhand installs nothing on the machine. The password and the host key stay in Android's secure storage. Herdhand has no server and sends no data anywhere else; see the [privacy policy](PRIVACY.md).
+Herdhand installs nothing on the machine. Pairing leaves one line there: the phone's public key in `~/.ssh/authorized_keys`. The password and the host key stay in Android's secure storage, and the phone key stays in the Android Keystore. Herdhand has no server and sends no data anywhere else; see the [privacy policy](PRIVACY.md).
+
+### Pair with a code
+
+1. In Herdhand, tap **Add machine**, then **Scan pairing code**. The app shows a command.
+2. Run the command in a terminal on the machine, as the user Herdhand logs in as. It looks like this, with the tag of your Herdhand version:
+
+   ```sh
+   curl -fsSL https://raw.githubusercontent.com/pulseczar-com/herdhand/<tag>/scripts/pair.sh | sh
+   ```
+
+   The command works only for a released version of Herdhand, whose tag holds `scripts/pair.sh`. On a version with no such release, such as a development build, copy `scripts/pair.sh` from your clone to the machine and run `sh pair.sh` there.
+
+3. Scan the code it shows, check the address, and tap **Pair and connect**. The terminal prints `Paired:` and the name of the phone key.
+
+The machine must run OpenSSH (`sshd` and `ssh-keygen`); other SSH servers, such as Dropbear, cannot pair. The [script](scripts/pair.sh) needs `sh`, `awk` and `ssh-keygen`, and draws the code itself, so it runs on most Linux systems (BusyBox and Alpine too) and on macOS. It adds a one-time key that can only hand over the phone's public key, works once and expires after 5 minutes. When the phone's key arrives, the script adds it, removes the one-time key and stops. It also removes the one-time key on Ctrl-C or when time runs out. The code lets one phone log in, so show it only where you would type a password.
+
+The phone must still reach the machine over the network. If the address in the code does not work from the phone, change it before you pair.
+
+### Lost your phone?
+
+Remove its key from the machine. Each phone key ends with its name, such as `herdhand-Pixel-8-2026-11-07`; **Settings** in the app shows it. Delete the line that ends with that name from `~/.ssh/authorized_keys`.
 
 ## What you need
 
 On the machine:
 
 - Herdr App (`hc` on the `PATH` or in `~/.local/bin`), Herdr TUI (`herdr`), or both. With both, you pick one per machine.
-- An SSH server that allows password login.
+- An SSH server that allows password login, or key login to pair with a code.
 - A network path from the phone: the same LAN, the internet or a VPN.
 
 To build the app:
@@ -96,6 +118,7 @@ For a signed Google Play bundle, run `just build-release` and follow [`docs/play
 | `src/herdr/` | The Herdr App and Herdr TUI clients |
 | `src/chat/`, `src/claude/` | The chat view and how a Claude Code transcript becomes it |
 | `src/machines/` | The saved machines and the open connection |
+| `src/pairing/`, `scripts/pair.sh` | Pairing with a code: the scanner in the app and the script on the machine |
 
 ## Contributing
 

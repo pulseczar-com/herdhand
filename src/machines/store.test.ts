@@ -3,8 +3,10 @@ import * as SecureStore from "expo-secure-store";
 
 import {
   addMachine,
+  addPairedMachine,
   getMachine,
   getPassword,
+  getSignInPassword,
   getTrustedFingerprint,
   listMachines,
   moveMachine,
@@ -53,6 +55,24 @@ describe("machines store", () => {
 
     expect(await listMachines()).toEqual([]);
     expect(await getPassword(machine.id)).toBeNull();
+  });
+
+  it("adds a machine paired by code with its host key and no password", async () => {
+    const machine = await addPairedMachine(newMachine, "SHA256:paired");
+
+    expect(await getMachine(machine.id)).toEqual({ id: machine.id, ...newMachine, signIn: "phoneKey" });
+    expect(await getTrustedFingerprint(machine.id)).toBe("SHA256:paired");
+    expect(await getPassword(machine.id)).toBeNull();
+  });
+
+  it.each([
+    { signIn: undefined, expected: "secret" },
+    { signIn: "password", expected: "secret" },
+    { signIn: "phoneKey", expected: null },
+  ] as const)("logs a machine with sign-in $signIn in with password $expected", async ({ signIn, expected }) => {
+    const machine = await addMachine(newMachine, "secret");
+
+    expect(await getSignInPassword({ ...machine, signIn })).toBe(expected);
   });
 
   it("starts with an empty list", async () => {
@@ -132,6 +152,15 @@ describe("machines store", () => {
       expect(names).toEqual(["first", "renamed", "last"]);
       expect(await getMachine(machine.id)).toEqual({ id: machine.id, ...newMachine, name: "renamed", user: "other-user", kind: "tui" });
       expect(await getPassword(machine.id)).toBe("new-secret");
+    });
+
+    it("leaves a machine paired by code without a password", async () => {
+      const machine = await addPairedMachine(newMachine, "SHA256:paired");
+
+      await updateMachine(machine.id, { ...newMachine, name: "renamed" }, null);
+
+      expect(await getMachine(machine.id)).toEqual({ id: machine.id, ...newMachine, name: "renamed", signIn: "phoneKey" });
+      expect(await getPassword(machine.id)).toBeNull();
     });
 
     it.each([

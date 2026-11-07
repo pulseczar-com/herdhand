@@ -16,7 +16,8 @@ export const DISCONNECT_REQUESTED = "disconnect requested";
 
 type OpenBridgeOptions = {
   machine: Machine;
-  password: string;
+  /** Null logs in with the phone key. */
+  password: string | null;
   trustedFingerprint: string | null;
 };
 
