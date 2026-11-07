@@ -21,8 +21,6 @@ Herdr is a terminal multiplexer: it keeps spaces, tabs and panes running on a ma
 - A Claude Code pane on Herdr App opens as a chat: your prompts, the replies in Markdown, and each tool call as a row.
 - An app lock with fingerprint, face or the screen lock. It is on by default.
 
-Herdhand is early. Expect rough edges.
-
 ## How it connects
 
 1. You add a machine with its address, SSH port, user name and password.
