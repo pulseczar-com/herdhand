@@ -6,8 +6,6 @@ export type EventFeed = {
   subscribeLine: string;
   /** True for a line that tells the list may have changed. */
   isChange(message: object): boolean;
-  /** True when the kind sends a heartbeat, so silence means a dead link. */
-  watchesHeartbeat: boolean;
 };
 
 // The desktop app sends `event`, `missed` (with a fresh snapshot to follow) and a `heartbeat`
@@ -18,7 +16,6 @@ const desktop: EventFeed = {
     const { method } = message as { method?: unknown };
     return typeof method === "string" && method !== "heartbeat";
   },
-  watchesHeartbeat: true,
 };
 
 // Everything that changes a space, a tab or a pane, but not focus, output or scroll, which
@@ -52,7 +49,6 @@ const tui: EventFeed = {
     params: { subscriptions: TUI_SUBSCRIPTIONS.map((type) => ({ type })) },
   }),
   isChange: (message) => typeof (message as { event?: unknown }).event === "string",
-  watchesHeartbeat: false,
 };
 
 export const EVENT_FEEDS: Record<HerdrKind, EventFeed> = { desktop, tui };

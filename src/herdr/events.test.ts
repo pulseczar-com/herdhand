@@ -15,10 +15,6 @@ describe("the desktop event feed", () => {
   it("subscribes with one JSON-RPC request line", () => {
     expect(JSON.parse(subscribeLine)).toMatchObject({ jsonrpc: "2.0", method: "events.subscribe" });
   });
-
-  it("watches the heartbeat", () => {
-    expect(EVENT_FEEDS.desktop.watchesHeartbeat).toBe(true);
-  });
 });
 
 describe("the TUI event feed", () => {
@@ -39,9 +35,5 @@ describe("the TUI event feed", () => {
     expect(method).toBe("events.subscribe");
     expect(types).toEqual(expect.arrayContaining(["tab.created", "pane.closed", "pane.agent_status_changed"]));
     expect(types.filter((type) => /focused|output|scroll/.test(type))).toEqual([]);
-  });
-
-  it("does not watch the heartbeat", () => {
-    expect(EVENT_FEEDS.tui.watchesHeartbeat).toBe(false);
   });
 });

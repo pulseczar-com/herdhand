@@ -1,4 +1,4 @@
-import { CHANGE_WINDOW_MS, HEARTBEAT_TIMEOUT_MS, RESTART_DELAY_MS, startEvents } from "./events";
+import { CHANGE_WINDOW_MS, RESTART_DELAY_MS, startEvents } from "./events";
 
 type Listener = (event: never) => void;
 
@@ -55,7 +55,7 @@ afterEach(() => {
 
 describe("startEvents", () => {
   it("starts the kind's command on its own stream and sends the one subscribe line", async () => {
-    const events = startEvents("tui", jest.fn());
+    const events = startEvents("tui");
     await flush();
 
     expect(mockSsh.state.log).toEqual(["exec events tui", expect.stringMatching(/^write events \{"id":"events","method":"events\.sub/)]);
@@ -63,7 +63,7 @@ describe("startEvents", () => {
   });
 
   it("starts the desktop app's connect command for the desktop kind", async () => {
-    const events = startEvents("desktop", jest.fn());
+    const events = startEvents("desktop");
     await flush();
 
     expect(mockSsh.state.log[0]).toBe("exec events desktop");
@@ -72,7 +72,7 @@ describe("startEvents", () => {
   });
 
   it("tells one change for a burst of events, and another for the next burst", async () => {
-    const events = startEvents("desktop", jest.fn());
+    const events = startEvents("desktop");
     const onChange = jest.fn();
     events.onChange(onChange);
     await flush();
@@ -91,7 +91,7 @@ describe("startEvents", () => {
   });
 
   it("still tells a change while events keep coming", async () => {
-    const events = startEvents("desktop", jest.fn());
+    const events = startEvents("desktop");
     const onChange = jest.fn();
     events.onChange(onChange);
     await flush();
@@ -106,7 +106,7 @@ describe("startEvents", () => {
   });
 
   it("reads an event line that arrives in pieces", async () => {
-    const events = startEvents("tui", jest.fn());
+    const events = startEvents("tui");
     const onChange = jest.fn();
     events.onChange(onChange);
     await flush();
@@ -120,7 +120,7 @@ describe("startEvents", () => {
   });
 
   it("tells no change for a heartbeat, the subscribe reply or the bridge's own output", async () => {
-    const events = startEvents("desktop", jest.fn());
+    const events = startEvents("desktop");
     const onChange = jest.fn();
     events.onChange(onChange);
     await flush();
@@ -135,7 +135,7 @@ describe("startEvents", () => {
   });
 
   it("stops telling a listener that unsubscribed", async () => {
-    const events = startEvents("desktop", jest.fn());
+    const events = startEvents("desktop");
     const onChange = jest.fn();
     const unsubscribe = events.onChange(onChange);
     await flush();
@@ -148,46 +148,8 @@ describe("startEvents", () => {
     events.stop();
   });
 
-  it("on the desktop, calls the link dead when no heartbeat arrives in time", async () => {
-    const onDead = jest.fn();
-    const events = startEvents("desktop", onDead);
-    await flush();
-
-    await jest.advanceTimersByTimeAsync(HEARTBEAT_TIMEOUT_MS - 1);
-    expect(onDead).not.toHaveBeenCalled();
-    await jest.advanceTimersByTimeAsync(1);
-
-    expect(onDead).toHaveBeenCalledWith("no heartbeat");
-    events.stop();
-  });
-
-  it("on the desktop, keeps the link alive while heartbeats arrive", async () => {
-    const onDead = jest.fn();
-    const events = startEvents("desktop", onDead);
-    await flush();
-
-    for (let beat = 0; beat < 6; beat++) {
-      await jest.advanceTimersByTimeAsync(15_000);
-      send(heartbeat);
-    }
-
-    expect(onDead).not.toHaveBeenCalled();
-    events.stop();
-  });
-
-  it("on the TUI, which sends no heartbeat, never calls the link dead for silence", async () => {
-    const onDead = jest.fn();
-    const events = startEvents("tui", onDead);
-    await flush();
-
-    await jest.advanceTimersByTimeAsync(HEARTBEAT_TIMEOUT_MS * 3);
-
-    expect(onDead).not.toHaveBeenCalled();
-    events.stop();
-  });
-
   it("starts the stream again with the same id after it closes, and asks for a fresh list", async () => {
-    const events = startEvents("tui", jest.fn());
+    const events = startEvents("tui");
     const onChange = jest.fn();
     events.onChange(onChange);
     await flush();
@@ -207,7 +169,7 @@ describe("startEvents", () => {
   });
 
   it("gives up after three closes in a row with no line between them", async () => {
-    const events = startEvents("tui", jest.fn());
+    const events = startEvents("tui");
     await flush();
 
     for (let closes = 0; closes < 3; closes++) {
@@ -223,7 +185,7 @@ describe("startEvents", () => {
 
   it("counts a stream that cannot start as a close, and gives up on it too", async () => {
     mockSsh.state.failExec = true;
-    const events = startEvents("tui", jest.fn());
+    const events = startEvents("tui");
 
     await jest.advanceTimersByTimeAsync(RESTART_DELAY_MS * 10);
 
@@ -232,7 +194,7 @@ describe("startEvents", () => {
   });
 
   it("starts counting again once a line arrives", async () => {
-    const events = startEvents("tui", jest.fn());
+    const events = startEvents("tui");
     await flush();
 
     for (let closes = 0; closes < 5; closes++) {
@@ -246,7 +208,7 @@ describe("startEvents", () => {
   });
 
   it("starts nothing and tells nothing after stop, and leaves no listener behind", async () => {
-    const events = startEvents("desktop", jest.fn());
+    const events = startEvents("desktop");
     const onChange = jest.fn();
     events.onChange(onChange);
     await flush();
@@ -254,7 +216,7 @@ describe("startEvents", () => {
     close("ended");
 
     events.stop();
-    await jest.advanceTimersByTimeAsync(HEARTBEAT_TIMEOUT_MS * 2);
+    await jest.advanceTimersByTimeAsync(CHANGE_WINDOW_MS * 40);
 
     expect(onChange).not.toHaveBeenCalled();
     expect(mockSsh.state.log.filter((entry) => entry.startsWith("exec"))).toHaveLength(1);

@@ -1,5 +1,5 @@
 import { closeOpenBridge, DISCONNECT_REQUESTED, getOpenBridge, openBridge } from "./bridge";
-import { CHANGE_WINDOW_MS, HEARTBEAT_TIMEOUT_MS } from "./events";
+import { CHANGE_WINDOW_MS } from "./events";
 import { ConnectError } from "./errors";
 
 type Listener = (event: never) => void;
@@ -345,26 +345,12 @@ describe("openBridge", () => {
       await bridge.close();
     });
 
-    it("ends the bridge as a drop when the desktop app's heartbeat stops, and closes the connection", async () => {
-      mockSsh.state.detectOutput = "hc\n";
-      const bridge = await openWithFakeTimers("a.example.com");
-      mockSsh.state.log = [];
-
-      await jest.advanceTimersByTimeAsync(HEARTBEAT_TIMEOUT_MS);
-
-      expect(bridge.endReason).toBe("no heartbeat");
-      expect(await bridge.closed).toBe("no heartbeat");
-      expect(mockSsh.state.log).toEqual(["close"]);
-      expect(getOpenBridge("a.example.com")).toBeNull();
-      expect(mockSsh.listenerCount()).toBe(0);
-    });
-
     it("leaves no events listener or timer behind when the bridge closes", async () => {
       mockSsh.state.detectOutput = "hc\n";
       const bridge = await openWithFakeTimers("a.example.com");
 
       await bridge.close();
-      await jest.advanceTimersByTimeAsync(HEARTBEAT_TIMEOUT_MS * 2);
+      await jest.advanceTimersByTimeAsync(CHANGE_WINDOW_MS * 40);
 
       expect(bridge.endReason).toBeNull();
       expect(mockSsh.listenerCount()).toBe(0);

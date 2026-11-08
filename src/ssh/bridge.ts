@@ -157,14 +157,13 @@ function chooseKind(available: HerdrKind[], saved: HerdrKind | undefined): Herdr
  * The open bridge clears `current` once it closes.
  */
 async function startKindBridge(machineId: string, { kind, availableKinds }: ConnectAttempt): Promise<Bridge> {
-  const { client, stop, end, ended, getEndReason } = await startBridge(kind);
+  const { client, stop, ended, getEndReason } = await startBridge(kind);
   const baseBackend = KIND_PARTS[kind].makeBackend(client);
   const version = await baseBackend.getVersion().catch(async (error: unknown) => {
     await stop();
     throw error;
   });
-  // The events stream runs beside the bridge. A dead one ends the bridge like a drop does.
-  const events = startEvents(kind, end);
+  const events = startEvents(kind);
   const backend = { ...baseBackend, onChange: events.onChange };
   let closing: Promise<void> | undefined;
   const bridge: Bridge = {
@@ -197,8 +196,6 @@ async function startKindBridge(machineId: string, { kind, availableKinds }: Conn
 type StartedBridge = {
   client: HerdrClient;
   stop(): Promise<void>;
-  /** Ends the bridge with the reason, as if its command had ended. */
-  end(reason: string): void;
   ended: Promise<string>;
   getEndReason(): string | null;
 };
@@ -242,7 +239,7 @@ async function startBridge(kind: HerdrKind): Promise<StartedBridge> {
     detach();
     throw error;
   }
-  return { client, stop, end, ended, getEndReason: () => endReason };
+  return { client, stop, ended, getEndReason: () => endReason };
 }
 
 /** The failure, with the attempt when detection had run, so the person can try another kind. */
