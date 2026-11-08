@@ -37,8 +37,8 @@ const CONTENT_PADDING = 16;
 
 /**
  * One pane, with the key row and composer to type into it. A Claude pane whose transcript the app
- * can find opens on its chat; any other pane, and a Claude pane with no chat, opens on its screen
- * with a line that says why. The screen is the pane's text, reformatted for the phone and kept fresh.
+ * can find opens on its chat; any other pane opens on its screen, with a line that says why when
+ * an agent has no chat. The screen is the pane's text, reformatted for the phone and kept fresh.
  */
 export default function PaneRoute() {
   const { id } = useLocalSearchParams<{ id: string }>();
