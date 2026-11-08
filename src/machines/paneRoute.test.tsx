@@ -676,6 +676,75 @@ describe("Claude chat", () => {
 
 // Expo's keyboard guide: Android apps are edge-to-edge, so the window does not resize for the
 // keyboard; "padding" usually works best, and under a header the offset is the header's height.
+describe("Shell chat", () => {
+  const shellPane = { id: "t6", title: "zsh", agent: null, state: null, isFinished: false, columns: null };
+  const spaces = [{ id: "s1", name: "api", tabs: [{ id: "t1", name: "main", panes: [shellPane] }] }];
+
+  /** A shell whose pane has `state.text` and whose foreground is `state.isShellForeground`, until a test changes them. */
+  function connectToShell(isShellForeground: boolean | undefined, pane = shellPane) {
+    const state = { text: "demo@test-box:~$ ", isShellForeground };
+    const shellBackend: Backend = {
+      ...backend,
+      listSpaces: jest.fn().mockResolvedValue([{ ...spaces[0], tabs: [{ ...spaces[0].tabs[0], panes: [pane] }] }]),
+      readPane: jest.fn(async () => state.text),
+      getPane: jest.fn(async () => ({ ...pane, isShellForeground: state.isShellForeground })),
+    };
+    mockConnection = {
+      ...connected,
+      status: { phase: "connected", kind: "desktop", availableKinds: ["desktop"], version: "0.1.18", backend: shellBackend, host: noFiles },
+    };
+    return state;
+  }
+
+  afterEach(() => {
+    mockConnection = connected;
+  });
+
+  it("shows a command sent from the phone as a bubble with its output under it", async () => {
+    const state = connectToShell(true);
+    renderMachine("/machine/m1/pane/t6");
+    await screen.findByTestId("shell-chat");
+
+    fireEvent.changeText(screen.getByPlaceholderText("Run a command"), "ls");
+    fireEvent.press(screen.getByRole("button", { name: "Send" }));
+    state.text = "demo@test-box:~$ ls\nREADME.md\ndemo@test-box:~$ ";
+
+    expect(await screen.findByText("README.md", {}, { timeout: 4_000 })).toBeTruthy();
+    expect(screen.getByText("ls")).toBeTruthy();
+    expect(screen.queryByTestId("screen-card")).toBeNull();
+  });
+
+  it("shows the live screen while a full-screen program holds the foreground", async () => {
+    const state = connectToShell(true);
+    renderMachine("/machine/m1/pane/t6");
+    await screen.findByTestId("shell-chat");
+
+    fireEvent.changeText(screen.getByPlaceholderText("Run a command"), "vim notes.txt");
+    fireEvent.press(screen.getByRole("button", { name: "Send" }));
+    state.text = "~\n-- INSERT --";
+    state.isShellForeground = false;
+
+    expect(await screen.findByTestId("screen-card", {}, { timeout: 4_000 })).toBeTruthy();
+    expect(screen.getByText("Running…")).toBeTruthy();
+  });
+
+  it("shows the screen, with no blocks, when Herdr cannot say what holds the foreground", async () => {
+    connectToShell(undefined);
+    renderMachine("/machine/m1/pane/t6");
+
+    expect(await screen.findByTestId("pane-text")).toBeTruthy();
+    expect(screen.queryByTestId("shell-chat")).toBeNull();
+  });
+
+  it("keeps the screen for a pane that has exited", async () => {
+    connectToShell(true, { ...shellPane, isFinished: true });
+    renderMachine("/machine/m1/pane/t6");
+
+    expect(await screen.findByTestId("pane-text")).toBeTruthy();
+    expect(screen.queryByTestId("shell-chat")).toBeNull();
+  });
+});
+
 describe("pane screen keyboard", () => {
   it("pads the view by the keyboard, below the header", async () => {
     renderMachine("/machine/m1/pane/t6");

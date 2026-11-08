@@ -18,6 +18,7 @@ import { NeedsYouBanner } from "@/components/NeedsYouBanner";
 import { getColumnCount, PaneBlocks } from "@/components/PaneBlocks";
 import { PaneComposer } from "@/components/PaneComposer";
 import { ScreenCard } from "@/components/ScreenCard";
+import { ShellChat } from "@/components/ShellChat";
 import { SpaceBadge } from "@/components/SpaceBadge";
 import { StatePill } from "@/components/StatePill";
 import { useKeepAtEnd } from "@/components/useKeepAtEnd";
@@ -31,6 +32,8 @@ import { type MachineConnection, MachineConnectionContext, useMachines } from "@
 import { canReadChat, type ChatBackend, useAgentChat } from "@/machines/useAgentChat";
 import type { ConnectionStatus } from "@/machines/useMachineConnection";
 import { usePaneText } from "@/machines/usePaneText";
+import { useShellBlocks } from "@/machines/useShellBlocks";
+import type { Segment } from "@/pane/ansi";
 import { type Block, reformatPane } from "@/pane/reformat";
 import type { HostReader } from "@/ssh/hostReader";
 
@@ -38,8 +41,9 @@ const CONTENT_PADDING = 16;
 
 /**
  * One pane, with the key row and composer to type into it. An agent pane whose transcript the app
- * can find opens on its chat; any other pane opens on its screen, with a line that says why when
- * an agent has no chat. The screen is the pane's text, reformatted for the phone and kept fresh.
+ * can find opens on its chat, and a shell pane on its command blocks. Any other pane opens on its
+ * screen, with a line that says why when an agent has no chat. The screen is the pane's text,
+ * reformatted for the phone and kept fresh.
  */
 export default function PaneRoute() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -80,11 +84,15 @@ function PaneScreen({ connection }: { connection: MachineConnection }) {
   const isClaude = located !== undefined && isClaudeAgent(located.pane);
   // Input goes to the agent when Herdr names one on the pane, else to the shell.
   const composerPlaceholder = shownPane?.agent ? "Message the agent" : "Run a command";
+  const shellBackend = getShellBackend(status, located);
 
   return (
     <KeyboardAvoidingView style={styles.screen} behavior="padding" keyboardVerticalOffset={headerHeight}>
       <Stack.Screen options={getHeaderOptions(located, title ?? "", shownPane)} />
-      {status.phase === "connected" ? (
+      {shellBackend ? (
+        <ShellPane backend={shellBackend} paneId={paneId} paneColumns={paneColumns} onPaneChange={setFreshPane} />
+      ) : null}
+      {status.phase === "connected" && !shellBackend ? (
         <>
           {chatBackend ? (
             <AgentChat
@@ -108,9 +116,8 @@ function PaneScreen({ connection }: { connection: MachineConnection }) {
           <NeedsYouBanner pane={freshPane} />
           <PaneComposer backend={status.backend} paneId={paneId} placeholder={composerPlaceholder} />
         </>
-      ) : (
-        <NotConnected phase={status.phase} />
-      )}
+      ) : null}
+      {status.phase !== "connected" ? <NotConnected phase={status.phase} /> : null}
     </KeyboardAvoidingView>
   );
 }
@@ -118,6 +125,15 @@ function PaneScreen({ connection }: { connection: MachineConnection }) {
 /** The backend, when the pane is an agent pane whose transcript the app can find and the backend can read the pane. */
 function getChatBackend(status: ConnectionStatus, located: LocatedPane | undefined): ChatBackend | null {
   if (status.phase !== "connected" || !located || !getAdapter(located.pane)) return null;
+  return canReadChat(status.backend) ? status.backend : null;
+}
+
+/**
+ * The backend, when the pane is a shell that is still open and the backend can say what holds its
+ * foreground. A pane that has exited keeps its screen.
+ */
+function getShellBackend(status: ConnectionStatus, located: LocatedPane | undefined): ChatBackend | null {
+  if (status.phase !== "connected" || !located || located.pane.agent || located.pane.isFinished) return null;
   return canReadChat(status.backend) ? status.backend : null;
 }
 
@@ -189,6 +205,34 @@ function AgentChat({ backend, host, paneId, paneColumns, isClaude, onPaneChange 
   );
 }
 
+type ShellPaneProps = {
+  backend: Backend;
+  paneId: string;
+  paneColumns: number | null;
+  onPaneChange: (pane: Pane | null) => void;
+};
+
+/**
+ * A shell pane as command blocks, with the composer whose lines start them. Where Herdr cannot say
+ * what holds the foreground, the blocks could never close, so the pane shows its screen instead.
+ */
+function ShellPane({ backend, paneId, paneColumns, onPaneChange }: ShellPaneProps) {
+  const { blocks, opening, isRunning, text, dimLines, pane, error, onSent } = useShellBlocks(backend, paneId);
+  useEffect(() => onPaneChange(pane), [pane, onPaneChange]);
+  const hasBlocks = pane === null || pane.isShellForeground !== undefined;
+
+  return (
+    <>
+      {hasBlocks ? (
+        <ShellChat blocks={blocks} opening={opening} isRunning={isRunning} text={text} error={error} />
+      ) : (
+        <ScreenText text={text} dimLines={dimLines} error={error} paneColumns={paneColumns} isClaude={false} />
+      )}
+      <PaneComposer backend={backend} paneId={paneId} placeholder="Run a command" onSent={onSent} />
+    </>
+  );
+}
+
 const NO_CHAT_FILE_NOTE = "No chat found for this agent yet: showing the screen.";
 
 /** The line over a screen shown in place of a chat: it says which pane has none. */
@@ -212,9 +256,23 @@ type PaneTextProps = {
  * pane goes up to the header and the banner.
  */
 function PaneText({ backend, paneId, paneColumns, isClaude, note, onPaneChange }: PaneTextProps) {
-  const { colors } = useTheme();
   const { text, dimLines, pane, error } = usePaneText(backend, paneId);
   useEffect(() => onPaneChange?.(pane), [pane, onPaneChange]);
+  return <ScreenText text={text} dimLines={dimLines} error={error} paneColumns={paneColumns} isClaude={isClaude} note={note} />;
+}
+
+type ScreenTextProps = {
+  text: string | null;
+  dimLines?: Map<string, Segment[]>;
+  error: string | null;
+  paneColumns: number | null;
+  isClaude: boolean;
+  note?: string;
+};
+
+/** The pane's text on the phone's screen, with the note and the error over it. */
+function ScreenText({ text, dimLines, error, paneColumns, isClaude, note }: ScreenTextProps) {
+  const { colors } = useTheme();
   const columnCount = useColumnCount();
   const { scrollRef, trackEnd, keepAtEnd } = useKeepAtEnd();
   const isLoading = text === null && !error;

@@ -40,6 +40,21 @@ describe("PaneComposer", () => {
     expect(backend.sendLine).toHaveBeenCalledWith("t6", "ls -la");
   });
 
+  it("tells the caller about a line once it is sent, and not when the send fails", async () => {
+    const sendLine = jest.fn().mockRejectedValueOnce(new Error("Connection closed")).mockResolvedValueOnce(undefined);
+    const onSent = jest.fn();
+    render(<PaneComposer backend={makeBackend(sendLine)} paneId="t6" placeholder="Run a command" onSent={onSent} />);
+
+    fireEvent.changeText(getInput(), "ls -la");
+    fireEvent.press(screen.getByRole("button", { name: "Send" }));
+    await screen.findByText("Could not send: Connection closed");
+    expect(onSent).not.toHaveBeenCalled();
+
+    fireEvent.press(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(() => expect(onSent).toHaveBeenCalledWith("ls -la"));
+  });
+
   it("keeps the text and shows the error when the send fails, until a send works", async () => {
     const sendLine = jest.fn().mockRejectedValueOnce(new Error("Connection closed")).mockResolvedValueOnce(undefined);
     render(<PaneComposer backend={makeBackend(sendLine)} paneId="t6" placeholder="Run a command" />);

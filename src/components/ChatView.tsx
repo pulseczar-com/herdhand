@@ -162,7 +162,7 @@ const ChatItemView = memo(function ChatItemView({ item }: { item: ChatItem }) {
   }
 });
 
-function PromptBubble({ text }: { text: string }) {
+export function PromptBubble({ text }: { text: string }) {
   const { colors } = useTheme();
   const tint = getPillBackground(useToneColor("active"));
 

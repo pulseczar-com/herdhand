@@ -70,6 +70,20 @@ describe("desktop backend: one pane and its files", () => {
     expect(pane).toMatchObject({ id: "t11", agent: "claude-code", state: "blocked", pid: 100, message: "approve Bash: npm test" });
   });
 
+  // `argv` is the shell the terminal started; `foreground` is what holds the terminal now.
+  it.each([
+    { name: "the shell is in the foreground", foreground: { name: "bash", argv: ["-bash"] }, expected: true },
+    { name: "another program is in the foreground", foreground: { name: "ssh", argv: ["ssh", "test-box.example.com"] }, expected: false },
+    { name: "Herdr gives no foreground", foreground: undefined, expected: undefined },
+  ])("tells whether a shell pane has the shell in the foreground: $name", async ({ foreground, expected }) => {
+    const terminal = { address: "t10", argv: ["/bin/bash"], foreground, title: "~" };
+    const { backend } = makeBackend(() => Promise.resolve(terminal));
+
+    const pane = await backend.getPane?.("t10");
+
+    expect(pane?.isShellForeground).toBe(expected);
+  });
+
   // The `kind` field of the terminal's status record, as hc 0.1.18's schema has it.
   it.each([
     { kind: "permission", expected: "permission" },

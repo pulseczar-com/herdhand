@@ -95,9 +95,25 @@ export function makeTuiBackend(client: HerdrClient): Backend {
     getPane: async (paneId) => {
       const located = findPane(snapshotToSpaces(await client.request("session.snapshot")), paneId);
       if (!located) throw new Error(`No pane ${paneId}`);
-      return located.pane;
+      const { pane } = located;
+      return pane.agent ? pane : { ...pane, isShellForeground: await getIsShellForeground(client, paneId) };
     },
   };
+}
+
+/**
+ * Whether the shell is in the pane's foreground process group, which a running command holds
+ * instead. Undefined when the call fails, as the pane's other facts still serve.
+ */
+async function getIsShellForeground(client: HerdrClient, paneId: string): Promise<boolean | undefined> {
+  try {
+    const reply = (await client.request("pane.process_info", { pane_id: paneId })) as { process_info?: ProcessInfo };
+    const { shell_pid: shellPid, foreground_processes: foreground } = reply.process_info ?? {};
+    if (shellPid === undefined || !foreground) return undefined;
+    return foreground.some((process) => process.pid === shellPid);
+  } catch {
+    return undefined;
+  }
 }
 
 /** The TUI's version, from `ping`. */
@@ -118,6 +134,7 @@ type TuiPane = {
   agent_status?: string;
   agent_session?: { kind?: string; value?: string };
 };
+type ProcessInfo = { shell_pid?: number | null; foreground_processes?: { pid?: number }[] };
 type TuiLayout = { panes?: { pane_id?: string; rect?: { width?: number } }[] };
 type Snapshot = {
   snapshot?: { workspaces?: TuiWorkspace[]; tabs?: TuiTab[]; panes?: TuiPane[]; layouts?: TuiLayout[] };

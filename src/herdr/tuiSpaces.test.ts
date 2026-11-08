@@ -112,6 +112,39 @@ describe("getPane (TUI)", () => {
     expect(pane).toMatchObject({ id: "w4:pH", agent: "claude", sessionId: "00000000-0000-0000-0000-000000000000" });
   });
 
+  // The reply of `pane.process_info`: the shell's process id and the processes of the foreground group.
+  function makeBackendWithForeground(pids: number[]) {
+    const sent: { method: string }[] = [];
+    const client = makeTuiClient((line) => {
+      const request = JSON.parse(line);
+      sent.push(request);
+      const processInfo = { pane_id: "w7:p1", shell_pid: 500, foreground_processes: pids.map((pid) => ({ pid, name: "x" })) };
+      client.receive({ id: request.id, result: request.method === "pane.process_info" ? { type: "pane_process_info", process_info: processInfo } : snapshot });
+    });
+    return { backend: makeTuiBackend(client), sent };
+  }
+
+  it.each([
+    { name: "the shell is in the foreground", pids: [500], expected: true },
+    { name: "another program is in the foreground", pids: [731, 732], expected: false },
+  ])("tells whether a shell pane has the shell in the foreground: $name", async ({ pids, expected }) => {
+    const { backend, sent } = makeBackendWithForeground(pids);
+
+    const pane = await backend.getPane?.("w7:p1");
+
+    expect(sent.map((request) => request.method)).toEqual(["session.snapshot", "pane.process_info"]);
+    expect(pane?.isShellForeground).toBe(expected);
+  });
+
+  it("does not ask for the foreground of an agent pane", async () => {
+    const { backend, sent } = makeBackendWithForeground([500]);
+
+    const pane = await backend.getPane?.("w4:pH");
+
+    expect(sent.map((request) => request.method)).toEqual(["session.snapshot"]);
+    expect(pane?.isShellForeground).toBeUndefined();
+  });
+
   it("fails for a pane the snapshot does not have", async () => {
     const { backend } = makeBackendAnswering(snapshot);
 
