@@ -32,7 +32,15 @@ function makeBackend(listSpaces: Backend["listSpaces"]): Backend {
 }
 
 /** The list as the machine screen shows it: loaded from the backend by `useSpaces`, with the phone's order. */
-function LoadedSpaceList({ backend, onOpenPane }: { backend: Backend; onOpenPane: (pane: Pane) => void }) {
+function LoadedSpaceList({
+  backend,
+  isReordering = false,
+  onOpenPane,
+}: {
+  backend: Backend;
+  isReordering?: boolean;
+  onOpenPane: (pane: Pane) => void;
+}) {
   const list = useSpaces(backend);
   const spaceOrder = useSpaceOrder(MACHINE_ID, "desktop", list.spaces);
   return (
@@ -42,6 +50,7 @@ function LoadedSpaceList({ backend, onOpenPane }: { backend: Backend; onOpenPane
       spaceOrder={spaceOrder}
       header={<Text>test-box</Text>}
       footer={<Text>home-server</Text>}
+      isReordering={isReordering}
       onOpenPane={onOpenPane}
     />
   );
@@ -49,6 +58,10 @@ function LoadedSpaceList({ backend, onOpenPane }: { backend: Backend; onOpenPane
 
 function renderSpaces(spaces: Space[], onOpenPane = jest.fn()) {
   render(<LoadedSpaceList backend={makeBackend(jest.fn().mockResolvedValue(spaces))} onOpenPane={onOpenPane} />);
+}
+
+function renderReordering(spaces: Space[]) {
+  render(<LoadedSpaceList backend={makeBackend(jest.fn().mockResolvedValue(spaces))} isReordering onOpenPane={jest.fn()} />);
 }
 
 function makePane(id: string, title: string, fields: Partial<Pane> = {}): Pane {
@@ -247,6 +260,37 @@ describe("SpaceList", () => {
       fireEvent.press(await screen.findByText("Answer"));
 
       expect(onOpenPane).toHaveBeenCalledWith(blocked);
+    });
+  });
+
+  describe("reorder mode", () => {
+    const tabs = Array.from({ length: 30 }, (_, index) => ({
+      id: `t${index}`,
+      name: `tab ${index}`,
+      panes: [makePane(`p${index}`, "zsh")],
+    }));
+    const tall: Space = { id: "s1", name: "api", tabs };
+
+    // On Android the drag's pan takes the touch from a list under a refresh control, so an
+    // expanded space taller than the screen could not scroll.
+    it("has no drag gesture or handle outside reorder mode, so a tall expanded space scrolls", async () => {
+      renderSpaces([tall]);
+      await screen.findByText("tab 29");
+      const list = screen.UNSAFE_getByType(ReorderableList);
+
+      expect(list.props.panEnabled).toBe(false);
+      expect(list.props.refreshControl).toBeTruthy();
+      expect(screen.queryByLabelText("Drag api")).toBeNull();
+    });
+
+    it("shows the handles and turns the drag on in reorder mode, without pull to refresh", async () => {
+      renderReordering([tall]);
+      await screen.findByText("tab 29");
+      const list = screen.UNSAFE_getByType(ReorderableList);
+
+      expect(screen.getByLabelText("Drag api")).toBeTruthy();
+      expect(list.props.panEnabled).toBe(true);
+      expect(list.props.refreshControl).toBeUndefined();
     });
   });
 
