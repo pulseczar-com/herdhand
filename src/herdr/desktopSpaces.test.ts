@@ -25,7 +25,7 @@ describe("toSpaces (desktop app)", () => {
 
   it("shows a plain shell with no agent, and a finished terminal in its place", () => {
     expect(spaces[1].tabs[0].panes).toEqual([
-      { id: "t10", agent: null, state: null, title: "test-user@test-box: ~", isFinished: false, columns: null },
+      { id: "t10", agent: null, state: null, title: "test-user@test-box: ~", isFinished: false, columns: null, isShellForeground: false },
       { id: "t14", agent: null, state: null, title: "make build", isFinished: true, columns: null },
     ]);
   });

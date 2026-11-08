@@ -102,7 +102,8 @@ type Terminal = {
   cols?: number;
   state?: string;
   title?: string;
-  foreground?: { pid?: number } | null;
+  argv?: string[];
+  foreground?: { pid?: number; name?: string } | null;
   status?: { app?: string; state?: string; kind?: string | null; msg?: string } | null;
 };
 type TerminalList = { terminals?: Terminal[] };
@@ -146,6 +147,15 @@ function getTerminalAddresses(node: LayoutNode | undefined): string[] {
   return [...own, ...(node.children ?? []).flatMap(getTerminalAddresses)];
 }
 
+/**
+ * Whether the shell the terminal started holds its foreground, by the program's name: the login
+ * shell's name has a leading dash. Undefined when Herdr gives no foreground.
+ */
+function isShellForeground({ argv, foreground }: Terminal): boolean | undefined {
+  if (!foreground?.name || !argv?.[0]) return undefined;
+  return foreground.name === argv[0].split("/").pop()?.replace(/^-/, "");
+}
+
 /** A finished terminal shows no agent, and a terminal with no status is a plain shell. */
 function toPane(terminal: Terminal): Pane {
   const { status } = terminal;
@@ -154,7 +164,7 @@ function toPane(terminal: Terminal): Pane {
   const columns = terminal.cols || null;
   const shell = { id, title, agent: null, state: null, columns };
   if (terminal.state === "finished") return { ...shell, isFinished: true };
-  if (!status) return { ...shell, isFinished: false };
+  if (!status) return { ...shell, isFinished: false, isShellForeground: isShellForeground(terminal) };
   return {
     id,
     title,

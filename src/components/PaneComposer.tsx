@@ -31,17 +31,23 @@ const KEY_LABELS: Record<PaneKey, KeyLabel> = {
 const FIRST_DIGIT = PANE_KEYS.indexOf("1");
 const KEY_ROWS = [PANE_KEYS.slice(0, FIRST_DIGIT), PANE_KEYS.slice(FIRST_DIGIT)];
 
-type PaneComposerProps = { backend: Backend; paneId: string; placeholder: string };
+type PaneComposerProps = {
+  backend: Backend;
+  paneId: string;
+  placeholder: string;
+  /** Gets each line once Herdr has taken it. */
+  onSent?: (line: string) => void;
+};
 
 /**
  * The key row and a one-line composer for a pane. The placeholder says where the line goes. A
  * line goes once: Send waits for it, and the text stays in the input when it fails.
  */
-export function PaneComposer({ backend, paneId, placeholder }: PaneComposerProps) {
+export function PaneComposer({ backend, paneId, placeholder, onSent }: PaneComposerProps) {
   const theme = useTheme();
   const { colors } = theme;
   const accentInk = getAccentInk(theme);
-  const { line, setLine, canSend, error, sendLine, pressKey } = usePaneInput(backend, paneId);
+  const { line, setLine, canSend, error, sendLine, pressKey } = usePaneInput(backend, paneId, onSent);
 
   return (
     <View style={[styles.composer, { borderColor: colors.border, backgroundColor: colors.card }]}>
@@ -81,7 +87,7 @@ export function PaneComposer({ backend, paneId, placeholder }: PaneComposerProps
 }
 
 /** The line being written, and sending it or a key to the pane. A failed send shows its error. */
-function usePaneInput(backend: Backend, paneId: string) {
+function usePaneInput(backend: Backend, paneId: string, onSent?: (line: string) => void) {
   const [line, setLine] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -93,6 +99,7 @@ function usePaneInput(backend: Backend, paneId: string) {
     setIsSending(true);
     try {
       await backend.sendLine(paneId, sent);
+      onSent?.(sent);
       // Text typed while the line was on its way stays.
       setLine((current) => (current === sent ? "" : current));
       setError(null);

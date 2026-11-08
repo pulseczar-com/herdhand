@@ -33,8 +33,9 @@ export type Tab = { id: string; name: string; panes: Pane[] };
  * An agent pane on the desktop app also has its process id, the agent's own message, such as
  * what it asks while blocked, and what a blocked agent waits for when it says. An agent pane on
  * the TUI has `sessionId`, the agent's own session id, or `sessionPath`, the path of its session
- * file, when the agent's Herdr integration is installed. The other fields stay unset where the
- * kind gives none.
+ * file, when the agent's Herdr integration is installed. A plain shell pane has
+ * `isShellForeground`: true when the shell itself is in the foreground, so no command runs.
+ * The other fields stay unset where the kind gives none.
  */
 export type Pane = {
   id: string;
@@ -46,6 +47,7 @@ export type Pane = {
   pid?: number;
   sessionId?: string;
   sessionPath?: string;
+  isShellForeground?: boolean;
   message?: string;
   blockedKind?: BlockedKind;
 };
