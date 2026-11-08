@@ -9,7 +9,8 @@ import { usePaneText } from "./usePaneText";
  * A shell pane as blocks: one for each line sent from the phone (`onSent`), closed when the shell
  * has the foreground again, and the pane as it was when the shell first held the foreground as
  * `opening`. Commands typed on the host get no block of their own: their text stays out of the
- * blocks, and `isRunning` is true while one runs. While a command runs, `text` is the pane's screen, for a full-screen program or a long run.
+ * blocks, and `isRunning` is true while one runs. While a command runs, `text` is the pane's
+ * screen, for a full-screen program or a long run.
  * `pane.isShellForeground` is undefined when Herdr cannot say what holds the foreground; the
  * blocks then never close, so the caller shows the screen instead.
  */

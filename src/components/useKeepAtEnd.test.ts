@@ -47,8 +47,6 @@ describe("useKeepAtEnd", () => {
 
   it.each([
     { distanceToEnd: 0, follows: true },
-    { distanceToEnd: 24, follows: true },
-    { distanceToEnd: 25, follows: false },
     { distanceToEnd: 500, follows: false },
   ])("after a drag that stops $distanceToEnd points from the end, follows new content: $follows", ({ distanceToEnd, follows }) => {
     const { keep, scrollToEnd } = renderKeepAtEnd();

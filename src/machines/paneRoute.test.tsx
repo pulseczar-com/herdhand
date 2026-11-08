@@ -724,7 +724,6 @@ describe("Shell chat", () => {
 
     expect(await within(screen.getByTestId("shell-chat")).findByText("~\n-- INSERT --", {}, { timeout: 4_000 })).toBeTruthy();
     expect(screen.getByText("Running…")).toBeTruthy();
-    expect(screen.queryByTestId("screen-card")).toBeNull();
   });
 
   it("shows the screen, with no blocks, when Herdr cannot say what holds the foreground", async () => {

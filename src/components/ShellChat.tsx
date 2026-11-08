@@ -29,6 +29,7 @@ export function ShellChat({ blocks, opening, isRunning, text, error }: ShellChat
   const { colors } = useTheme();
   const { scrollRef, stopFollowing, trackEnd, keepAtEnd } = useKeepAtEnd();
   const openingText = opening?.trimEnd() ?? "";
+  const liveScreen = isRunning && text !== null ? getLiveScreen(text, opening) : "";
 
   return (
     <>
@@ -49,11 +50,20 @@ export function ShellChat({ blocks, opening, isRunning, text, error }: ShellChat
           {blocks.map((block) => (
             <BlockView key={block.id} block={block} />
           ))}
-          {isRunning ? <Output text={getScreenTail(text)} /> : null}
+          {liveScreen ? <Output text={liveScreen} /> : null}
         </ScrollView>
       )}
     </>
   );
+}
+
+/**
+ * The end of the pane's screen while a command runs. A program that held the foreground on open
+ * gets the whole pane, as there is no opening text yet to scroll back to.
+ */
+function getLiveScreen(text: string, opening: string | null): string {
+  if (opening === null) return text.trimEnd();
+  return getScreenTail(text);
 }
 
 function BlockView({ block }: { block: ShellBlock }) {

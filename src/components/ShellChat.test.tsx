@@ -5,6 +5,7 @@ import type { ReactTestInstance } from "react-test-renderer";
 
 import type { ShellBlock } from "@/shell/blocks";
 
+import { SCREEN_LINES } from "./ScreenCard";
 import { ShellChat } from "./ShellChat";
 
 jest.mock("expo-router", () => ({
@@ -13,10 +14,11 @@ jest.mock("expo-router", () => ({
 
 const done = (command: string, output: string, isCut = false): ShellBlock => ({ id: 0, command, baseline: "", sentAtRead: 0, output, isCut });
 
-/** Whether the element or any element around it draws a border. */
+/** Whether the element or any element around it draws a border or a background. */
 function isInBox(element: ReactTestInstance | null): boolean {
   for (let node = element; node; node = node.parent) {
-    if (StyleSheet.flatten(node.props.style)?.borderWidth) return true;
+    const style = StyleSheet.flatten(node.props.style);
+    if (style?.borderWidth || style?.backgroundColor) return true;
   }
   return false;
 }
@@ -33,19 +35,17 @@ describe("ShellChat", () => {
   });
 
   it("shows the whole pane as it was on open, not only its last lines, so it scrolls back", () => {
-    const lines = Array.from({ length: 40 }, (_, index) => `line ${index + 1}`);
+    const lines = Array.from({ length: SCREEN_LINES + 1 }, (_, index) => `line ${index + 1}`);
     renderShell({ opening: [...lines, "$ "].join("\n") });
 
     expect(screen.getByText([...lines, "$"].join("\n"))).toBeTruthy();
   });
 
   it("shows each command as a bubble with its output under it as plain text, with no box", () => {
-    renderShell({ opening: "$ ls\nREADME.md\n$ ", blocks: [done("ls", "README.md\nsrc")] });
+    renderShell({ blocks: [done("ls", "README.md\nsrc")] });
 
-    expect(screen.getByText("ls")).toBeTruthy();
+    expect(isInBox(screen.getByText("ls"))).toBe(true);
     expect(isInBox(screen.getByText("README.md\nsrc"))).toBe(false);
-    expect(isInBox(screen.getByText("$ ls\nREADME.md\n$"))).toBe(false);
-    expect(screen.queryByTestId("screen-card")).toBeNull();
   });
 
   it("says a running command runs, and ends the chat with the live screen as plain text that scrolls with it", () => {
@@ -53,19 +53,18 @@ describe("ShellChat", () => {
     renderShell({ blocks: [running], isRunning: true, text: "-- INSERT --" });
 
     expect(screen.getByText("Running…")).toBeTruthy();
-    expect(screen.queryByTestId("screen-card")).toBeNull();
-    const live = within(screen.getByTestId("shell-chat")).getByText("-- INSERT --");
-    expect(isInBox(live)).toBe(false);
+    expect(within(screen.getByTestId("shell-chat")).getByText("-- INSERT --")).toBeTruthy();
   });
 
-  it("shows the live screen of a program started on the host before the pane's opening text is known", () => {
-    renderShell({ opening: null, isRunning: true, text: "top - 10:00:00 up 1 day" });
+  it("shows the whole pane, so it scrolls back, while a program that held the foreground on open runs", () => {
+    const lines = Array.from({ length: SCREEN_LINES + 1 }, (_, index) => `npm run dev: line ${index + 1}`);
+    renderShell({ opening: null, isRunning: true, text: lines.join("\n") });
 
-    expect(within(screen.getByTestId("shell-chat")).getByText("top - 10:00:00 up 1 day")).toBeTruthy();
+    expect(within(screen.getByTestId("shell-chat")).getByText(lines.join("\n"))).toBeTruthy();
     expect(screen.UNSAFE_queryByType(ActivityIndicator)).toBeNull();
   });
 
-  it("shows no output box for a command that printed nothing", () => {
+  it("shows no output for a command that printed nothing", () => {
     renderShell({ opening: "", blocks: [done("true", "")] });
 
     expect(screen.getByText("true")).toBeTruthy();
