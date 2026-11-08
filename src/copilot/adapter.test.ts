@@ -2,7 +2,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { getPendingQuestion } from "@/chat/adapter";
 import { EMPTY_TRANSCRIBED } from "@/chat/transcribed";
 import type { Pane } from "@/herdr/backend";
 import type { HostReader } from "@/ssh/hostReader";
@@ -76,24 +75,6 @@ describe("the Copilot adapter: reading events", () => {
 
   it("reads the model, folder and branch from the newest events that have them", () => {
     expect(copilotAdapter.getInfo({}, LINES)).toEqual({ model: "demo-model", folder: "demo", branch: "main" });
-  });
-});
-
-describe("the Copilot adapter: the question the agent waits for", () => {
-  it("gives the choices of the ask_user call that has no result", () => {
-    const { chat } = copilotAdapter.addLines(EMPTY_TRANSCRIBED, LINES, 1);
-
-    expect(getPendingQuestion(copilotAdapter, chat)).toEqual({
-      callId: "tc2",
-      questions: [{ text: "What should I do next?", isMultiSelect: false, options: [{ label: "Fix lint" }, { label: "Stop" }] }],
-    });
-  });
-
-  it("gives none for a question with no choices", () => {
-    const line = JSON.stringify({ type: "assistant.message", id: "x", data: { toolRequests: [{ toolCallId: "t", name: "ask_user", arguments: { question: "Why?" } }] } });
-    const { chat } = copilotAdapter.addLines(EMPTY_TRANSCRIBED, [line], 1);
-
-    expect(getPendingQuestion(copilotAdapter, chat)).toBeNull();
   });
 });
 

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
 
-import { addEarlierLines, type AgentAdapter, getPendingQuestion, type PendingQuestion } from "@/chat/adapter";
+import { addEarlierLines, type AgentAdapter } from "@/chat/adapter";
 import { getAdapter } from "@/chat/adapters";
 import type { Chat, ChatInfo } from "@/chat/chatItems";
 import type { Transcribed } from "@/chat/transcribed";
@@ -40,8 +40,8 @@ const NO_TRANSCRIPT: Transcript = { path: null, firstLine: null, nextLine: null,
 
 /**
  * An agent pane's chat, from the agent's transcript on the machine (read through `host` by the
- * agent's adapter), and the pane as Herdr has it now. `question` is the question the agent waits
- * for an answer to, when its transcript shows one. It polls on open and every REFRESH_INTERVAL_MS until the screen closes, one poll at a time and none while
+ * agent's adapter), and the pane as Herdr has it now, with the pane's screen while it is blocked.
+ * It polls on open and every REFRESH_INTERVAL_MS until the screen closes, one poll at a time and none while
  * the app is in the background. `loadEarlier` reads the page of lines before the first one shown.
  * Polls and page reads run one at a time. When a file is missing or names no session, the chat is
  * empty; a failed connection keeps the last chat and shows the error.
@@ -49,9 +49,9 @@ const NO_TRANSCRIPT: Transcript = { path: null, firstLine: null, nextLine: null,
 export function useAgentChat(backend: ChatBackend, host: HostReader, paneId: string) {
   const [chat, setChat] = useState<Chat | null>(null);
   const [info, setInfo] = useState<ChatInfo>({});
-  const [question, setQuestion] = useState<PendingQuestion | null>(null);
   const [hasEarlier, setHasEarlier] = useState(false);
   const [pane, setPane] = useState<Pane | null>(null);
+  const [screen, setScreen] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const loadEarlierRef = useRef(() => {});
   const loadEarlier = useCallback(() => loadEarlierRef.current(), []);
@@ -73,7 +73,6 @@ export function useAgentChat(backend: ChatBackend, host: HostReader, paneId: str
     function show(read: Transcript) {
       transcript = read;
       setChat(read.chat);
-      setQuestion(adapter ? getPendingQuestion(adapter, read.chat) : null);
       setInfo(read.info);
       setHasEarlier(hasLinesBefore(read.firstLine));
       setError(null);
@@ -88,9 +87,15 @@ export function useAgentChat(backend: ChatBackend, host: HostReader, paneId: str
       try {
         const polled = await backend.getPane(paneId);
         adapter = getAdapter(polled);
-        const read = adapter ? await readNewLines(adapter, host, polled, transcript) : null;
+        // A blocked agent can wait on something the transcript does not hold, so the screen goes with it.
+        const [read, polledScreen] = await Promise.all([
+          adapter ? readNewLines(adapter, host, polled, transcript) : null,
+          // The screen only feeds the card: when its read fails, the chat still shows.
+          polled.state === "blocked" ? backend.readPane(paneId).catch(() => null) : null,
+        ]);
         if (!isOpen) return;
         setPane(polled);
+        setScreen(polledScreen);
         show(read ?? NO_TRANSCRIPT);
       } catch (failure) {
         if (isOpen) setError(`Could not read the chat: ${getErrorMessage(failure)}`);
@@ -127,7 +132,7 @@ export function useAgentChat(backend: ChatBackend, host: HostReader, paneId: str
     };
   }, [backend, host, paneId]);
 
-  return { chat, info, question, hasEarlier, loadEarlier, pane, error };
+  return { chat, info, hasEarlier, loadEarlier, pane, screen, error };
 }
 
 /**

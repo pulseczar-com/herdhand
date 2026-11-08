@@ -20,6 +20,7 @@ Herdr is a terminal multiplexer: it keeps spaces, tabs and panes running on a ma
 - A pane's text, reformatted for the phone, with a composer for a line of input and a key row (Esc, ^C, Tab, Up, Down, Enter, 1 to 6).
 - A banner over a blocked agent's pane says what it waits for (a question, a permission or a sign-in) and shows its message.
 - A pane of a [supported agent](#supported-agents) opens as a chat: your prompts, the replies in Markdown, and each tool call as a row. The app reads the agent's own transcript file over SSH and installs nothing on the machine.
+- When Claude asks a question, the chat shows its options as buttons. When an agent waits on something the chat does not record, such as a permission prompt or a sign-in, a live screen card shows the end of the pane. An agent pane with no chat opens on its screen, with a line that says why.
 - Log in with a password, or pair by scanning a code so the phone logs in with its own key.
 - An app lock with fingerprint, face or the screen lock. It is on by default.
 
@@ -29,12 +30,12 @@ The chat view reads the agent's own session file. Herdr gives the app the sessio
 
 | Agent | Chat view | Answer options | Verified working |
 |---|---|---|---|
-| Claude Code | Herdr App and Herdr TUI | In the transcript (`AskUserQuestion`); not shown yet | Yes |
-| Codex | Herdr TUI | In the transcript (`request_user_input`); not shown yet | From samples, not verified on a device |
-| GitHub Copilot CLI | Herdr TUI | In the transcript (`ask_user`); not shown yet | From samples, not verified on a device |
-| Pi and OMP | Herdr TUI | None; they have no question tool | From samples, not verified on a device |
+| Claude Code | Herdr App and Herdr TUI | Buttons for a question | Yes |
+| Codex | Herdr TUI | No; the screen card shows the question | From samples, not verified on a device |
+| GitHub Copilot CLI | Herdr TUI | No; the screen card shows the question | From samples, not verified on a device |
+| Pi and OMP | Herdr TUI | No; they have no question tool | From samples, not verified on a device |
 
-"Answer options" is whether the question an agent asks, with its choices, is in the transcript. "From samples" means the reader was built and tested on public sample files and the agent's published format, not on a real session. Herdr App gives the app only a process, so only Claude Code opens as a chat there.
+"Answer options" is whether the chat shows a question's choices as buttons. The buttons send the keys of Claude Code's question dialog, so other agents wait for a keys check on a device. "From samples" means the reader was built and tested on public sample files and the agent's published format, not on a real session. Herdr App gives the app only a process, so only Claude Code opens as a chat there.
 
 ## How it connects
 

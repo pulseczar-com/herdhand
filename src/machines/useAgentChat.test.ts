@@ -44,7 +44,7 @@ function makeMachine(files: Record<string, string>) {
     );
   });
   const host: HostReader = { readFile, findFiles };
-  const backend: ChatBackend = { getVersion: jest.fn(), listSpaces: jest.fn(), readPane: jest.fn(), sendLine: jest.fn(), pressKey: jest.fn(), getPane };
+  const backend: ChatBackend = { getVersion: jest.fn(), listSpaces: jest.fn(), readPane: jest.fn().mockResolvedValue(""), sendLine: jest.fn(), pressKey: jest.fn(), getPane };
   return { backend, host, files, readFile, findFiles, getPane };
 }
 
@@ -280,12 +280,6 @@ describe("useAgentChat", () => {
     const ROLLOUT_PATH = ".codex/sessions/2026/11/07/rollout-2026-11-07T10-00-00-c-1.jsonl";
     const record = (payload: object) => `${JSON.stringify({ type: "response_item", payload })}\n`;
     const userMessage = (text: string) => record({ type: "message", role: "user", content: [{ type: "input_text", text }] });
-    const askCall = record({
-      type: "function_call",
-      name: "request_user_input",
-      call_id: "call_q",
-      arguments: JSON.stringify({ questions: [{ id: "q", header: "Next", question: "Go on?", options: [{ label: "Yes", description: "" }] }] }),
-    });
     const codexPane = () => claudePane({ agent: "codex", pid: undefined, sessionId: "c-1" });
 
     it("reads the transcript through the agent's adapter, and numbers the lines it reads", async () => {
@@ -296,18 +290,6 @@ describe("useAgentChat", () => {
 
       expect(machine.findFiles).toHaveBeenCalledWith(".codex/sessions", "rollout-*-c-1*.jsonl", 4);
       expect(Array.from(result.current.chat?.values() ?? [])).toEqual([{ kind: "prompt", id: "line-1", text: "Hello" }]);
-    });
-
-    it("gives the question the agent waits for, until it has an answer", async () => {
-      const machine = makeMachine({ [ROLLOUT_PATH]: userMessage("Hello") + askCall });
-      machine.getPane.mockResolvedValue(codexPane());
-      const { result } = await openChat(machine);
-      expect(result.current.question).toMatchObject({ callId: "call_q", questions: [{ text: "Go on?", options: [{ label: "Yes" }] }] });
-
-      machine.files[ROLLOUT_PATH] += record({ type: "function_call_output", call_id: "call_q", output: "{}" });
-      await waitForNextPoll();
-
-      expect(result.current.question).toBeNull();
     });
 
     it("shows no chat for a pane with no adapter", async () => {
@@ -465,6 +447,47 @@ describe("useAgentChat", () => {
       });
 
       expect(hook.result.current.info).toEqual({ model: "claude-sonnet-5-5", folder: "old", branch: "main" });
+    });
+  });
+
+  describe("screen", () => {
+    it("reads the pane's screen on each poll while the agent is blocked", async () => {
+      const machine = makeMachine({ [SESSION_PATH]: session("s-1"), [TRANSCRIPT_PATH]: prompt(1) });
+      machine.getPane.mockResolvedValue(claudePane({ state: "blocked" }));
+      jest.mocked(machine.backend.readPane).mockResolvedValue("Do you trust this folder?");
+
+      const { result } = await openChat(machine);
+      expect(result.current.screen).toBe("Do you trust this folder?");
+
+      jest.mocked(machine.backend.readPane).mockResolvedValue("Signed in.");
+      await waitForNextPoll();
+
+      expect(result.current.screen).toBe("Signed in.");
+    });
+
+    it("reads no screen while the agent is not blocked, and drops the last one when it stops being blocked", async () => {
+      const machine = makeMachine({ [SESSION_PATH]: session("s-1"), [TRANSCRIPT_PATH]: prompt(1) });
+      machine.getPane.mockResolvedValueOnce(claudePane({ state: "blocked" }));
+      jest.mocked(machine.backend.readPane).mockResolvedValue("Do you trust this folder?");
+      const { result } = await openChat(machine);
+      expect(result.current.screen).toBe("Do you trust this folder?");
+
+      await waitForNextPoll();
+
+      expect(result.current.screen).toBeNull();
+      expect(machine.backend.readPane).toHaveBeenCalledTimes(1);
+    });
+
+    it("shows the chat with no screen when the screen cannot be read", async () => {
+      const machine = makeMachine({ [SESSION_PATH]: session("s-1"), [TRANSCRIPT_PATH]: prompt(1) });
+      machine.getPane.mockResolvedValue(claudePane({ state: "blocked" }));
+      jest.mocked(machine.backend.readPane).mockRejectedValue(new Error("timed out"));
+
+      const { result } = await openChat(machine);
+
+      expect(getPromptTexts(result.current.chat)).toEqual(["Prompt 1"]);
+      expect(result.current.screen).toBeNull();
+      expect(result.current.error).toBeNull();
     });
   });
 });

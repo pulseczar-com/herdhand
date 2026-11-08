@@ -1,4 +1,4 @@
-import type { ChatInfo } from "@/chat/chatItems";
+import type { AskedQuestion, ChatInfo } from "@/chat/chatItems";
 import { COMPACTED_TEXT, IMAGE_TEXT, addLongLineNote, parseLongLineNote } from "@/chat/longLine";
 import { getToolInputText, getToolSummary } from "@/chat/toolInput";
 import {
@@ -31,6 +31,7 @@ const HIDDEN_TAGS = [
 
 // Claude Code names the model of a reply it wrote itself, such as an error, this.
 const SYNTHETIC_MODEL = "<synthetic>";
+const ASK_TOOL = "AskUserQuestion";
 
 // The parts of a record this app reads. Every field is optional, and unknown fields are ignored.
 type TranscriptRecord = {
@@ -173,12 +174,31 @@ function addAssistantRecord(working: Working, record: ShownRecord) {
     }
     if (block.type === "tool_use" && block.id) {
       const input = block.input ?? {};
+      const name = String(block.name ?? "");
+      const questions = name === ASK_TOOL ? getQuestions(input) : [];
       setToolCall(working, {
         id: block.id,
-        name: String(block.name ?? ""),
+        name,
         summary: getToolSummary(input),
         input: getToolInputText(input),
+        ...(questions.length > 0 && { questions }),
       });
     }
   });
+}
+
+/** The questions of an AskUserQuestion call. A question with no text, and an option with no label, are skipped. */
+function getQuestions(input: Record<string, unknown>): AskedQuestion[] {
+  if (!Array.isArray(input.questions)) return [];
+  return input.questions.flatMap((asked: unknown) => {
+    const { question, multiSelect, options } = (typeof asked === "object" && asked !== null ? asked : {}) as Record<string, unknown>;
+    if (typeof question !== "string" || !question) return [];
+    const labels = Array.isArray(options) ? options.map(getOptionLabel).filter((label): label is string => label !== null) : [];
+    return [{ question, multiSelect: multiSelect === true, options: labels }];
+  });
+}
+
+function getOptionLabel(option: unknown): string | null {
+  const label = typeof option === "object" && option !== null ? (option as Record<string, unknown>).label : null;
+  return typeof label === "string" && label ? label : null;
 }

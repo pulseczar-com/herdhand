@@ -1,6 +1,5 @@
 import type { AgentAdapter } from "@/chat/adapter";
 import { getOnlyPath, getSafeSessionId } from "@/chat/locate";
-import { toQuestions } from "@/chat/questions";
 import { addCodexLines, getCodexInfo } from "@/codex/transcript";
 
 // A rollout file is in a folder for the year, one for the month and one for the day.
@@ -22,5 +21,4 @@ export const codexAdapter: AgentAdapter = {
   },
   addLines: addCodexLines,
   getInfo: getCodexInfo,
-  questionTool: { name: "request_user_input", parse: (input) => toQuestions(input.questions) },
 };

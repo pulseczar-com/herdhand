@@ -226,3 +226,33 @@ describe("getChatInfo", () => {
     expect(info).toEqual({ model: "claude-opus-5-5", folder: "demo", branch: "main" });
   });
 });
+
+describe("addTranscriptLines: questions", () => {
+  const input = {
+    questions: [
+      { question: "Which branch?", header: "Branch", multiSelect: false, options: [{ label: "main", description: "Default" }, { label: "dev" }] },
+    ],
+  };
+
+  it("reads the questions of an AskUserQuestion call", () => {
+    const [item] = read([toolUse(input, "AskUserQuestion")]);
+
+    expect(item).toMatchObject({ kind: "tool", questions: [{ question: "Which branch?", multiSelect: false, options: ["main", "dev"] }] });
+  });
+
+  it.each([
+    { where: "another tool", name: "Bash", input },
+    { where: "no questions", name: "AskUserQuestion", input: {} },
+    { where: "questions that are not a list", name: "AskUserQuestion", input: { questions: "x" } },
+  ])("sets no questions for $where", ({ name, input: toolInput }) => {
+    const [item] = read([toolUse(toolInput, name)]);
+
+    expect(item).not.toHaveProperty("questions");
+  });
+
+  it("skips an option with no label and a question with no text", () => {
+    const [item] = read([toolUse({ questions: [{ question: "Pick", options: [{ label: "a" }, {}, "b"] }, { options: [] }] }, "AskUserQuestion")]);
+
+    expect(item).toMatchObject({ questions: [{ question: "Pick", multiSelect: false, options: ["a"] }] });
+  });
+});

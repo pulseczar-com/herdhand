@@ -2,7 +2,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { getPendingQuestion } from "@/chat/adapter";
 import { EMPTY_TRANSCRIBED } from "@/chat/transcribed";
 import type { Pane } from "@/herdr/backend";
 import type { HostReader } from "@/ssh/hostReader";
@@ -75,9 +74,6 @@ describe("the Pi adapter: reading a session", () => {
     expect(piAdapter.getInfo({}, LINES)).toEqual({ folder: "demo", model: "other-model" });
   });
 
-  it("has no question to wait for", () => {
-    expect(getPendingQuestion(piAdapter, chat)).toBeNull();
-  });
 });
 
 describe("the Pi adapter: finding the session file", () => {

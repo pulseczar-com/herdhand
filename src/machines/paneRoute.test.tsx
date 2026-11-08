@@ -505,38 +505,89 @@ describe("Claude chat", () => {
     };
   }
 
-  it("opens a Claude pane on its chat, with Claude's message while it is blocked", async () => {
+  it("opens a Claude pane on its chat, with Claude's message while it is blocked, and no Chat | Screen switch", async () => {
     connectTo(chatBackend);
     renderMachine("/machine/m1/pane/t8");
 
     expect(await screen.findByText("Run the tests")).toBeTruthy();
     expect(screen.getByText("approve Bash: npm test")).toBeTruthy();
-    expect(screen.getByRole("tab", { name: "Chat", selected: true })).toBeTruthy();
+    expect(screen.queryByRole("tab")).toBeNull();
     expect(screen.queryByRole("switch", { name: "Raw" })).toBeNull();
   });
 
-  it("shows the pane's screen, one tap away", async () => {
+  it("ends the chat of a blocked agent with a live screen card when the transcript has no question", async () => {
     connectTo(chatBackend);
     renderMachine("/machine/m1/pane/t8");
-    await screen.findByText("Run the tests");
 
-    fireEvent.press(screen.getByRole("tab", { name: "Screen" }));
-
-    expect(await screen.findByText(PANE_TEXT)).toBeTruthy();
-    expect(screen.queryByText("Run the tests")).toBeNull();
+    expect(await screen.findByTestId("screen-card")).toBeTruthy();
+    expect(within(screen.getByTestId("screen-card")).getByText(PANE_TEXT)).toBeTruthy();
+    expect(screen.getByText("Run the tests")).toBeTruthy();
   });
 
-  it("hides Claude's suggested message in its input box on the screen", async () => {
-    const rule = "─".repeat(20);
-    jest.mocked(backend.readPane).mockResolvedValue(`● Done.\n${rule}\n❯ merge the branch\n${rule}`);
-    connectTo(chatBackend);
+  it("shows no screen card while the agent works", async () => {
+    const working = { ...claudePane, state: "working" as const };
+    connectTo({ ...chatBackend, getPane: jest.fn().mockResolvedValue(working) });
     renderMachine("/machine/m1/pane/t8");
     await screen.findByText("Run the tests");
 
-    fireEvent.press(screen.getByRole("tab", { name: "Screen" }));
+    expect(screen.queryByTestId("screen-card")).toBeNull();
+  });
 
-    expect(await screen.findByText("❯")).toBeTruthy();
-    expect(screen.queryByText(/merge the branch/)).toBeNull();
+  describe("a question in the transcript", () => {
+    const question = {
+      type: "assistant",
+      uuid: "a1",
+      message: {
+        content: [
+          {
+            type: "tool_use",
+            id: "ask1",
+            name: "AskUserQuestion",
+            input: { questions: [{ question: "Which branch?", multiSelect: false, options: [{ label: "main" }, { label: "dev" }] }] },
+          },
+        ],
+      },
+    };
+    const askFiles: Record<string, string> = { ...files, ".claude/projects/-work-demo/s-1.jsonl": `${JSON.stringify(question)}\n` };
+    const askHost: HostReader = {
+      ...host,
+      readFile: jest.fn(async (path: string, range?: LineRange) =>
+        range?.limit === 0 ? { text: "", first: 1, last: 0, lines: 1 } : { text: askFiles[path], first: 1, last: 1, lines: 1 },
+      ),
+    };
+
+    it("shows its options as buttons, sends the digit of the one tapped, then shows the screen card", async () => {
+      jest.mocked(backend.readPane).mockResolvedValue("Which branch?\n 1. main\n 2. dev");
+      connectTo(chatBackend, askHost);
+      renderMachine("/machine/m1/pane/t8");
+
+      fireEvent.press(await screen.findByRole("button", { name: "dev" }));
+
+      await waitFor(() => expect(backend.pressKey).toHaveBeenCalledWith("t8", "2"));
+      expect(await screen.findByTestId("screen-card")).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "dev" })).toBeNull();
+    });
+
+    it("shows the screen card in place of the buttons when the screen no longer shows the option", async () => {
+      jest.mocked(backend.readPane).mockResolvedValue("Do you trust this folder?");
+      connectTo(chatBackend, askHost);
+      renderMachine("/machine/m1/pane/t8");
+
+      fireEvent.press(await screen.findByRole("button", { name: "dev" }));
+
+      expect(await screen.findByTestId("screen-card")).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "dev" })).toBeNull();
+      expect(backend.pressKey).not.toHaveBeenCalledWith("t8", "2");
+    });
+  });
+
+  it("opens on the screen with a line that says why when the pane has no chat file", async () => {
+    connectTo(chatBackend, noFiles);
+    renderMachine("/machine/m1/pane/t8");
+
+    expect(await screen.findByText(PANE_TEXT)).toBeTruthy();
+    expect(screen.getByText("No chat found for this agent yet: showing the screen.")).toBeTruthy();
+    expect(screen.queryByTestId("screen-card")).toBeNull();
   });
 
   it("shows what any blocked agent waits for, with its message, above its screen", async () => {
@@ -563,7 +614,7 @@ describe("Claude chat", () => {
     renderMachine("/machine/m1/pane/t8");
 
     expect(await screen.findByText("Run the tests")).toBeTruthy();
-    expect(screen.getByRole("tab", { name: "Chat", selected: true })).toBeTruthy();
+    expect(screen.queryByRole("tab")).toBeNull();
   });
 
   it("opens a Pi pane on its chat, read from the session file path Herdr gives", async () => {
@@ -588,7 +639,7 @@ describe("Claude chat", () => {
     renderMachine("/machine/m1/pane/t8");
 
     expect(await screen.findByText("Fix the login bug")).toBeTruthy();
-    expect(screen.getByRole("tab", { name: "Chat", selected: true })).toBeTruthy();
+    expect(screen.queryByRole("tab")).toBeNull();
   });
 
   it("shows only the screen for a Claude pane on the TUI that has no session id, as with no Herdr integration", async () => {
@@ -601,15 +652,25 @@ describe("Claude chat", () => {
     renderMachine("/machine/m1/pane/t8");
 
     expect(await screen.findByText(PANE_TEXT)).toBeTruthy();
-    expect(screen.queryByRole("tab", { name: "Chat" })).toBeNull();
+    expect(screen.getByText("No chat for claude here: showing the screen.")).toBeTruthy();
   });
 
-  it("shows only the screen when the backend cannot read one pane fresh", async () => {
+  it("shows only the screen, with a line that says why, when the backend cannot read one pane fresh", async () => {
     connectTo({ ...chatBackend, getPane: undefined });
     renderMachine("/machine/m1/pane/t8");
 
     expect(await screen.findByText(PANE_TEXT)).toBeTruthy();
-    expect(screen.queryByRole("tab", { name: "Chat" })).toBeNull();
+    expect(screen.getByText("No chat for claude-code here: showing the screen.")).toBeTruthy();
+  });
+
+  it("hides Claude's suggested message in its input box on the screen", async () => {
+    const rule = "─".repeat(20);
+    jest.mocked(backend.readPane).mockResolvedValue(`● Done.\n${rule}\n❯ merge the branch\n${rule}`);
+    connectTo({ ...chatBackend, getPane: undefined });
+    renderMachine("/machine/m1/pane/t8");
+
+    expect(await screen.findByText("❯")).toBeTruthy();
+    expect(screen.queryByText(/merge the branch/)).toBeNull();
   });
 });
 

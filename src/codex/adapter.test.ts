@@ -2,7 +2,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { addEarlierLines, getPendingQuestion } from "@/chat/adapter";
+import { addEarlierLines } from "@/chat/adapter";
 import { EMPTY_TRANSCRIBED } from "@/chat/transcribed";
 import type { Pane } from "@/herdr/backend";
 import type { HostReader } from "@/ssh/hostReader";
@@ -93,31 +93,6 @@ describe("the Codex adapter: reading a rollout", () => {
 
   it("reads the model, folder and branch from the newest records that have them", () => {
     expect(codexAdapter.getInfo({}, LINES)).toEqual({ model: "demo-model", folder: "demo", branch: "main" });
-  });
-});
-
-describe("the Codex adapter: the question the agent waits for", () => {
-  it("gives the options of the question tool call that has no output", () => {
-    const { chat } = codexAdapter.addLines(EMPTY_TRANSCRIBED, LINES, 1);
-
-    expect(getPendingQuestion(codexAdapter, chat)).toEqual({
-      callId: "call_3",
-      questions: [
-        {
-          text: "What should I do next?",
-          header: "Next",
-          isMultiSelect: false,
-          options: [{ label: "Fix lint", description: "Run the linter" }, { label: "Stop", description: "Nothing more" }],
-        },
-      ],
-    });
-  });
-
-  it("gives none once the call has its output", () => {
-    const output = JSON.stringify({ type: "response_item", payload: { type: "function_call_output", call_id: "call_3", output: "{}" } });
-    const { chat } = codexAdapter.addLines(EMPTY_TRANSCRIBED, [...LINES, output], 1);
-
-    expect(getPendingQuestion(codexAdapter, chat)).toBeNull();
   });
 });
 

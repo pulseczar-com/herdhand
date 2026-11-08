@@ -24,7 +24,6 @@ export const RESULT_LINES = 12;
 const TOP_SLACK = 100;
 // The least time between two scroll events, in milliseconds.
 const SCROLL_EVENT_INTERVAL = 100;
-const UNAVAILABLE_TEXT = "Chat is not available for this pane. Use Screen.";
 
 type ChatViewProps = {
   chat: Chat | null;
@@ -39,7 +38,7 @@ type ChatBodyProps = Omit<ChatViewProps, "error">;
 /**
  * A conversation with an agent: a header with the model, folder and branch, prompts on the right,
  * replies in Markdown, and each tool call as a row that a tap opens. Scrolling to the top asks for
- * earlier lines. When the chat has nothing to show, one line says it is not available.
+ * earlier lines.
  */
 export function ChatView({ chat, error, ...bodyProps }: ChatViewProps) {
   const { colors } = useTheme();
@@ -54,12 +53,10 @@ export function ChatView({ chat, error, ...bodyProps }: ChatViewProps) {
 
 /** The loaded chat: kept at its end while the person is there, and filled from the top. */
 function ChatBody({ chat, info, hasEarlier, onLoadEarlier }: ChatBodyProps) {
-  const { colors } = useTheme();
   const { scrollRef, trackEnd, keepAtEnd } = useKeepAtEnd();
   const earlier = useLoadEarlier(chat, hasEarlier, onLoadEarlier);
 
   if (chat === null) return <ActivityIndicator style={styles.message} />;
-  if (chat.size === 0) return <Text style={[styles.message, { color: colors.text }]}>{UNAVAILABLE_TEXT}</Text>;
 
   return (
     <>

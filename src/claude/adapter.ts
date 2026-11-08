@@ -1,6 +1,5 @@
 import type { AgentAdapter } from "@/chat/adapter";
 import { getOnlyPath, getSafeSessionId } from "@/chat/locate";
-import { toQuestions } from "@/chat/questions";
 import { CLAUDE_AGENTS, getSessionPath, getTranscriptFileName, getTranscriptPath, parseSession, TRANSCRIPTS_FOLDER } from "@/claude/paths";
 import { addTranscriptLines, getChatInfo } from "@/claude/transcript";
 
@@ -26,5 +25,4 @@ export const claudeAdapter: AgentAdapter = {
   },
   addLines: addTranscriptLines,
   getInfo: getChatInfo,
-  questionTool: { name: "AskUserQuestion", parse: (input) => toQuestions(input.questions, "multiSelect") },
 };
