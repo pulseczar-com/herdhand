@@ -161,8 +161,8 @@ function ClaudeChat({ backend, paneId, paneColumns, onPaneChange }: ClaudeChatPr
   useEffect(() => onPaneChange(pane), [pane, onPaneChange]);
   const question = useMemo(() => (chat === null ? null : getPendingQuestion(chat)), [chat]);
   // The question whose options the screen stopped showing: the screen takes its place.
-  const [staleQuestionId, setStaleQuestionId] = useState<string | null>(null);
-  const answerQuestion = question !== null && question.id !== staleQuestionId ? question : null;
+  const [doneQuestionId, setDoneQuestionId] = useState<string | null>(null);
+  const answerQuestion = question !== null && question.id !== doneQuestionId ? question : null;
 
   if (chat?.size === 0) {
     return <PaneText backend={backend} paneId={paneId} paneColumns={paneColumns} isClaude note={NO_CHAT_FILE_NOTE} />;
@@ -171,7 +171,7 @@ function ClaudeChat({ backend, paneId, paneColumns, onPaneChange }: ClaudeChatPr
     <>
       <ChatView chat={chat} info={info} hasEarlier={hasEarlier} onLoadEarlier={loadEarlier} error={error} />
       {answerQuestion ? (
-        <AnswerCard backend={backend} paneId={paneId} question={answerQuestion} onStale={() => setStaleQuestionId(answerQuestion.id)} />
+        <AnswerCard key={answerQuestion.id} backend={backend} paneId={paneId} question={answerQuestion} onDone={() => setDoneQuestionId(answerQuestion.id)} />
       ) : null}
       {!answerQuestion && screen !== null ? <ScreenCard text={screen} /> : null}
     </>

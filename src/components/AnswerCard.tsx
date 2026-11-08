@@ -14,8 +14,8 @@ type AnswerCardProps = {
   backend: Backend;
   paneId: string;
   question: PendingQuestion;
-  /** Called when the screen no longer shows the options, so the caller shows the screen instead. */
-  onStale: () => void;
+  /** Called when the question is done: its keys went out, or the screen no longer shows the options. The caller shows the screen instead. */
+  onDone: () => void;
 };
 
 /**
@@ -23,10 +23,10 @@ type AnswerCardProps = {
  * still shows the option's label. For a question with several answers, a tap picks an option and
  * Send answer sends the picks.
  */
-export function AnswerCard({ backend, paneId, question, onStale }: AnswerCardProps) {
+export function AnswerCard({ backend, paneId, question, onDone }: AnswerCardProps) {
   const theme = useTheme();
   const { colors } = theme;
-  const { picked, isSending, error, pick, answer } = useAnswer(backend, paneId, question, onStale);
+  const { picked, isSending, error, pick, answer } = useAnswer(backend, paneId, question, onDone);
   const canSend = picked.length > 0 && !isSending;
 
   return (
@@ -52,7 +52,7 @@ export function AnswerCard({ backend, paneId, question, onStale }: AnswerCardPro
   );
 }
 
-function useAnswer(backend: Backend, paneId: string, question: PendingQuestion, onStale: () => void) {
+function useAnswer(backend: Backend, paneId: string, question: PendingQuestion, onDone: () => void) {
   const [picked, setPicked] = useState<number[]>([]);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,10 +67,11 @@ function useAnswer(backend: Backend, paneId: string, question: PendingQuestion, 
     setIsSending(true);
     try {
       const screenText = parseStyledText(await backend.readPane(paneId)).text;
-      if (!showsLabels(screenText, indexes.map((index) => question.options[index]))) return onStale();
+      if (!showsLabels(screenText, indexes.map((index) => question.options[index]))) return onDone();
       for (const key of getAnswerKeys(question.multiSelect, indexes)) await backend.pressKey(paneId, key);
       setPicked([]);
       setError(null);
+      onDone();
     } catch (failure) {
       setError(`Could not send: ${getErrorMessage(failure)}`);
     } finally {

@@ -541,7 +541,7 @@ describe("Claude chat", () => {
       ),
     };
 
-    it("shows its options as buttons in place of the screen card, and sends the digit of the one tapped", async () => {
+    it("shows its options as buttons, sends the digit of the one tapped, then shows the screen card", async () => {
       jest.mocked(backend.readPane).mockResolvedValue("Which branch?\n 1. main\n 2. dev");
       connectTo(askBackend);
       renderMachine("/machine/m1/pane/t8");
@@ -549,7 +549,8 @@ describe("Claude chat", () => {
       fireEvent.press(await screen.findByRole("button", { name: "dev" }));
 
       await waitFor(() => expect(backend.pressKey).toHaveBeenCalledWith("t8", "2"));
-      expect(screen.queryByTestId("screen-card")).toBeNull();
+      expect(await screen.findByTestId("screen-card")).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "dev" })).toBeNull();
     });
 
     it("shows the screen card in place of the buttons when the screen no longer shows the option", async () => {

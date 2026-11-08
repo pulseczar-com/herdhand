@@ -25,9 +25,9 @@ function makeBackend(screenText = SCREEN): Backend {
   };
 }
 
-function renderCard(backend: Backend, question = SINGLE, onStale = jest.fn()) {
-  render(<AnswerCard backend={backend} paneId="t1" question={question} onStale={onStale} />);
-  return { onStale };
+function renderCard(backend: Backend, question = SINGLE, onDone = jest.fn()) {
+  render(<AnswerCard backend={backend} paneId="t1" question={question} onDone={onDone} />);
+  return { onDone };
 }
 
 describe("AnswerCard", () => {
@@ -49,13 +49,21 @@ describe("AnswerCard", () => {
     expect(backend.pressKey).toHaveBeenCalledTimes(1);
   });
 
-  it("sends no key and asks for the screen when the label is gone", async () => {
-    const backend = makeBackend("❯ npm test");
-    const { onStale } = renderCard(backend);
+  it("tells the caller the question is done once the keys are sent", async () => {
+    const { onDone } = renderCard(makeBackend());
 
     fireEvent.press(screen.getByRole("button", { name: "dev" }));
 
-    await waitFor(() => expect(onStale).toHaveBeenCalled());
+    await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
+  });
+
+  it("sends no key and asks for the screen when the label is gone", async () => {
+    const backend = makeBackend("❯ npm test");
+    const { onDone } = renderCard(backend);
+
+    fireEvent.press(screen.getByRole("button", { name: "dev" }));
+
+    await waitFor(() => expect(onDone).toHaveBeenCalled());
     expect(backend.pressKey).not.toHaveBeenCalled();
   });
 
@@ -86,10 +94,11 @@ describe("AnswerCard", () => {
   it("shows the error when a key does not send", async () => {
     const backend = makeBackend();
     jest.mocked(backend.pressKey).mockRejectedValue(new Error("timed out"));
-    renderCard(backend);
+    const { onDone } = renderCard(backend);
 
     fireEvent.press(screen.getByRole("button", { name: "main" }));
 
     expect(await screen.findByText("Could not send: timed out")).toBeTruthy();
+    expect(onDone).not.toHaveBeenCalled();
   });
 });
