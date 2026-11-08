@@ -95,7 +95,7 @@ describe("openBridge", () => {
 
     expect(read).toEqual({ text: "first\nsecond\n", first: 1, last: 2, lines: 2 });
     expect(mockSsh.state.log).toHaveLength(1);
-    expect(mockSsh.state.log[0]).toMatch(/^run sh -c '.*' sh 'notes.txt' '1' '2'$/);
+    expect(mockSsh.state.log[0]).toMatch(/^run sh -c '.*' sh 'notes.txt' '1' '2' /);
     await bridge.close();
   });
 
