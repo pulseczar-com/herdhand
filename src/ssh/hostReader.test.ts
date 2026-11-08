@@ -70,7 +70,8 @@ describe("the host reader", () => {
         { where: "as a page that starts on it", text: `a\n${LONG}\nc\n`, range: { offset: 2, limit: 1 }, expected: `${note(2)}\n`, last: 2, lines: 3 },
         { where: "as the last line with no newline", text: `a\n${LONG}`, range: { offset: 2 }, expected: note(2), last: 2, lines: 2 },
         { where: "as the last line of a page that stops before the end", text: `a\n${LONG}\nc`, range: { limit: 2 }, expected: `a\n${note(2)}\n`, last: 2, lines: 3 },
-        { where: "next to a line just short enough", text: `${"y".repeat(256_000)}\n${LONG}\n`, range: {}, expected: `${"y".repeat(256_000)}\n${note(2)}\n`, last: 2, lines: 2 },
+        { where: "next to a line just short enough", text: `${"y".repeat(64_000)}\n${LONG}\n`, range: {}, expected: `${"y".repeat(64_000)}\n${note(2)}\n`, last: 2, lines: 2 },
+        { where: "when its bytes, not its characters, are too many", text: `${"é".repeat(40_000)}\n${"é".repeat(30_000)}\n`, range: {}, expected: `${note(1)}\n${"é".repeat(30_000)}\n`, last: 2, lines: 2 },
       ])("replaces it with a note, $where", async ({ text, range, expected, last, lines }) => {
         write("notes.txt", text);
 

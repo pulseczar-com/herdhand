@@ -55,9 +55,10 @@ function runScript(script: string, values: (string | number)[]): string {
 /** The exit code the file-reading command gives for a path that is not a regular file. */
 export const NOT_A_FILE_EXIT_CODE = 3;
 
-// A line longer than this is replaced by a short note, so a page of lines stays under the native
-// module's output cap. Claude Code writes an image or a long tool result as one very long line.
-const MAX_LINE_LENGTH = 256_000;
+// A line longer than this many bytes is replaced by a short note. The chat reads at most 100 lines
+// at a time, so a read stays under the native module's 8 MiB output cap (100 x 64 KB = 6.4 MB).
+// Claude Code writes an image or a long tool result as one very long line.
+const MAX_LINE_LENGTH = 64_000;
 
 // The note is one line of a Claude Code transcript, which the chat shows as a reply. It takes the
 // number of its line, so each note has its own id.
@@ -82,7 +83,7 @@ const READ_LINES_SCRIPT = [
   'n=$(wc -l < "$f"); partial=$(tail -c 1 "$f"); [ -n "$partial" ] && n=$((n + 1)); echo $n;',
   '[ "$3" -gt 0 ] || exit 0;',
   'nl=1; [ -n "$partial" ] && [ $(($2 + $3 - 1)) -ge $n ] && nl=0;',
-  'tail -n +"$2" "$f" | head -n "$3" | awk -v start="$2" -v max="$4" -v nl="$nl" "$5"',
+  'tail -n +"$2" "$f" | head -n "$3" | LC_ALL=C awk -v start="$2" -v max="$4" -v nl="$nl" "$5"',
 ].join(" ");
 
 /** The command that prints a file's line count on the first line, and then the lines from `offset` (the first line is 1), at most `limit`. */
