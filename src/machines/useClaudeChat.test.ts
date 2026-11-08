@@ -104,9 +104,26 @@ describe("useClaudeChat", () => {
 
     const { result } = await openChat(machine);
 
-    expect(machine.readFile).toHaveBeenCalledWith(TRANSCRIPT_PATH, { offset: 51 });
+    expect(machine.readFile).toHaveBeenCalledWith(TRANSCRIPT_PATH, { offset: 51, limit: 100 });
     expect(result.current.chat?.size).toBe(FIRST_READ_LINES);
     expect(getPromptTexts(result.current.chat)[0]).toBe("Prompt 51");
+  });
+
+  it("catches up on a long gap in several reads of 100 lines", async () => {
+    const machine = makeMachine({ [SESSION_PATH]: session("s-1"), [TRANSCRIPT_PATH]: prompt(1) });
+    const { result } = await openChat(machine);
+
+    machine.files[TRANSCRIPT_PATH] += Array.from({ length: 250 }, (_, index) => prompt(index + 2)).join("");
+    await waitForNextPoll();
+
+    expect(machine.readFile).toHaveBeenLastCalledWith(TRANSCRIPT_PATH, { offset: 2, limit: 100 });
+    expect(getPromptTexts(result.current.chat)).toHaveLength(101);
+
+    await waitForNextPoll();
+    await waitForNextPoll();
+
+    expect(getPromptTexts(result.current.chat)).toHaveLength(251);
+    expect(getPromptTexts(result.current.chat).at(-1)).toBe("Prompt 251");
   });
 
   it("reads only the new lines after that, and nothing when there are none", async () => {
@@ -114,12 +131,12 @@ describe("useClaudeChat", () => {
     const { result } = await openChat(machine);
 
     await waitForNextPoll();
-    expect(machine.readFile).not.toHaveBeenCalledWith(TRANSCRIPT_PATH, { offset: 2 });
+    expect(machine.readFile).not.toHaveBeenCalledWith(TRANSCRIPT_PATH, { offset: 2, limit: 100 });
 
     machine.files[TRANSCRIPT_PATH] += prompt(2);
     await waitForNextPoll();
 
-    expect(machine.readFile).toHaveBeenLastCalledWith(TRANSCRIPT_PATH, { offset: 2 });
+    expect(machine.readFile).toHaveBeenLastCalledWith(TRANSCRIPT_PATH, { offset: 2, limit: 100 });
     expect(getPromptTexts(result.current.chat)).toEqual(["Prompt 1", "Prompt 2"]);
   });
 
@@ -319,7 +336,7 @@ describe("useClaudeChat", () => {
       machine.files[TRANSCRIPT_PATH] += prompt(251);
       await waitForNextPoll();
 
-      expect(machine.readFile).toHaveBeenLastCalledWith(TRANSCRIPT_PATH, { offset: 251 });
+      expect(machine.readFile).toHaveBeenLastCalledWith(TRANSCRIPT_PATH, { offset: 251, limit: 100 });
       const texts = getPromptTexts(hook.result.current.chat);
       expect(texts).toHaveLength(201);
       expect(texts[0]).toBe("Prompt 51");

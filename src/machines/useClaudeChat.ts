@@ -21,7 +21,7 @@ export const REFRESH_INTERVAL_MS = 2_000;
 /** How many lines of the transcript the chat reads when it opens. */
 export const FIRST_READ_LINES = 100;
 
-/** How many lines of the transcript one read of earlier lines takes. */
+/** How many lines of the transcript one read takes, of earlier or of new lines. A read stays under the SSH output cap. */
 const PAGE_LINES = 100;
 
 /** A backend that can read one pane fresh, as both Herdr kinds can. */
@@ -146,7 +146,7 @@ async function readNewLines(host: HostReader, pane: Pane, transcript: Transcript
     const { lines: lineCount } = await host.readFile(path, { limit: 0 });
     const offset = getReadOffset(lineCount, current.nextLine);
     if (offset === null) return current;
-    const newRead = await host.readFile(path, { offset });
+    const newRead = await host.readFile(path, { offset, limit: PAGE_LINES });
     const { lines, nextLine } = getCompleteLines(newRead);
     const { chat, orphans } = addTranscriptLines(current, lines);
     return {
