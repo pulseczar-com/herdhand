@@ -29,10 +29,20 @@ export function getAnswerKeys(multiSelect: boolean, picked: number[]): PaneKey[]
   return multiSelect ? [...digits, "tab", "1"] : digits;
 }
 
-/** Whether the screen still shows every label. A line the screen wrapped counts as one line. */
-export function showsLabels(screenText: string, labels: string[]): boolean {
+/**
+ * Whether the screen still lists each picked option on its own digit ("2. dev"), so the digit key
+ * selects that option. A checkbox mark after the digit, or a line the screen wrapped, still counts.
+ */
+export function showsOptions(screenText: string, options: string[], picked: number[]): boolean {
   const screen = collapseSpace(screenText);
-  return labels.every((label) => screen.includes(collapseSpace(label)));
+  return picked.every((index) => {
+    const listed = `(?:^|\\s)${index + 1}\\.\\s(?:\\[[^\\]]*\\]\\s)?${escapeRegExp(collapseSpace(options[index]))}`;
+    return new RegExp(listed).test(screen);
+  });
+}
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function collapseSpace(text: string): string {

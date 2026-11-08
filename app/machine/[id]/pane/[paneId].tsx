@@ -160,7 +160,7 @@ function ClaudeChat({ backend, paneId, paneColumns, onPaneChange }: ClaudeChatPr
   const { chat, info, hasEarlier, loadEarlier, pane, screen, error } = useClaudeChat(backend, paneId);
   useEffect(() => onPaneChange(pane), [pane, onPaneChange]);
   const question = useMemo(() => (chat === null ? null : getPendingQuestion(chat)), [chat]);
-  // The question whose options the screen stopped showing: the screen takes its place.
+  // The question the card is done with: its keys went out, or the screen stopped listing its options. The screen takes its place.
   const [doneQuestionId, setDoneQuestionId] = useState<string | null>(null);
   const answerQuestion = question !== null && question.id !== doneQuestionId ? question : null;
 

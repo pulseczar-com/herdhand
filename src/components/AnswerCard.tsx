@@ -2,7 +2,7 @@ import { useTheme } from "expo-router";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { getAnswerKeys, type PendingQuestion, showsLabels } from "@/claude/question";
+import { getAnswerKeys, type PendingQuestion, showsOptions } from "@/claude/question";
 import { getErrorMessage } from "@/errorMessage";
 import type { Backend } from "@/herdr/backend";
 import { getAccentInk } from "@/navigationTheme";
@@ -20,7 +20,7 @@ type AnswerCardProps = {
 
 /**
  * Claude's question with its options as buttons. A tap sends the option's key, once the screen
- * still shows the option's label. For a question with several answers, a tap picks an option and
+ * still lists the option on that digit. For a question with several answers, a tap picks an option and
  * Send answer sends the picks.
  */
 export function AnswerCard({ backend, paneId, question, onDone }: AnswerCardProps) {
@@ -67,7 +67,7 @@ function useAnswer(backend: Backend, paneId: string, question: PendingQuestion, 
     setIsSending(true);
     try {
       const screenText = parseStyledText(await backend.readPane(paneId)).text;
-      if (!showsLabels(screenText, indexes.map((index) => question.options[index]))) return onDone();
+      if (!showsOptions(screenText, question.options, indexes)) return onDone();
       for (const key of getAnswerKeys(question.multiSelect, indexes)) await backend.pressKey(paneId, key);
       setPicked([]);
       setError(null);

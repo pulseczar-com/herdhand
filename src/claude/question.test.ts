@@ -1,6 +1,6 @@
 import type { AskedQuestion, Chat, ChatItem, ToolItem } from "@/chat/chatItems";
 
-import { getAnswerKeys, getPendingQuestion, showsLabels } from "./question";
+import { getAnswerKeys, getPendingQuestion, showsOptions } from "./question";
 
 function ask(id: string, questions: AskedQuestion[], result: ToolItem["result"] = null): ToolItem {
   return { kind: "tool", id, name: "AskUserQuestion", summary: "", input: "{}", result, questions };
@@ -39,13 +39,19 @@ describe("getAnswerKeys", () => {
   });
 });
 
-describe("showsLabels", () => {
+describe("showsOptions", () => {
+  const options = ["main", "dev", "docs"];
   it.each([
-    { where: "a label on a line", screen: "  1. main\n  2. dev", labels: ["dev"], expected: true },
-    { where: "a label the screen wrapped", screen: "1. Use the existing\n   branch for it", labels: ["Use the existing branch for it"], expected: true },
-    { where: "a label that is gone", screen: "❯ npm test", labels: ["dev"], expected: false },
-    { where: "one of two labels gone", screen: "1. main", labels: ["main", "dev"], expected: false },
-  ])("is $expected for $where", ({ screen, labels, expected }) => {
-    expect(showsLabels(screen, labels)).toBe(expected);
+    { where: "an option on its digit", screen: "  1. main\n  2. dev", picked: [1], expected: true },
+    { where: "an option behind a cursor mark", screen: "❯ 2. dev", picked: [1], expected: true },
+    { where: "an option behind a checkbox", screen: "1. [ ] main\n2. [x] dev", picked: [0, 1], expected: true },
+    { where: "a label the screen wrapped", screen: "1. Use the existing\n   branch for it", picked: [0], expected: true, labels: ["Use the existing branch for it"] },
+    { where: "an echoed answer with no digit", screen: "→ dev\n1. Yes\n2. Yes, and don't ask again\n3. No", picked: [1], expected: false },
+    { where: "the label on another digit", screen: "1. dev\n2. main", picked: [1], expected: false },
+    { where: "an option that is gone", screen: "❯ npm test", picked: [1], expected: false },
+    { where: "one of two picks gone", screen: "1. main", picked: [0, 1], expected: false },
+    { where: "a label with regex marks", screen: "1. Use a.b (now)", picked: [0], expected: true, labels: ["Use a.b (now)"] },
+  ])("is $expected for $where", ({ screen, picked, expected, labels }) => {
+    expect(showsOptions(screen, labels ?? options, picked)).toBe(expected);
   });
 });
