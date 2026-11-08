@@ -104,14 +104,7 @@ describe("the Codex adapter: finding the rollout", () => {
     const machine = host([PATH]);
 
     expect(await codexAdapter.locate(machine, pane({ sessionId: "0192a3b4-demo" }))).toBe(PATH);
-    expect(machine.findFiles).toHaveBeenCalledWith(".codex/sessions", "rollout-*-0192a3b4-demo*.jsonl", 4);
-  });
-
-  it("takes the path Herdr gives", async () => {
-    const machine = host([]);
-
-    expect(await codexAdapter.locate(machine, pane({ sessionPath: "/work/rollout.jsonl" }))).toBe("/work/rollout.jsonl");
-    expect(machine.findFiles).not.toHaveBeenCalled();
+    expect(machine.findFiles).toHaveBeenCalledWith(".codex/sessions", "rollout-*-0192a3b4-demo.jsonl", 4);
   });
 
   it.each([
@@ -124,7 +117,6 @@ describe("the Codex adapter: finding the rollout", () => {
 
   it.each([
     { where: "a session id", fields: { sessionId: "s-1" }, expected: true },
-    { where: "a session path", fields: { sessionPath: "/work/rollout.jsonl" }, expected: true },
     { where: "only a process id, as on the desktop app", fields: { pid: 100 }, expected: false },
     { where: "no session", fields: {}, expected: false },
   ])("can find a rollout with $where: $expected", ({ fields, expected }) => {

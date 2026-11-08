@@ -12,9 +12,8 @@ const TRANSCRIPT_DEPTH = 2;
  */
 export const claudeAdapter: AgentAdapter = {
   agents: CLAUDE_AGENTS,
-  canLocate: (pane) => pane.pid !== undefined || pane.sessionId !== undefined || pane.sessionPath !== undefined,
+  canLocate: (pane) => pane.pid !== undefined || pane.sessionId !== undefined,
   locate: async (host, pane) => {
-    if (pane.sessionPath !== undefined) return pane.sessionPath;
     if (pane.pid !== undefined) {
       const session = parseSession((await host.readFile(getSessionPath(pane.pid))).text);
       return session ? getTranscriptPath(session) : null;

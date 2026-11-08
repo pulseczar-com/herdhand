@@ -12,12 +12,11 @@ const ROLLOUT_DEPTH = 4;
  */
 export const codexAdapter: AgentAdapter = {
   agents: ["codex"],
-  canLocate: (pane) => pane.sessionId !== undefined || pane.sessionPath !== undefined,
+  canLocate: (pane) => pane.sessionId !== undefined,
   locate: async (host, pane) => {
-    if (pane.sessionPath !== undefined) return pane.sessionPath;
     const sessionId = getSafeSessionId(pane);
     if (sessionId === null) return null;
-    return getOnlyPath(await host.findFiles(SESSIONS_FOLDER, `rollout-*-${sessionId}*.jsonl`, ROLLOUT_DEPTH));
+    return getOnlyPath(await host.findFiles(SESSIONS_FOLDER, `rollout-*-${sessionId}.jsonl`, ROLLOUT_DEPTH));
   },
   addLines: addCodexLines,
   getInfo: getCodexInfo,

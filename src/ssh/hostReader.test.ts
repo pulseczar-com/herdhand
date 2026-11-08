@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -189,6 +189,20 @@ describe("the host reader", () => {
         expect([...chat.values()]).toEqual([expect.objectContaining({ result: { text: "Result not shown (too long)", isError: true } })]);
       });
 
+      it("completes a call whose id has a character other than a letter, digit, underscore or hyphen", async () => {
+        const PIPED = "call_1|fc_2";
+        const call = { type: "message", id: "e1", message: { role: "assistant", content: [{ type: "toolCall", id: PIPED, name: "bash", arguments: { command: "ls" } }] } };
+        const result = { type: "message", id: "e2", message: { role: "toolResult", toolCallId: PIPED, content: [{ type: "text", text: BIG }], isError: false } };
+        write("notes.txt", `${JSON.stringify(call)}\n${JSON.stringify(result)}\n`);
+
+        const { text } = await host.readFile("notes.txt");
+        const { chat } = piAdapter.addLines(EMPTY_TRANSCRIBED, text.trimEnd().split("\n"), 1);
+
+        expect([...chat.values()]).toEqual([
+          expect.objectContaining({ kind: "tool", id: PIPED, result: { text: "Result not shown (too long)", isError: false } }),
+        ]);
+      });
+
       it("does not take a long tool call for a result", async () => {
         const longCall = { type: "response_item", payload: { type: "function_call", name: "apply_patch", arguments: BIG, call_id: ID } };
         write("notes.txt", `${JSON.stringify(longCall)}\n`);
@@ -248,7 +262,20 @@ describe("the host reader", () => {
     ])("finds a name pattern exactly $depth levels down", async ({ depth, expected }) => {
       for (const file of ["p/a.jsonl", "p/one/a.jsonl", "p/2026/11/07/rollout-1-s-1.jsonl", "p/2026/11/07/other.jsonl"]) write(file, "x\n");
 
-      expect(await host.findFiles("p", depth === 1 ? "a.jsonl" : "rollout-*-s-1*.jsonl", depth)).toEqual(expected);
+      expect(await host.findFiles("p", depth === 1 ? "a.jsonl" : "rollout-*-s-1.jsonl", depth)).toEqual(expected);
+    });
+
+    it("does not take a longer id for the id", async () => {
+      write("p/2026/11/07/rollout-1-s-10.jsonl", "x\n");
+
+      expect(await host.findFiles("p", "rollout-*-s-1.jsonl", 4)).toEqual([]);
+    });
+
+    it("finds a file in a folder that is a link", async () => {
+      write("real/one/s-1.jsonl", "x\n");
+      symlinkSync(join(home, "real"), join(home, "p"));
+
+      expect(await host.findFiles("p", "s-1.jsonl", 2)).toEqual(["p/one/s-1.jsonl"]);
     });
 
     it("finds nothing in a folder that does not exist", async () => {

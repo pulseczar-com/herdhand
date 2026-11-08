@@ -86,10 +86,6 @@ describe("the Copilot adapter: finding the events file", () => {
     expect(host.findFiles).not.toHaveBeenCalled();
   });
 
-  it("takes the path Herdr gives", async () => {
-    expect(await copilotAdapter.locate(host, pane({ sessionPath: "/work/events.jsonl" }))).toBe("/work/events.jsonl");
-  });
-
   it.each(["../x", "a/b", ""])("finds no chat for the session id %p", async (sessionId) => {
     expect(await copilotAdapter.locate(host, pane({ sessionId }))).toBeNull();
   });

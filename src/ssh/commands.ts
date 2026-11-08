@@ -73,7 +73,7 @@ const LONG_RESULT_NOTE = '{"herdhandLongLine":%d,"callId":"%s","failed":%s}';
 // How the agents' files mark a tool result, the id of its call, and a failure.
 const RESULT_LINE_AWK =
   String.raw`/"type":"(tool_result|function_call_output|custom_tool_call_output|tool\.execution_complete)"|"role":"toolResult"/`;
-const CALL_ID_AWK = '/"(tool_use_id|call_id|toolCallId)":"[A-Za-z0-9_-]+"/';
+const CALL_ID_AWK = '/"(tool_use_id|call_id|toolCallId)":"[^"\\\\]+"/';
 const FAILED_AWK = '/"(is_error|isError)":true|"success":false/';
 
 const toAwkString = (text: string) => text.replace(/"/g, '\\"');
@@ -109,7 +109,7 @@ export function readLinesCommand(path: string, offset: number, limit: number): s
 
 // Prints the path of each file whose name matches the pattern $2, exactly $3 levels below the
 // folder $1. A folder that is missing has no files.
-const FIND_FILES_SCRIPT = 'find "$1" -mindepth "$3" -maxdepth "$3" -type f -name "$2" 2>/dev/null; exit 0';
+const FIND_FILES_SCRIPT = 'find -L "$1" -mindepth "$3" -maxdepth "$3" -type f -name "$2" 2>/dev/null; exit 0';
 
 /** The command that prints the path of each file whose name matches `namePattern` (a glob), `depth` levels below `folder`. */
 export function findFilesCommand(folder: string, namePattern: string, depth: number): string {

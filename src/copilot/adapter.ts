@@ -8,9 +8,8 @@ import { addCopilotLines, getCopilotInfo } from "@/copilot/transcript";
  */
 export const copilotAdapter: AgentAdapter = {
   agents: ["copilot"],
-  canLocate: (pane) => pane.sessionId !== undefined || pane.sessionPath !== undefined,
+  canLocate: (pane) => pane.sessionId !== undefined,
   locate: async (_host, pane) => {
-    if (pane.sessionPath !== undefined) return pane.sessionPath;
     const sessionId = getSafeSessionId(pane);
     return sessionId === null ? null : `.copilot/session-state/${sessionId}/events.jsonl`;
   },

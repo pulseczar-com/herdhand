@@ -15,11 +15,6 @@ describe("the Claude adapter: finding the transcript", () => {
 
   beforeEach(() => jest.resetAllMocks());
 
-  it("takes the path Herdr gives", async () => {
-    expect(await claudeAdapter.locate(host, pane({ sessionPath: "/work/s.jsonl", pid: 100 }))).toBe("/work/s.jsonl");
-    expect(readFile).not.toHaveBeenCalled();
-  });
-
   it("reads the session file of the process, then names the transcript", async () => {
     readFile.mockResolvedValue({ text: '{"sessionId":"s-1","cwd":"/work/demo"}' });
 
