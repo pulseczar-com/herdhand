@@ -19,7 +19,8 @@ const desktop: EventFeed = {
 };
 
 // Everything that changes a space, a tab or a pane, but not focus, output or scroll, which
-// change all the time and show nowhere in the list.
+// change all the time and show nowhere in the list. Not `pane.agent_status_changed`: Herdr 0.9.3
+// rejects the whole subscription because that type needs a `pane_id`.
 const TUI_SUBSCRIPTIONS = [
   "workspace.created",
   "workspace.updated",
@@ -37,7 +38,6 @@ const TUI_SUBSCRIPTIONS = [
   "pane.moved",
   "pane.exited",
   "pane.agent_detected",
-  "pane.agent_status_changed",
   "layout.updated",
 ];
 

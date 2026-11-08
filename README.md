@@ -123,6 +123,10 @@ To build the app:
 
 For a signed Google Play bundle, run `just build-release` and follow [`docs/play-console.md`](docs/play-console.md).
 
+## Known limits
+
+- On Herdr TUI, an agent that starts to wait shows on the next change event or on pull to refresh. Herdr 0.9.3 accepts the agent status event for one pane at a time only.
+
 ## Commands
 
 | Command | What it does |

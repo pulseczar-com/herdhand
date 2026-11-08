@@ -33,7 +33,16 @@ describe("the TUI event feed", () => {
     const types = params.subscriptions.map((subscription) => subscription.type);
 
     expect(method).toBe("events.subscribe");
-    expect(types).toEqual(expect.arrayContaining(["tab.created", "pane.closed", "pane.agent_status_changed"]));
+    expect(types).toEqual(expect.arrayContaining(["tab.created", "pane.closed"]));
     expect(types.filter((type) => /focused|output|scroll/.test(type))).toEqual([]);
+  });
+
+  it("subscribes to no type that needs a pane_id", () => {
+    const { params } = JSON.parse(subscribeLine) as { params: { subscriptions: { type: string }[] } };
+    const types = params.subscriptions.map((subscription) => subscription.type);
+
+    // Source: a live Herdr 0.9.3 accepted 17 types and rejected the whole line for this one with
+    // "missing field `pane_id`".
+    expect(types).not.toContain("pane.agent_status_changed");
   });
 });
