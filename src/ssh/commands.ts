@@ -57,27 +57,24 @@ export const NOT_A_FILE_EXIT_CODE = 3;
 
 // A line longer than this many bytes is replaced by a short note. A read holds at most 100 lines,
 // so it prints at most 1.6 MB. That stays under the native module's 8 MiB output cap, and it
-// can finish inside the module's 20 s run timeout on a slow link. Claude Code writes an image or
-// a long tool result as one very long line.
+// can finish inside the module's 20 s run timeout on a slow link.
 const MAX_LINE_LENGTH = 16_000;
 
-// The note is one line of a Claude Code transcript, which the chat shows as a reply. It takes the
-// number of its line, so each note has its own id.
-const LONG_LINE_NOTE = JSON.stringify({
-  type: "assistant",
-  uuid: "long-line-%d",
-  message: { content: [{ type: "text", text: "Large item not shown (image or long output)" }] },
-});
+// The note is one JSON line with the number of the line it replaces, so each note has its own id.
+// It is the same for every agent (see `parseLongLineNote`).
+const LONG_LINE_NOTE = '{"herdhandLongLine":%d}';
 
 // A long line that holds a tool result gets this note instead, with the id of the call. The chat
 // then shows the call as done, or as failed when the line says the result is an error. A long
 // line that holds a tool call has no such note: the call is lost, and its result waits for it
 // without showing.
-const LONG_RESULT_NOTE = JSON.stringify({
-  type: "user",
-  uuid: "long-line-%d",
-  message: { content: [{ type: "tool_result", tool_use_id: "%s", is_error: "%s", content: "Result not shown (too long)" }] },
-}).replace('"is_error":"%s"', '"is_error":%s');
+const LONG_RESULT_NOTE = '{"herdhandLongLine":%d,"callId":"%s","failed":%s}';
+
+// How the agents' files mark a tool result, the id of its call, and a failure.
+const RESULT_LINE_AWK =
+  String.raw`/"type":"(tool_result|function_call_output|custom_tool_call_output|tool\.execution_complete)"|"role":"toolResult"/`;
+const CALL_ID_AWK = '/"(tool_use_id|call_id|toolCallId)":"[^"\\\\]+"/';
+const FAILED_AWK = '/"(is_error|isError)":true|"success":false/';
 
 const toAwkString = (text: string) => text.replace(/"/g, '\\"');
 
@@ -87,9 +84,9 @@ const KEEP_SHORT_LINES_AWK = [
   'NR > 1 { printf "\\n" }',
   "{",
   'if (length($0) <= max) printf "%s", $0;',
-  'else if (match($0, /"tool_use_id":"[A-Za-z0-9_-]+"/)) {',
-  'id = substr($0, RSTART, RLENGTH); sub(/^"tool_use_id":"/, "", id); sub(/"$/, "", id);',
-  'failed = ($0 ~ /"is_error":true/) ? "true" : "false";',
+  `else if ($0 ~ ${RESULT_LINE_AWK} && match($0, ${CALL_ID_AWK})) {`,
+  'id = substr($0, RSTART, RLENGTH); sub(/^"[A-Za-z_]+":"/, "", id); sub(/"$/, "", id);',
+  `failed = ($0 ~ ${FAILED_AWK}) ? "true" : "false";`,
   `printf "${toAwkString(LONG_RESULT_NOTE)}", start + NR - 1, id, failed }`,
   `else printf "${toAwkString(LONG_LINE_NOTE)}", start + NR - 1 }`,
   'END { if (NR > 0 && nl == 1) printf "\\n" }',
@@ -110,10 +107,11 @@ export function readLinesCommand(path: string, offset: number, limit: number): s
   return runScript(READ_LINES_SCRIPT, [path, offset, limit, MAX_LINE_LENGTH, KEEP_SHORT_LINES_AWK]);
 }
 
-// Prints the path of each file named $2 directly inside a folder of folder $1.
-const FIND_IN_SUBFOLDERS_SCRIPT = 'for f in "$1"/*/"$2"; do [ -f "$f" ] && echo "$f"; done; exit 0';
+// Prints the path of each file whose name matches the pattern $2, exactly $3 levels below the
+// folder $1. A folder that is missing has no files.
+const FIND_FILES_SCRIPT = 'find -L "$1" -mindepth "$3" -maxdepth "$3" -type f -name "$2" 2>/dev/null; exit 0';
 
-/** The command that prints the path of each file called `fileName` inside a folder of `folder`. */
-export function findInSubfoldersCommand(folder: string, fileName: string): string {
-  return runScript(FIND_IN_SUBFOLDERS_SCRIPT, [folder, fileName]);
+/** The command that prints the path of each file whose name matches `namePattern` (a glob), `depth` levels below `folder`. */
+export function findFilesCommand(folder: string, namePattern: string, depth: number): string {
+  return runScript(FIND_FILES_SCRIPT, [folder, namePattern, depth]);
 }

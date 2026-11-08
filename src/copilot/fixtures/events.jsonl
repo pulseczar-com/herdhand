@@ -1,0 +1,13 @@
+{"type":"session.start","id":"e1","parentId":null,"timestamp":"2026-01-01T10:00:01.000Z","data":{"sessionId":"5d1f-demo","context":{"cwd":"/work/demo","branch":"main"}}}
+{"type":"session.model_change","id":"e2","parentId":"e1","timestamp":"2026-01-01T10:00:02.000Z","data":{"newModel":"demo-model"}}
+{"type":"user.message","id":"e3","parentId":"e2","timestamp":"2026-01-01T10:00:03.000Z","data":{"content":"Run the tests","interactionId":"i1"}}
+{"type":"user.message","id":"e4","parentId":"e3","timestamp":"2026-01-01T10:00:04.000Z","data":{"content":"<skill-context>helper</skill-context>","source":"skill-demo"}}
+{"type":"assistant.reasoning","id":"e5","parentId":"e4","timestamp":"2026-01-01T10:00:05.000Z","data":{"reasoningId":"r1","content":"Thinking"}}
+{"type":"assistant.message","id":"e6","parentId":"e5","timestamp":"2026-01-01T10:00:06.000Z","data":{"messageId":"m1","content":"","toolRequests":[{"toolCallId":"tc1","name":"bash","arguments":{"command":"npm test","description":"Run the tests"},"type":"function"}]}}
+{"type":"tool.execution_start","id":"e7","parentId":"e6","timestamp":"2026-01-01T10:00:07.000Z","data":{"toolCallId":"tc1","toolName":"bash","arguments":{"command":"npm test"}}}
+{"type":"assistant.message_delta","id":"e8","parentId":"e7","timestamp":"2026-01-01T10:00:08.000Z","data":{"messageId":"m2","deltaContent":"All"},"ephemeral":true}
+{"type":"tool.execution_complete","id":"e9","parentId":"e8","timestamp":"2026-01-01T10:00:09.000Z","data":{"toolCallId":"tc1","success":true,"result":{"content":"All tests pass.","detailedContent":"All tests pass.\nDone."}}}
+{"type":"assistant.message","id":"e10","parentId":"e9","timestamp":"2026-01-01T10:00:10.000Z","data":{"messageId":"m3","content":"The tests pass."}}
+{"type":"assistant.message","id":"e11","parentId":"e10","timestamp":"2026-01-01T10:00:11.000Z","data":{"messageId":"m4","content":"Sub-agent text"},"agentId":"sub1"}
+{"type":"session.compaction_complete","id":"e12","parentId":"e11","timestamp":"2026-01-01T10:00:12.000Z","data":{"success":true,"tokensRemoved":900}}
+{"type":"assistant.message","id":"e13","parentId":"e12","timestamp":"2026-01-01T10:00:13.000Z","data":{"messageId":"m5","content":"","toolRequests":[{"toolCallId":"tc2","name":"ask_user","arguments":{"question":"What should I do next?","choices":["Fix lint","Stop"],"allow_freeform":true}}]}}

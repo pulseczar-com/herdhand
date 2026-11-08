@@ -161,6 +161,7 @@ function toPane(pane: TuiPane, columns: number | null): Pane {
   if (!pane.agent) return { id, title, agent: null, state: null, isFinished: false, columns };
   const agentPane = { id, title, agent: pane.agent, state: toAgentState(pane.agent_status), isFinished: false, columns };
   const { kind, value } = pane.agent_session ?? {};
-  // A session of another kind names a file path, which no agent the app reads gives.
-  return kind === "id" && value ? { ...agentPane, sessionId: value } : agentPane;
+  if (!value) return agentPane;
+  if (kind === "id") return { ...agentPane, sessionId: value };
+  return kind === "path" ? { ...agentPane, sessionPath: value } : agentPane;
 }

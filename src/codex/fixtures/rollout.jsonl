@@ -1,0 +1,13 @@
+{"timestamp":"2026-01-01T10:00:00.000Z","type":"session_meta","payload":{"id":"0192a3b4-demo","cwd":"/work/demo","originator":"codex_cli","git":{"branch":"main"}}}
+{"timestamp":"2026-01-01T10:00:01.000Z","type":"turn_context","payload":{"cwd":"/work/demo","model":"demo-model"}}
+{"timestamp":"2026-01-01T10:00:02.000Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"<environment_context>\n  <cwd>/work/demo</cwd>\n</environment_context>"}]}}
+{"timestamp":"2026-01-01T10:00:03.000Z","type":"response_item","payload":{"type":"message","role":"developer","content":[{"type":"input_text","text":"Follow the house rules."}]}}
+{"timestamp":"2026-01-01T10:00:04.000Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"Run the tests"}]}}
+{"timestamp":"2026-01-01T10:00:05.000Z","type":"event_msg","payload":{"type":"user_message","message":"Run the tests"}}
+{"timestamp":"2026-01-01T10:00:06.000Z","type":"response_item","payload":{"type":"reasoning","summary":[],"encrypted_content":"opaque"}}
+{"timestamp":"2026-01-01T10:00:07.000Z","type":"response_item","payload":{"type":"function_call","name":"shell_command","arguments":"{\"command\":\"npm test\",\"workdir\":\"/work/demo\"}","call_id":"call_1"}}
+{"timestamp":"2026-01-01T10:00:08.000Z","type":"response_item","payload":{"type":"function_call_output","call_id":"call_1","output":"Exit code: 0\nWall time: 1.2 seconds\nOutput:\nAll tests pass."}}
+{"timestamp":"2026-01-01T10:00:09.000Z","type":"response_item","payload":{"type":"custom_tool_call","name":"apply_patch","input":"*** Begin Patch\n*** Update File: src/app.ts\n*** End Patch","call_id":"call_2"}}
+{"timestamp":"2026-01-01T10:00:10.000Z","type":"response_item","payload":{"type":"custom_tool_call_output","call_id":"call_2","output":"Done!"}}
+{"timestamp":"2026-01-01T10:00:11.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"The tests pass."}]}}
+{"timestamp":"2026-01-01T10:00:12.000Z","type":"response_item","payload":{"type":"function_call","name":"request_user_input","arguments":"{\"questions\":[{\"id\":\"q1\",\"header\":\"Next\",\"question\":\"What should I do next?\",\"isOther\":true,\"isSecret\":false,\"options\":[{\"label\":\"Fix lint\",\"description\":\"Run the linter\"},{\"label\":\"Stop\",\"description\":\"Nothing more\"}]}],\"isBlocking\":true}","call_id":"call_3"}}

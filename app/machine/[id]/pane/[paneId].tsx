@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 
+import { getAdapter } from "@/chat/adapters";
 import { AnswerCard } from "@/components/AnswerCard";
 import { ChatView } from "@/components/ChatView";
 import { NeedsYouBanner } from "@/components/NeedsYouBanner";
@@ -21,13 +22,13 @@ import { SpaceBadge } from "@/components/SpaceBadge";
 import { StatePill } from "@/components/StatePill";
 import { useKeepAtEnd } from "@/components/useKeepAtEnd";
 import { hideClaudeInput } from "@/claude/inputLine";
-import { isClaudeAgent, isClaudePane } from "@/claude/paths";
+import { isClaudeAgent } from "@/claude/paths";
 import { getPendingQuestion } from "@/claude/question";
 import { findPane, type LocatedPane } from "@/herdr/agentPanes";
 import type { Backend, Pane } from "@/herdr/backend";
 import { describePlace, getPaneBadge } from "@/herdr/badges";
 import { type MachineConnection, MachineConnectionContext, useMachines } from "@/machines/MachineConnection";
-import { canReadChat, type ChatBackend, useClaudeChat } from "@/machines/useClaudeChat";
+import { canReadChat, type ChatBackend, useAgentChat } from "@/machines/useAgentChat";
 import type { ConnectionStatus } from "@/machines/useMachineConnection";
 import { usePaneText } from "@/machines/usePaneText";
 import { type Block, reformatPane } from "@/pane/reformat";
@@ -36,7 +37,7 @@ import type { HostReader } from "@/ssh/hostReader";
 const CONTENT_PADDING = 16;
 
 /**
- * One pane, with the key row and composer to type into it. A Claude pane whose transcript the app
+ * One pane, with the key row and composer to type into it. An agent pane whose transcript the app
  * can find opens on its chat; any other pane opens on its screen, with a line that says why when
  * an agent has no chat. The screen is the pane's text, reformatted for the phone and kept fresh.
  */
@@ -86,7 +87,14 @@ function PaneScreen({ connection }: { connection: MachineConnection }) {
       {status.phase === "connected" ? (
         <>
           {chatBackend ? (
-            <ClaudeChat backend={chatBackend} host={status.host} paneId={paneId} paneColumns={paneColumns} onPaneChange={setFreshPane} />
+            <AgentChat
+              backend={chatBackend}
+              host={status.host}
+              paneId={paneId}
+              paneColumns={paneColumns}
+              isClaude={isClaude}
+              onPaneChange={setFreshPane}
+            />
           ) : (
             <PaneText
               backend={status.backend}
@@ -107,9 +115,9 @@ function PaneScreen({ connection }: { connection: MachineConnection }) {
   );
 }
 
-/** The backend, when the pane is a Claude pane whose transcript the app can find and the backend can read the pane. */
+/** The backend, when the pane is an agent pane whose transcript the app can find and the backend can read the pane. */
 function getChatBackend(status: ConnectionStatus, located: LocatedPane | undefined): ChatBackend | null {
-  if (status.phase !== "connected" || !located || !isClaudePane(located.pane)) return null;
+  if (status.phase !== "connected" || !located || !getAdapter(located.pane)) return null;
   return canReadChat(status.backend) ? status.backend : null;
 }
 
@@ -145,21 +153,22 @@ function PaneTitle({ located }: { located: LocatedPane }) {
   );
 }
 
-type ClaudeChatProps = {
+type AgentChatProps = {
   backend: ChatBackend;
   host: HostReader;
   paneId: string;
   paneColumns: number | null;
+  isClaude: boolean;
   onPaneChange: (pane: Pane | null) => void;
 };
 
 /**
- * The pane's Claude chat. Each fresh read of the pane goes up to the header and the banner. A
+ * The pane's agent chat. Each fresh read of the pane goes up to the header and the banner. A
  * blocked agent ends the chat with the buttons of its question, or with its screen when the
  * transcript has no question the app can answer. With no chat to show, the pane shows its screen.
  */
-function ClaudeChat({ backend, host, paneId, paneColumns, onPaneChange }: ClaudeChatProps) {
-  const { chat, info, hasEarlier, loadEarlier, pane, screen, error } = useClaudeChat(backend, host, paneId);
+function AgentChat({ backend, host, paneId, paneColumns, isClaude, onPaneChange }: AgentChatProps) {
+  const { chat, info, hasEarlier, loadEarlier, pane, screen, error } = useAgentChat(backend, host, paneId);
   useEffect(() => onPaneChange(pane), [pane, onPaneChange]);
   const question = useMemo(() => (chat === null ? null : getPendingQuestion(chat)), [chat]);
   // The question the card is done with: its keys went out, or the screen stopped listing its options. The screen takes its place.
@@ -167,7 +176,7 @@ function ClaudeChat({ backend, host, paneId, paneColumns, onPaneChange }: Claude
   const answerQuestion = question !== null && question.id !== doneQuestionId ? question : null;
 
   if (chat?.size === 0) {
-    return <PaneText backend={backend} paneId={paneId} paneColumns={paneColumns} isClaude note={NO_CHAT_FILE_NOTE} />;
+    return <PaneText backend={backend} paneId={paneId} paneColumns={paneColumns} isClaude={isClaude} note={NO_CHAT_FILE_NOTE} />;
   }
   return (
     <>

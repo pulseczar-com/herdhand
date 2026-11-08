@@ -1,12 +1,21 @@
-import type { AskedQuestion, Chat, ChatInfo, ChatItem, ToolItem, ToolResult } from "@/chat/chatItems";
+import type { AskedQuestion, ChatInfo } from "@/chat/chatItems";
+import { COMPACTED_TEXT, IMAGE_TEXT, addLongLineNote, parseLongLineNote } from "@/chat/longLine";
+import { getToolInputText, getToolSummary } from "@/chat/toolInput";
+import {
+  addToTranscribed,
+  getFolderName,
+  makeToolResult,
+  parseObject,
+  setToolCall,
+  setToolResult,
+  type Transcribed,
+  type Working,
+} from "@/chat/transcribed";
 
 /**
  * Claude Code's transcript (one JSON record a line) as chat items. The format has no docs and
  * changes with Claude Code, so every rule is tolerant: a record or block it does not know is skipped.
  */
-
-/** A tool result is cut to this many characters. */
-export const RESULT_LIMIT = 4_000;
 
 // User text that starts with one of these tags is Claude Code's own output, not a prompt.
 const HIDDEN_TAGS = [
@@ -20,14 +29,9 @@ const HIDDEN_TAGS = [
   "user-prompt-submit-hook",
 ];
 
-// The input fields that best say what a tool call does, best first.
-const SUMMARY_FIELDS = ["description", "command", "file_path", "path", "pattern", "url", "query", "prompt"];
-
 // Claude Code names the model of a reply it wrote itself, such as an error, this.
 const SYNTHETIC_MODEL = "<synthetic>";
 const ASK_TOOL = "AskUserQuestion";
-const IMAGE_TEXT = "[image]";
-const COMPACTED_TEXT = "Conversation compacted";
 
 // The parts of a record this app reads. Every field is optional, and unknown fields are ignored.
 type TranscriptRecord = {
@@ -53,33 +57,16 @@ type ContentBlock = {
   is_error?: boolean;
 };
 
-/**
- * The chat, and the results whose call is not in it yet, by tool call id. A read can start between
- * a call and its result; the result waits for the call to arrive with an earlier page.
- */
-export type Transcribed = { chat: Chat; orphans: ReadonlyMap<string, ToolResult> };
-
-// The copies that one call adds records to.
-type Working = { items: Map<string, ChatItem>; orphans: Map<string, ToolResult> };
-
 /** A copy of the transcript with the lines added after it. */
 export function addTranscriptLines(transcribed: Transcribed, lines: string[]): Transcribed {
-  if (lines.length === 0) return transcribed;
-  const working: Working = { items: new Map(transcribed.chat), orphans: new Map(transcribed.orphans) };
-  for (const line of lines) {
-    const record = parseRecord(line);
-    if (record && isShown(record)) addRecord(working, record);
-  }
-  return { chat: working.items, orphans: working.orphans };
-}
-
-/**
- * A copy of the transcript with the lines added before it. The transcript's own items win for an
- * id both have, as they come from newer lines.
- */
-export function addEarlierLines(transcribed: Transcribed, lines: string[]): Transcribed {
-  const earlier = addTranscriptLines({ chat: new Map(), orphans: transcribed.orphans }, lines);
-  return { chat: new Map([...earlier.chat, ...transcribed.chat]), orphans: earlier.orphans };
+  return addToTranscribed(transcribed, lines, (working) => {
+    for (const line of lines) {
+      const record = parseRecord(line);
+      const note = record && parseLongLineNote(record);
+      if (note) addLongLineNote(working, note);
+      else if (record && isShown(record)) addRecord(working, record);
+    }
+  });
 }
 
 /** The info with what the lines carry: each field from the newest line that has it. */
@@ -97,19 +84,9 @@ export function getChatInfo(info: ChatInfo, lines: string[]): ChatInfo {
   return next;
 }
 
-/** The last part of a path: the full path has a home folder and a user name in it. */
-function getFolderName(path: string): string {
-  return path.split("/").filter(Boolean).at(-1) ?? "";
-}
-
 /** The line's record, or null when it is not a JSON object. */
 function parseRecord(line: string): TranscriptRecord | null {
-  try {
-    const parsed: unknown = JSON.parse(line);
-    return typeof parsed === "object" && parsed !== null ? (parsed as TranscriptRecord) : null;
-  } catch {
-    return null;
-  }
+  return parseObject(line) as TranscriptRecord | null;
 }
 
 /** Subagents' turns, Claude Code's own notes and summaries, and records with no id stay hidden. */
@@ -177,14 +154,8 @@ function getTagText(text: string, tag: string): string | null {
   return match ? match[1].trim() : null;
 }
 
-/** A result goes into its call, in place. A result whose call is not in the chat waits as an orphan. */
-function addToolResult({ items, orphans }: Working, block: ContentBlock) {
-  const id = String(block.tool_use_id);
-  const text = getResultText(block.content);
-  const result = { text: text.slice(0, RESULT_LIMIT), isError: Boolean(block.is_error) };
-  const call = items.get(id);
-  if (call?.kind === "tool") items.set(id, { ...call, result });
-  else orphans.set(id, result);
+function addToolResult(working: Working, block: ContentBlock) {
+  setToolResult(working, String(block.tool_use_id), makeToolResult(getResultText(block.content), Boolean(block.is_error)));
 }
 
 function getResultText(content: string | ContentBlock[] | undefined): string {
@@ -195,26 +166,25 @@ function getResultText(content: string | ContentBlock[] | undefined): string {
 
 // ---- Assistant records: a reply or a tool call ----
 
-function addAssistantRecord({ items, orphans }: Working, record: ShownRecord) {
+function addAssistantRecord(working: Working, record: ShownRecord) {
   toBlocks(record.message?.content).forEach((block, index) => {
     if (block.type === "text" && block.text) {
       const replyId = `${record.uuid}/${index}`;
-      items.set(replyId, { kind: "reply", id: replyId, text: block.text });
+      working.items.set(replyId, { kind: "reply", id: replyId, text: block.text });
     }
     if (block.type === "tool_use" && block.id) {
-      const waitingResult = orphans.get(block.id) ?? null;
-      items.set(block.id, makeToolItem(block, block.id, waitingResult));
-      orphans.delete(block.id);
+      const input = block.input ?? {};
+      const name = String(block.name ?? "");
+      const questions = name === ASK_TOOL ? getQuestions(input) : [];
+      setToolCall(working, {
+        id: block.id,
+        name,
+        summary: getToolSummary(input),
+        input: getToolInputText(input),
+        ...(questions.length > 0 && { questions }),
+      });
     }
   });
-}
-
-function makeToolItem(block: ContentBlock, id: string, result: ToolResult | null): ToolItem {
-  const input = block.input ?? {};
-  const name = String(block.name ?? "");
-  const item: ToolItem = { kind: "tool", id, name, summary: getSummary(input), input: getInputText(input), result };
-  const questions = name === ASK_TOOL ? getQuestions(input) : [];
-  return questions.length > 0 ? { ...item, questions } : item;
 }
 
 /** The questions of an AskUserQuestion call. A question with no text, and an option with no label, are skipped. */
@@ -231,16 +201,4 @@ function getQuestions(input: Record<string, unknown>): AskedQuestion[] {
 function getOptionLabel(option: unknown): string | null {
   const label = typeof option === "object" && option !== null ? (option as Record<string, unknown>).label : null;
   return typeof label === "string" && label ? label : null;
-}
-
-/** The first summary field the call has. */
-function getSummary(input: Record<string, unknown>): string {
-  const field = SUMMARY_FIELDS.find((name) => typeof input[name] === "string");
-  return field ? String(input[field]) : "";
-}
-
-/** A shell command as it was typed; any other input as JSON. */
-function getInputText(input: Record<string, unknown>): string {
-  if (typeof input.command === "string") return input.command;
-  return JSON.stringify(input, null, 2).slice(0, RESULT_LIMIT);
 }

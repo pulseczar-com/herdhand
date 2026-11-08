@@ -1,6 +1,10 @@
 import type { Chat, ChatItem } from "@/chat/chatItems";
 
-import { addEarlierLines, addTranscriptLines, getChatInfo, RESULT_LIMIT, type Transcribed } from "./transcript";
+import { addEarlierLines } from "@/chat/adapter";
+import { EMPTY_TRANSCRIBED, RESULT_LIMIT } from "@/chat/transcribed";
+
+import { claudeAdapter } from "./adapter";
+import { addTranscriptLines, getChatInfo } from "./transcript";
 
 
 function user(content: unknown, fields: object = {}): string {
@@ -23,7 +27,7 @@ function getItems(chat: Chat): ChatItem[] {
   return Array.from(chat.values());
 }
 
-const EMPTY: Transcribed = { chat: new Map(), orphans: new Map() };
+const EMPTY = EMPTY_TRANSCRIBED;
 
 function read(lines: string[]): ChatItem[] {
   return getItems(addTranscriptLines(EMPTY, lines).chat);
@@ -166,7 +170,7 @@ describe("addTranscriptLines: tool calls", () => {
   it("gives a result that waits to the call in an earlier page", () => {
     const held = addTranscriptLines(EMPTY, [toolResult("5", { is_error: true })]);
 
-    const merged = addEarlierLines(held, [toolUse({ command: "echo 5" })]);
+    const merged = addEarlierLines(claudeAdapter, held, [toolUse({ command: "echo 5" })], 1);
 
     expect(getItems(merged.chat)).toMatchObject([{ kind: "tool", id: "tool1", result: { text: "5", isError: true } }]);
     expect(merged.orphans.size).toBe(0);
@@ -175,7 +179,7 @@ describe("addTranscriptLines: tool calls", () => {
   it("keeps a result that waits until its call arrives", () => {
     const held = addTranscriptLines(EMPTY, [toolResult("5")]);
 
-    const merged = addEarlierLines(held, [user("Hi")]);
+    const merged = addEarlierLines(claudeAdapter, held, [user("Hi")], 1);
 
     expect(merged.orphans.has("tool1")).toBe(true);
   });

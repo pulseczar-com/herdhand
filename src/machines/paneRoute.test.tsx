@@ -35,7 +35,7 @@ const backend: Backend = {
 
 const noFiles: HostReader = {
   readFile: jest.fn().mockRejectedValue(new FileReadError("not_found")),
-  findInSubfolders: jest.fn().mockResolvedValue([]),
+  findFiles: jest.fn().mockResolvedValue([]),
 };
 
 const connected: Omit<MachineConnection, "id" | "list"> = {
@@ -493,7 +493,7 @@ describe("Claude chat", () => {
       if (!(path in files)) throw new FileReadError("not_found");
       return range?.limit === 0 ? { text: "", first: 1, last: 0, lines: 1 } : { text: files[path], first: 1, last: 1, lines: 1 };
     }),
-    findInSubfolders: jest.fn(async (_folder: string, fileName: string) =>
+    findFiles: jest.fn(async (_folder: string, fileName: string, _depth: number) =>
       Object.keys(files).filter((path) => path.startsWith(".claude/projects/") && path.endsWith(`/${fileName}`)),
     ),
   };
@@ -614,6 +614,31 @@ describe("Claude chat", () => {
     renderMachine("/machine/m1/pane/t8");
 
     expect(await screen.findByText("Run the tests")).toBeTruthy();
+    expect(screen.queryByRole("tab")).toBeNull();
+  });
+
+  it("opens a Pi pane on its chat, read from the session file path Herdr gives", async () => {
+    const piPane = { id: "t8", title: "Fix the build", agent: "pi", state: "working" as const, isFinished: false, columns: null, sessionPath: "/work/pi-session.jsonl" };
+    const piLine = `${JSON.stringify({ type: "message", id: "m1", message: { role: "user", content: "Fix the login bug" } })}\n`;
+    const piHost: HostReader = {
+      ...host,
+      readFile: jest.fn(async (path: string, range?: LineRange) =>
+        path === piPane.sessionPath
+          ? { text: range?.limit === 0 ? "" : piLine, first: 1, last: range?.limit === 0 ? 0 : 1, lines: 1 }
+          : Promise.reject(new FileReadError("not_found")),
+      ),
+    };
+    connectTo(
+      {
+        ...chatBackend,
+        listSpaces: jest.fn().mockResolvedValue([{ id: "s1", name: "api", tabs: [{ id: "t2", name: "agents", panes: [piPane] }] }]),
+        getPane: jest.fn().mockResolvedValue(piPane),
+      },
+      piHost,
+    );
+    renderMachine("/machine/m1/pane/t8");
+
+    expect(await screen.findByText("Fix the login bug")).toBeTruthy();
     expect(screen.queryByRole("tab")).toBeNull();
   });
 
