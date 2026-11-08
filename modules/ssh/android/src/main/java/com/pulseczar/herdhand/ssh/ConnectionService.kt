@@ -91,7 +91,10 @@ class ConnectionService : Service() {
     private var isStopRequested = false
 
     fun start(context: Context, label: String) {
-      synchronized(lock) { isStopRequested = false }
+      synchronized(lock) {
+        isStopRequested = false
+        isForeground = false
+      }
       val intent = Intent(context, ConnectionService::class.java).putExtra(EXTRA_LABEL, label)
       ContextCompat.startForegroundService(context, intent)
     }

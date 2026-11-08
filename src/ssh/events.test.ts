@@ -183,6 +183,21 @@ describe("startEvents", () => {
     events.stop();
   });
 
+  it("gives up when the TUI answers the subscribe request with an error each time", async () => {
+    const events = startEvents("tui");
+    await flush();
+
+    for (let closes = 0; closes < 3; closes++) {
+      send(`${JSON.stringify({ id: "events", error: { message: "unknown method" } })}\n`);
+      close("ended");
+      await jest.advanceTimersByTimeAsync(RESTART_DELAY_MS);
+    }
+    await jest.advanceTimersByTimeAsync(RESTART_DELAY_MS * 5);
+
+    expect(mockSsh.state.log.filter((entry) => entry.startsWith("exec"))).toHaveLength(3);
+    events.stop();
+  });
+
   it("counts a stream that cannot start as a close, and gives up on it too", async () => {
     mockSsh.state.failExec = true;
     const events = startEvents("tui");

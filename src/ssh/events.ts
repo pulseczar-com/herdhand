@@ -28,7 +28,7 @@ export type Events = {
  */
 export function startEvents(kind: HerdrKind): Events {
   const stream = new EventStream(kind);
-  stream.open(false);
+  stream.open();
   return { onChange: (listener) => stream.addListener(listener), stop: () => stream.stop() };
 }
 
@@ -58,8 +58,11 @@ class EventStream {
     this.listeners.clear();
   }
 
-  /** Starts the command, then sends the subscribe line. A start that fails counts as a close. */
-  open(isRestart: boolean) {
+  /**
+   * Starts the command, then sends the subscribe line and calls `onSubscribed`. A start that
+   * fails counts as a close.
+   */
+  open(onSubscribed?: () => void) {
     const reader = new JsonLineReader();
     const close = this.makeClose();
     this.stopListening = listenToStream(
@@ -71,10 +74,7 @@ class EventStream {
     );
     Ssh.exec(EVENTS_STREAM, EVENTS_COMMANDS[this.kind])
       .then(() => Ssh.write(EVENTS_STREAM, `${this.feed.subscribeLine}\n`))
-      .then(() => {
-        // Changes while the stream was down are lost; the subscription is live again now.
-        if (isRestart) this.scheduleChange();
-      })
+      .then(onSubscribed)
       .catch(close);
   }
 
@@ -87,12 +87,15 @@ class EventStream {
       this.stopListening();
       this.closesWithoutALine += 1;
       if (this.isStopped || this.closesWithoutALine >= MAX_CLOSES_WITHOUT_A_LINE) return;
-      this.restartTimer = setTimeout(() => this.open(true), RESTART_DELAY_MS);
+      this.restartTimer = setTimeout(() => {
+        // Changes while the stream was down are lost; the subscription is live again then.
+        this.open(() => this.scheduleChange());
+      }, RESTART_DELAY_MS);
     };
   }
 
   private receive(message: object) {
-    this.closesWithoutALine = 0;
+    if (!("error" in message)) this.closesWithoutALine = 0;
     if (this.feed.isChange(message)) this.scheduleChange();
   }
 

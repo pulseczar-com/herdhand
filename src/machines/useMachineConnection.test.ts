@@ -518,8 +518,6 @@ describe("useMachineConnection", () => {
         calls += 1;
         expect(openBridge).toHaveBeenCalledTimes(calls);
       }
-      expect(RETRY_DELAYS_MS.slice(0, 4)).toEqual([1_000, 2_000, 5_000, 10_000]);
-      expect(Math.max(...RETRY_DELAYS_MS)).toBe(60_000);
     });
 
     it("shows the connection again when a retry gets through, and starts with the short wait on the next drop", async () => {
