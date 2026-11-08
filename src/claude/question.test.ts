@@ -40,19 +40,40 @@ describe("getAnswerKeys", () => {
 });
 
 describe("showsOptions", () => {
-  const options = ["main", "dev", "docs"];
+  const question = { question: "Which branch?", multiSelect: false, options: ["main", "dev", "docs"] };
+  const yesNo = { ...question, question: "Run the migration?", options: ["No", "Yes"] };
   it.each([
-    { where: "an option on its digit", screen: "  1. main\n  2. dev", picked: [1], expected: true },
-    { where: "an option behind a cursor mark", screen: "❯ 2. dev", picked: [1], expected: true },
-    { where: "an option behind a checkbox", screen: "1. [ ] main\n2. [x] dev", picked: [0, 1], expected: true },
-    { where: "a label the screen wrapped", screen: "1. Use the existing\n   branch for it", picked: [0], expected: true, labels: ["Use the existing branch for it"] },
-    { where: "an echoed answer with no digit", screen: "→ dev\n1. Yes\n2. Yes, and don't ask again\n3. No", picked: [1], expected: false },
-    { where: "a longer option that starts with the label", screen: "1. Yes\n2. Yes, and don't ask again\n3. No", picked: [1], expected: false, labels: ["No", "Yes"] },
-    { where: "the label on another digit", screen: "1. dev\n2. main", picked: [1], expected: false },
-    { where: "an option that is gone", screen: "❯ npm test", picked: [1], expected: false },
-    { where: "one of two picks gone", screen: "1. main", picked: [0, 1], expected: false },
-    { where: "a label with regex marks", screen: "1. Use a.b (now)", picked: [0], expected: true, labels: ["Use a.b (now)"] },
-  ])("is $expected for $where", ({ screen, picked, expected, labels }) => {
-    expect(showsOptions(screen, labels ?? options, picked)).toBe(expected);
+    { where: "an option on its digit", screen: "Which branch?\n  1. main\n  2. dev", picked: [1], expected: true },
+    { where: "an option behind a cursor mark", screen: "Which branch?\n❯ 2. dev", picked: [1], expected: true },
+    { where: "an option behind a checkbox", screen: "Which branch?\n1. [ ] main\n2. [x] dev", picked: [0, 1], expected: true },
+    {
+      where: "a label the screen wrapped",
+      screen: "Which branch?\n1. Use the existing\n   branch for it",
+      picked: [0],
+      expected: true,
+      asked: { ...question, options: ["Use the existing branch for it"] },
+    },
+    { where: "an echoed answer with no digit", screen: "· Which branch? → dev\n1. Yes\n2. Yes, and don't ask again\n3. No", picked: [1], expected: false },
+    { where: "a longer option that starts with the label", screen: "Run the migration?\n1. Yes\n2. Yes, and don't ask again\n3. No", picked: [1], expected: false, asked: yesNo },
+    {
+      where: "a numbered list above the echo of the question",
+      screen: "Two choices:\n1. main — stable\n2. dev — latest\n· Which branch? → dev\n1. Yes\n2. Yes, and don't ask again\n3. No",
+      picked: [1],
+      expected: false,
+    },
+    { where: "the live dialog under a numbered list", screen: "1. main — stable\n2. dev — latest\nWhich branch?\n1. main\n2. dev", picked: [1], expected: true },
+    { where: "a screen that no longer shows the question", screen: "1. main\n2. dev", picked: [1], expected: false },
+    { where: "the label on another digit", screen: "Which branch?\n1. dev\n2. main", picked: [1], expected: false },
+    { where: "an option that is gone", screen: "Which branch?\n❯ npm test", picked: [1], expected: false },
+    { where: "one of two picks gone", screen: "Which branch?\n1. main", picked: [0, 1], expected: false },
+    {
+      where: "a label with regex marks",
+      screen: "Which branch?\n1. Use a.b (now)",
+      picked: [0],
+      expected: true,
+      asked: { ...question, options: ["Use a.b (now)"] },
+    },
+  ])("is $expected for $where", ({ screen, picked, expected, asked }) => {
+    expect(showsOptions(screen, asked ?? question, picked)).toBe(expected);
   });
 });

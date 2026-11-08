@@ -67,7 +67,7 @@ function useAnswer(backend: Backend, paneId: string, question: PendingQuestion, 
     setIsSending(true);
     try {
       const screenText = parseStyledText(await backend.readPane(paneId)).text;
-      if (!showsOptions(screenText, question.options, indexes)) return onDone();
+      if (!showsOptions(screenText, question, indexes)) return onDone();
       for (const key of getAnswerKeys(question.multiSelect, indexes)) await backend.pressKey(paneId, key);
       setPicked([]);
       setError(null);

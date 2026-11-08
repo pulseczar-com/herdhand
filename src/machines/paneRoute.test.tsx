@@ -647,12 +647,6 @@ describe("Claude chat", () => {
     expect(await screen.findByText("❯")).toBeTruthy();
     expect(screen.queryByText(/merge the branch/)).toBeNull();
   });
-
-  it("says a shell has no chat", async () => {
-    renderMachine("/machine/m1/pane/t6");
-
-    expect(await screen.findByText("No chat for a shell here: showing the screen.")).toBeTruthy();
-  });
 });
 
 // Expo's keyboard guide: Android apps are edge-to-edge, so the window does not resize for the

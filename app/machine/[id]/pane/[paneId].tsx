@@ -93,7 +93,7 @@ function PaneScreen({ connection }: { connection: MachineConnection }) {
               paneId={paneId}
               paneColumns={paneColumns}
               isClaude={isClaude}
-              note={getNoChatNote(shownPane?.agent)}
+              note={shownPane?.agent ? getNoChatNote(shownPane.agent) : undefined}
               onPaneChange={setFreshPane}
             />
           )}
@@ -183,8 +183,8 @@ function ClaudeChat({ backend, host, paneId, paneColumns, onPaneChange }: Claude
 const NO_CHAT_FILE_NOTE = "No chat found for this agent yet: showing the screen.";
 
 /** The line over a screen shown in place of a chat: it says which pane has none. */
-function getNoChatNote(agent: string | null | undefined): string {
-  return `No chat for ${agent ?? "a shell"} here: showing the screen.`;
+function getNoChatNote(agent: string): string {
+  return `No chat for ${agent} here: showing the screen.`;
 }
 
 type PaneTextProps = {
