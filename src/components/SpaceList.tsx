@@ -24,10 +24,9 @@ const CHEVRON_SIZE = 20;
 const CARD_ICON_SIZE = 18;
 // Hex alpha of the Needs you card's background: the attention color at about 12%.
 const CARD_BACKGROUND_ALPHA = "1f";
-// On Android the drag's pan gesture takes the touch from a list under a refresh control as soon
-// as it activates, so a pan that activates on a scroll leaves the list unable to scroll. As the
-// list's docs advise, the pan activates only after a hold a little longer than the handle's;
-// a scroll moves before that and fails it.
+// On Android the drag's pan takes the touch from a list under a refresh control when it activates,
+// so, as the list's docs advise, it waits for a hold a little longer than the handle's: a scroll
+// moves first and fails it.
 const PAN_HOLD_MARGIN_MS = 50;
 const PAN_ACTIVATE_AFTER_MS = DRAG_DELAY_MS + PAN_HOLD_MARGIN_MS;
 
