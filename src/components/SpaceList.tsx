@@ -26,8 +26,10 @@ const CARD_ICON_SIZE = 18;
 const CARD_BACKGROUND_ALPHA = "1f";
 // On Android the drag's pan takes the touch from a list under a refresh control when it activates,
 // so, as the list's docs advise, it waits for a hold a little longer than the handle's: a scroll
-// moves first and fails it.
-const PAN_HOLD_MARGIN_MS = 50;
+// moves first and fails it. The margin has two limits. A finger that moves after the handle's hold
+// but before the pan's cancels the drag, and a handle timer that the JS thread delays by more than
+// the margin lets the pan win, so the hold starts no drag.
+const PAN_HOLD_MARGIN_MS = 150;
 const PAN_ACTIVATE_AFTER_MS = DRAG_DELAY_MS + PAN_HOLD_MARGIN_MS;
 
 type SpaceListProps = {
