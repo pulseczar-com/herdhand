@@ -1,6 +1,5 @@
 import { type HerdrClient, RequestTimeoutError } from "@/rpc/client";
 
-import { FileReadError } from "./backend";
 import { makeDesktopBackend, makeDesktopClient } from "./desktop";
 
 function makeClientWithSentLines() {
@@ -85,28 +84,5 @@ describe("desktop backend: one pane and its files", () => {
     const pane = await backend.getPane?.("t12");
 
     expect(pane?.blockedKind).toBe(expected);
-  });
-
-  it("reads a file's lines", async () => {
-    const reply = { text: "a\nb\n", first: 3, last: 4, lines: 4 };
-    const { backend, request } = makeBackend(() => Promise.resolve(reply));
-
-    const read = await backend.readFile?.(".claude/x.jsonl", { offset: 3 });
-
-    expect(request).toHaveBeenCalledWith("file.read", { path: ".claude/x.jsonl", offset: 3 });
-    expect(read).toEqual(reply);
-  });
-
-  it("tells a file Herdr cannot read apart from a lost connection", async () => {
-    const { client, sent } = makeClientWithSentLines();
-    const backend = makeDesktopBackend(client);
-    const missing = backend.readFile?.("gone.json");
-    const lost = backend.readFile?.("other.json");
-
-    client.receive({ jsonrpc: "2.0", id: sent[0].id, error: { code: -32000, message: "not_found", data: { kind: "not_found" } } });
-    client.rejectAll("Connection closed");
-
-    await expect(missing).rejects.toBeInstanceOf(FileReadError);
-    await expect(lost).rejects.not.toBeInstanceOf(FileReadError);
   });
 });

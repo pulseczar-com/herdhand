@@ -31,13 +31,14 @@ import { canReadChat, type ChatBackend, useClaudeChat } from "@/machines/useClau
 import type { ConnectionStatus } from "@/machines/useMachineConnection";
 import { usePaneText } from "@/machines/usePaneText";
 import { type Block, reformatPane } from "@/pane/reformat";
+import type { HostReader } from "@/ssh/hostReader";
 
 const CONTENT_PADDING = 16;
 
 /**
- * One pane, with the key row and composer to type into it. A Claude pane on the desktop app opens
- * on its chat; any other pane, and a Claude pane with no chat, opens on its screen with a line that
- * says why. The screen is the pane's text, reformatted for the phone and kept fresh.
+ * One pane, with the key row and composer to type into it. A Claude pane whose transcript the app
+ * can find opens on its chat; any other pane, and a Claude pane with no chat, opens on its screen
+ * with a line that says why. The screen is the pane's text, reformatted for the phone and kept fresh.
  */
 export default function PaneRoute() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -85,7 +86,7 @@ function PaneScreen({ connection }: { connection: MachineConnection }) {
       {status.phase === "connected" ? (
         <>
           {chatBackend ? (
-            <ClaudeChat backend={chatBackend} paneId={paneId} paneColumns={paneColumns} onPaneChange={setFreshPane} />
+            <ClaudeChat backend={chatBackend} host={status.host} paneId={paneId} paneColumns={paneColumns} onPaneChange={setFreshPane} />
           ) : (
             <PaneText
               backend={status.backend}
@@ -106,7 +107,7 @@ function PaneScreen({ connection }: { connection: MachineConnection }) {
   );
 }
 
-/** The backend, when the pane is a Claude pane and the backend can read its files: the desktop app's. */
+/** The backend, when the pane is a Claude pane whose transcript the app can find and the backend can read the pane. */
 function getChatBackend(status: ConnectionStatus, located: LocatedPane | undefined): ChatBackend | null {
   if (status.phase !== "connected" || !located || !isClaudePane(located.pane)) return null;
   return canReadChat(status.backend) ? status.backend : null;
@@ -146,6 +147,7 @@ function PaneTitle({ located }: { located: LocatedPane }) {
 
 type ClaudeChatProps = {
   backend: ChatBackend;
+  host: HostReader;
   paneId: string;
   paneColumns: number | null;
   onPaneChange: (pane: Pane | null) => void;
@@ -156,8 +158,8 @@ type ClaudeChatProps = {
  * blocked agent ends the chat with the buttons of its question, or with its screen when the
  * transcript has no question the app can answer. With no chat to show, the pane shows its screen.
  */
-function ClaudeChat({ backend, paneId, paneColumns, onPaneChange }: ClaudeChatProps) {
-  const { chat, info, hasEarlier, loadEarlier, pane, screen, error } = useClaudeChat(backend, paneId);
+function ClaudeChat({ backend, host, paneId, paneColumns, onPaneChange }: ClaudeChatProps) {
+  const { chat, info, hasEarlier, loadEarlier, pane, screen, error } = useClaudeChat(backend, host, paneId);
   useEffect(() => onPaneChange(pane), [pane, onPaneChange]);
   const question = useMemo(() => (chat === null ? null : getPendingQuestion(chat)), [chat]);
   // The question the card is done with: its keys went out, or the screen stopped listing its options. The screen takes its place.

@@ -5,6 +5,7 @@ import type { Backend } from "@/herdr/backend";
 import { getNotificationPermissionAsked, saveNotificationPermissionAsked } from "@/settings/store";
 import { type Bridge, closeOpenBridge, DISCONNECT_REQUESTED, getOpenBridge, openBridge } from "@/ssh/bridge";
 import { type ConnectAttempt, ConnectError } from "@/ssh/errors";
+import type { HostReader } from "@/ssh/hostReader";
 
 import { getMachine, getSignInPassword, getTrustedFingerprint, saveMachineKind } from "./store";
 import { type ConnectionStatus, PROBE_TIMEOUT_MS, useMachineConnection } from "./useMachineConnection";
@@ -39,6 +40,10 @@ function makeBackend(): jest.Mocked<Backend> {
   };
 }
 
+function makeHost(): HostReader {
+  return { readFile: jest.fn(), findInSubfolders: jest.fn() };
+}
+
 /** A bridge whose `drop` ends it the way a dropped link does. */
 type TestBridge = { -readonly [K in keyof Bridge]: Bridge[K] } & { drop(reason: string): void; settle(reason: string): void };
 
@@ -51,6 +56,7 @@ function makeBridge(backend: Backend): TestBridge {
     availableKinds: ["tui"],
     version: "1.2.3",
     backend,
+    host: makeHost(),
     closed,
     endReason: null,
     close: jest.fn().mockResolvedValue(undefined),
@@ -110,6 +116,7 @@ describe("useMachineConnection", () => {
       availableKinds: ["desktop", "tui"],
       version: "1.2.3",
       backend: { getVersion: jest.fn(), listSpaces: jest.fn().mockResolvedValue([]), readPane: jest.fn(), sendLine: jest.fn(), pressKey: jest.fn() },
+      host: makeHost(),
       machineId: "m1",
       closed: new Promise(() => {}),
       endReason: null,

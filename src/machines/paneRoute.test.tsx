@@ -7,7 +7,8 @@ import TabsLayout from "../../app/(tabs)/_layout";
 import AgentsScreen from "../../app/(tabs)/agents";
 import SpacesScreen from "../../app/(tabs)/index";
 import PaneScreen from "../../app/machine/[id]/pane/[paneId]";
-import { type Backend, FileReadError, type LineRange } from "@/herdr/backend";
+import type { Backend } from "@/herdr/backend";
+import { FileReadError, type HostReader, type LineRange } from "@/ssh/hostReader";
 
 import { type MachineConnection, MachinesProvider } from "./MachineConnection";
 import { getStoredOpenMachine } from "./openMachine";
@@ -32,8 +33,13 @@ const backend: Backend = {
   pressKey: jest.fn(),
 };
 
+const noFiles: HostReader = {
+  readFile: jest.fn().mockRejectedValue(new FileReadError("not_found")),
+  findInSubfolders: jest.fn().mockResolvedValue([]),
+};
+
 const connected: Omit<MachineConnection, "id" | "list"> = {
-  status: { phase: "connected", kind: "desktop", availableKinds: ["desktop"], version: "0.1.17", backend },
+  status: { phase: "connected", kind: "desktop", availableKinds: ["desktop"], version: "0.1.17", backend, host: noFiles },
   reconnect: jest.fn(),
   trust: jest.fn(),
   switchKind: jest.fn(),
@@ -59,7 +65,7 @@ const mockOtherBackend: Backend = {
 
 const mockOtherConnection: Omit<MachineConnection, "id" | "list"> = {
   ...connected,
-  status: { phase: "connected", kind: "desktop", availableKinds: ["desktop"], version: "0.1.17", backend: mockOtherBackend },
+  status: { phase: "connected", kind: "desktop", availableKinds: ["desktop"], version: "0.1.17", backend: mockOtherBackend, host: noFiles },
 };
 
 let mockConnection = connected;
@@ -481,13 +487,22 @@ describe("Claude chat", () => {
     ...backend,
     listSpaces: jest.fn().mockResolvedValue([{ id: "s1", name: "api", tabs: [{ id: "t2", name: "agents", panes: [claudePane] }] }]),
     getPane: jest.fn().mockResolvedValue({ ...claudePane, message: "approve Bash: npm test" }),
-    readFile: jest.fn(async (path: string, range?: LineRange) =>
-      range?.limit === 0 ? { text: "", first: 1, last: 0, lines: 1 } : { text: files[path], first: 1, last: 1, lines: 1 },
+  };
+  const host: HostReader = {
+    readFile: jest.fn(async (path: string, range?: LineRange) => {
+      if (!(path in files)) throw new FileReadError("not_found");
+      return range?.limit === 0 ? { text: "", first: 1, last: 0, lines: 1 } : { text: files[path], first: 1, last: 1, lines: 1 };
+    }),
+    findInSubfolders: jest.fn(async (_folder: string, fileName: string) =>
+      Object.keys(files).filter((path) => path.startsWith(".claude/projects/") && path.endsWith(`/${fileName}`)),
     ),
   };
 
-  function connectTo(chosen: Backend) {
-    mockConnection = { ...connected, status: { phase: "connected", kind: "desktop", availableKinds: ["desktop"], version: "0.1.18", backend: chosen } };
+  function connectTo(chosen: Backend, chosenHost: HostReader = host) {
+    mockConnection = {
+      ...connected,
+      status: { phase: "connected", kind: "desktop", availableKinds: ["desktop"], version: "0.1.18", backend: chosen, host: chosenHost },
+    };
   }
 
   it("opens a Claude pane on its chat, with Claude's message while it is blocked, and no Chat | Screen switch", async () => {
@@ -534,8 +549,8 @@ describe("Claude chat", () => {
       },
     };
     const askFiles: Record<string, string> = { ...files, ".claude/projects/-work-demo/s-1.jsonl": `${JSON.stringify(question)}\n` };
-    const askBackend: Backend = {
-      ...chatBackend,
+    const askHost: HostReader = {
+      ...host,
       readFile: jest.fn(async (path: string, range?: LineRange) =>
         range?.limit === 0 ? { text: "", first: 1, last: 0, lines: 1 } : { text: askFiles[path], first: 1, last: 1, lines: 1 },
       ),
@@ -543,7 +558,7 @@ describe("Claude chat", () => {
 
     it("shows its options as buttons, sends the digit of the one tapped, then shows the screen card", async () => {
       jest.mocked(backend.readPane).mockResolvedValue("Which branch?\n 1. main\n 2. dev");
-      connectTo(askBackend);
+      connectTo(chatBackend, askHost);
       renderMachine("/machine/m1/pane/t8");
 
       fireEvent.press(await screen.findByRole("button", { name: "dev" }));
@@ -555,7 +570,7 @@ describe("Claude chat", () => {
 
     it("shows the screen card in place of the buttons when the screen no longer shows the option", async () => {
       jest.mocked(backend.readPane).mockResolvedValue("Do you trust this folder?");
-      connectTo(askBackend);
+      connectTo(chatBackend, askHost);
       renderMachine("/machine/m1/pane/t8");
 
       fireEvent.press(await screen.findByRole("button", { name: "dev" }));
@@ -567,7 +582,7 @@ describe("Claude chat", () => {
   });
 
   it("opens on the screen with a line that says why when the pane has no chat file", async () => {
-    connectTo({ ...chatBackend, readFile: jest.fn().mockRejectedValue(new FileReadError("not_found")) });
+    connectTo(chatBackend, noFiles);
     renderMachine("/machine/m1/pane/t8");
 
     expect(await screen.findByText(PANE_TEXT)).toBeTruthy();
@@ -589,8 +604,34 @@ describe("Claude chat", () => {
     expect(screen.getByText(PANE_TEXT)).toBeTruthy();
   });
 
-  it("shows only the screen, with a line that says why, when Herdr cannot read files, as on the TUI", async () => {
-    connectTo({ ...chatBackend, getPane: undefined, readFile: undefined });
+  it("opens a Claude pane on the TUI on its chat, found by the session id Herdr gives", async () => {
+    const tuiPane = { id: "t8", title: "Fix the build", agent: "claude", state: "working" as const, isFinished: false, columns: null, sessionId: "s-1" };
+    connectTo({
+      ...chatBackend,
+      listSpaces: jest.fn().mockResolvedValue([{ id: "s1", name: "api", tabs: [{ id: "t2", name: "agents", panes: [tuiPane] }] }]),
+      getPane: jest.fn().mockResolvedValue(tuiPane),
+    });
+    renderMachine("/machine/m1/pane/t8");
+
+    expect(await screen.findByText("Run the tests")).toBeTruthy();
+    expect(screen.queryByRole("tab")).toBeNull();
+  });
+
+  it("shows only the screen for a Claude pane on the TUI that has no session id, as with no Herdr integration", async () => {
+    const tuiPane = { id: "t8", title: "Fix the build", agent: "claude", state: "working" as const, isFinished: false, columns: null };
+    connectTo({
+      ...chatBackend,
+      listSpaces: jest.fn().mockResolvedValue([{ id: "s1", name: "api", tabs: [{ id: "t2", name: "agents", panes: [tuiPane] }] }]),
+      getPane: jest.fn().mockResolvedValue(tuiPane),
+    });
+    renderMachine("/machine/m1/pane/t8");
+
+    expect(await screen.findByText(PANE_TEXT)).toBeTruthy();
+    expect(screen.getByText("No chat for claude here: showing the screen.")).toBeTruthy();
+  });
+
+  it("shows only the screen, with a line that says why, when the backend cannot read one pane fresh", async () => {
+    connectTo({ ...chatBackend, getPane: undefined });
     renderMachine("/machine/m1/pane/t8");
 
     expect(await screen.findByText(PANE_TEXT)).toBeTruthy();
@@ -600,7 +641,7 @@ describe("Claude chat", () => {
   it("hides Claude's suggested message in its input box on the screen", async () => {
     const rule = "─".repeat(20);
     jest.mocked(backend.readPane).mockResolvedValue(`● Done.\n${rule}\n❯ merge the branch\n${rule}`);
-    connectTo({ ...chatBackend, getPane: undefined, readFile: undefined });
+    connectTo({ ...chatBackend, getPane: undefined });
     renderMachine("/machine/m1/pane/t8");
 
     expect(await screen.findByText("❯")).toBeTruthy();

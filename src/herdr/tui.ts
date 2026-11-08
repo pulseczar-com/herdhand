@@ -1,5 +1,6 @@
 import { type HerdrClient, REQUEST_TIMEOUT_MS, RequestTimeoutError } from "@/rpc/client";
 
+import { findPane } from "./agentPanes";
 import { type Backend, type Pane, READ_LINES, type Space, type Tab, toAgentState } from "./backend";
 
 /** A request that waits for its reply, and the timer that fails it. */
@@ -90,6 +91,12 @@ export function makeTuiBackend(client: HerdrClient): Backend {
     pressKey: async (paneId, key) => {
       await client.request("pane.send_keys", { pane_id: paneId, keys: [key] });
     },
+    // The snapshot is the TUI's one call that tells a pane's agent and its session.
+    getPane: async (paneId) => {
+      const located = findPane(snapshotToSpaces(await client.request("session.snapshot")), paneId);
+      if (!located) throw new Error(`No pane ${paneId}`);
+      return located.pane;
+    },
   };
 }
 
@@ -109,6 +116,7 @@ type TuiPane = {
   terminal_title_stripped?: string;
   agent?: string;
   agent_status?: string;
+  agent_session?: { kind?: string; value?: string };
 };
 type TuiLayout = { panes?: { pane_id?: string; rect?: { width?: number } }[] };
 type Snapshot = {
@@ -151,5 +159,8 @@ function toPane(pane: TuiPane, columns: number | null): Pane {
   const id = String(pane.pane_id);
   const title = pane.label || pane.terminal_title_stripped || "";
   if (!pane.agent) return { id, title, agent: null, state: null, isFinished: false, columns };
-  return { id, title, agent: pane.agent, state: toAgentState(pane.agent_status), isFinished: false, columns };
+  const agentPane = { id, title, agent: pane.agent, state: toAgentState(pane.agent_status), isFinished: false, columns };
+  const { kind, value } = pane.agent_session ?? {};
+  // A session of another kind names a file path, which no agent the app reads gives.
+  return kind === "id" && value ? { ...agentPane, sessionId: value } : agentPane;
 }
