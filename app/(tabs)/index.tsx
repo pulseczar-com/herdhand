@@ -92,7 +92,8 @@ function MachineList({ isReordering, onMore }: { isReordering: boolean; onMore: 
     else setDraggedId(null);
   }
 
-  function renderHeader(machine: Machine, trailing: ReactNode) {
+  /** A machine's header, with its drag handle in reorder mode. */
+  function renderHeader(machine: Machine, handle: ReactNode) {
     const isOpenMachine = machine.id === id;
     return (
       <MachineHeader
@@ -104,7 +105,7 @@ function MachineList({ isReordering, onMore }: { isReordering: boolean; onMore: 
         onPress={() => pressHeader(machine.id)}
         onMore={() => onMore(machine.id)}
       >
-        {trailing}
+        {isReordering ? handle : null}
       </MachineHeader>
     );
   }
@@ -113,17 +114,16 @@ function MachineList({ isReordering, onMore }: { isReordering: boolean; onMore: 
   function renderHeaders(machinesToShow: Machine[]) {
     return (
       <View>
-        {machinesToShow.map((machine) => {
-          const handle = isReordering ? <HandleButton name={machine.name} onLongPress={() => setDraggedId(machine.id)} /> : null;
-          return renderHeader(machine, handle);
-        })}
+        {machinesToShow.map((machine) =>
+          renderHeader(machine, <HandleButton name={machine.name} onLongPress={() => setDraggedId(machine.id)} />),
+        )}
       </View>
     );
   }
 
   if (!connection || isPageFolded) {
     const cards = <NeedsYouCards spaces={spaces ?? []} onOpenPane={(pane) => openPane(id, pane)} />;
-    return <FoldedMachines cards={cards} draggedId={draggedId} isReordering={isReordering} onDragEnd={endDrag} renderHeader={renderHeader} />;
+    return <FoldedMachines cards={cards} draggedId={draggedId} onDragEnd={endDrag} renderHeader={renderHeader} />;
   }
   const openIndex = machines.findIndex((machine) => machine.id === id);
   const above = renderHeaders(machines.slice(0, openIndex + 1));
@@ -135,10 +135,8 @@ type FoldedMachinesProps = {
   cards: ReactNode;
   /** The machine whose drag began on a handle outside this list: it starts here at once. */
   draggedId: string | null;
-  /** Reorder mode: each header shows its handle. */
-  isReordering: boolean;
   onDragEnd: () => void;
-  renderHeader: (machine: Machine, trailing: ReactNode) => ReactNode;
+  renderHeader: (machine: Machine, handle: ReactNode) => ReactNode;
 };
 
 /**
@@ -146,7 +144,7 @@ type FoldedMachinesProps = {
  * the items of one list, and while a machine is open its spaces are that list. So a drag from the
  * open machine's page shows this list and starts the drag here; the open machine unfolds at the drop.
  */
-function FoldedMachines({ cards, draggedId, isReordering, onDragEnd, renderHeader }: FoldedMachinesProps) {
+function FoldedMachines({ cards, draggedId, onDragEnd, renderHeader }: FoldedMachinesProps) {
   const { machines, move } = useMachines();
   // The list calls its drag events on the UI thread.
   const onDragEndOnUi = useCallback(() => {
@@ -162,10 +160,7 @@ function FoldedMachines({ cards, draggedId, isReordering, onDragEnd, renderHeade
       onReorder={({ from, to }) => move(from, to)}
       onDragEnd={onDragEndOnUi}
       ListHeaderComponent={<View style={styles.foldedHeader}>{cards}</View>}
-      renderItem={({ item }) => {
-        const handle = isReordering ? <DragHandle name={item.name} startNow={item.id === draggedId} /> : null;
-        return <>{renderHeader(item, handle)}</>;
-      }}
+      renderItem={({ item }) => <>{renderHeader(item, <DragHandle name={item.name} startNow={item.id === draggedId} />)}</>}
     />
   );
 }
