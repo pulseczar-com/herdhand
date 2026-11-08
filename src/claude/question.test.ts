@@ -47,6 +47,7 @@ describe("showsOptions", () => {
     { where: "an option behind a checkbox", screen: "1. [ ] main\n2. [x] dev", picked: [0, 1], expected: true },
     { where: "a label the screen wrapped", screen: "1. Use the existing\n   branch for it", picked: [0], expected: true, labels: ["Use the existing branch for it"] },
     { where: "an echoed answer with no digit", screen: "→ dev\n1. Yes\n2. Yes, and don't ask again\n3. No", picked: [1], expected: false },
+    { where: "a longer option that starts with the label", screen: "1. Yes\n2. Yes, and don't ask again\n3. No", picked: [1], expected: false, labels: ["No", "Yes"] },
     { where: "the label on another digit", screen: "1. dev\n2. main", picked: [1], expected: false },
     { where: "an option that is gone", screen: "❯ npm test", picked: [1], expected: false },
     { where: "one of two picks gone", screen: "1. main", picked: [0, 1], expected: false },

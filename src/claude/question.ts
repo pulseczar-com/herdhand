@@ -31,12 +31,13 @@ export function getAnswerKeys(multiSelect: boolean, picked: number[]): PaneKey[]
 
 /**
  * Whether the screen still lists each picked option on its own digit ("2. dev"), so the digit key
- * selects that option. A checkbox mark after the digit, or a line the screen wrapped, still counts.
+ * selects that option, not a longer option that starts with its label. A checkbox mark after the
+ * digit, or a line the screen wrapped, still counts.
  */
 export function showsOptions(screenText: string, options: string[], picked: number[]): boolean {
   const screen = collapseSpace(screenText);
   return picked.every((index) => {
-    const listed = `(?:^|\\s)${index + 1}\\.\\s(?:\\[[^\\]]*\\]\\s)?${escapeRegExp(collapseSpace(options[index]))}`;
+    const listed = `(?:^|\\s)${index + 1}\\.\\s(?:\\[[^\\]]*\\]\\s)?${escapeRegExp(collapseSpace(options[index]))}(?=\\s|$)`;
     return new RegExp(listed).test(screen);
   });
 }
