@@ -1,7 +1,8 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "expo-router";
-import type { ReactElement } from "react";
-import { ActivityIndicator, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { type ReactElement, useCallback, useState } from "react";
+import { ActivityIndicator, Platform, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { runOnJS } from "react-native-reanimated";
 import ReorderableList, { useReorderableDrag } from "react-native-reorderable-list";
 
 import { getBlockedPanes, getMostUrgentState, type LocatedPane } from "@/herdr/agentPanes";
@@ -11,7 +12,7 @@ import { useCollapsedSpaces } from "@/machines/useCollapsedSpaces";
 import type { SpacesState } from "@/machines/useSpaces";
 import type { SpaceOrderState } from "@/spaceOrder/useSpaceOrder";
 
-import { LiftOnDrag, LONG_PRESS_MS, useDragPan } from "./dragLift";
+import { LONG_PRESS_MS, useDragPan } from "./dragLift";
 import { SpaceBadge } from "./SpaceBadge";
 import { StateDot, StatePill, useToneColor } from "./StatePill";
 
@@ -44,16 +45,29 @@ export function SpaceList({ machineId, list, spaceOrder, header, footer, onOpenP
   const { spaces, error, refreshing, refresh } = list;
   const { collapsedIds, toggle } = useCollapsedSpaces(machineId, spaces);
   const dragPan = useDragPan();
+  const [isRefreshEnabled, setIsRefreshEnabled] = useState(true);
+
+  // On Android the pull-to-refresh spinner would follow a space dragged down from the top. A
+  // refresh that is already running stays on screen.
+  const disableRefresh = useCallback(() => {
+    "worklet";
+    if (Platform.OS === "android" && !refreshing) runOnJS(setIsRefreshEnabled)(false);
+  }, [refreshing]);
+  const enableRefresh = useCallback(() => {
+    "worklet";
+    runOnJS(setIsRefreshEnabled)(true);
+  }, []);
 
   return (
     <ReorderableList
       style={styles.list}
       panGesture={dragPan}
-      shouldUpdateActiveItem
+      onDragStart={disableRefresh}
+      onDragEnd={enableRefresh}
       data={spaceOrder.spaces}
       keyExtractor={(space) => space.id}
       onReorder={({ from, to }) => spaceOrder.moveSpace(from, to)}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} />}
+      refreshControl={<RefreshControl enabled={isRefreshEnabled} refreshing={refreshing} onRefresh={() => void refresh()} />}
       ListHeaderComponent={
         <View style={styles.header}>
           <NeedsYouCards spaces={spaces ?? []} onOpenPane={onOpenPane} />
@@ -131,10 +145,10 @@ type SpaceItemProps = {
 /** A space's row and, when it is expanded, its tabs: one item of the list, so they move together. */
 function SpaceItem({ space, isExpanded, onToggle, onOpenPane }: SpaceItemProps) {
   return (
-    <LiftOnDrag>
+    <View>
       <SpaceRow space={space} isExpanded={isExpanded} onPress={onToggle} />
       {isExpanded ? space.tabs.map((tab) => <TabRows key={tab.id} tab={tab} onOpenPane={onOpenPane} />) : null}
-    </LiftOnDrag>
+    </View>
   );
 }
 

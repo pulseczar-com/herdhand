@@ -3,7 +3,7 @@ import { type ReactElement, type ReactNode, useContext, useState } from "react";
 import { ActivityIndicator, Alert, Button, ScrollView, StyleSheet, Text, View } from "react-native";
 import ReorderableList, { useReorderableDrag } from "react-native-reorderable-list";
 
-import { LiftOnDrag, useDragPan } from "@/components/dragLift";
+import { useDragPan } from "@/components/dragLift";
 import { MachineHeader } from "@/components/MachineHeader";
 import { MachineSheet } from "@/components/MachineSheet";
 import { NeedsYouCards, SpaceList } from "@/components/SpaceList";
@@ -122,7 +122,6 @@ function FoldedMachines({ cards, renderHeader }: FoldedMachinesProps) {
     <ReorderableList
       style={styles.screen}
       panGesture={dragPan}
-      shouldUpdateActiveItem
       data={machines}
       keyExtractor={(machine) => machine.id}
       onReorder={({ from, to }) => move(from, to)}
@@ -132,10 +131,10 @@ function FoldedMachines({ cards, renderHeader }: FoldedMachinesProps) {
   );
 }
 
-/** A machine's header in the folded list: it lifts while dragged. */
+/** A machine's header in the folded list: a hold on it starts its drag. */
 function DraggableHeader({ machine, renderHeader }: { machine: Machine; renderHeader: FoldedMachinesProps["renderHeader"] }) {
   const drag = useReorderableDrag();
-  return <LiftOnDrag>{renderHeader(machine, drag)}</LiftOnDrag>;
+  return <View>{renderHeader(machine, drag)}</View>;
 }
 
 type OpenMachinePageProps = {

@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { userEvent } from "@testing-library/react-native";
 import { router, Stack } from "expo-router";
-import { act, fireEvent, renderRouter, screen, userEvent, waitFor, within } from "expo-router/testing-library";
+import { act, fireEvent, renderRouter, screen, waitFor, within } from "expo-router/testing-library";
 import { ActivityIndicator, Alert, KeyboardAvoidingView, ScrollView, StyleSheet, Text } from "react-native";
 
 import TabsLayout from "../../app/(tabs)/_layout";
@@ -93,7 +94,6 @@ jest.mock("react-native-reorderable-list", () => ({
   __esModule: true,
   default: jest.requireActual("react-native").FlatList,
   useReorderableDrag: () => mockDrag,
-  useIsActive: () => false,
   reorderItems: jest.requireActual("react-native-reorderable-list/src/utils").reorderItems,
 }));
 
