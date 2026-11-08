@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, Stack } from "expo-router";
-import { act, fireEvent, renderRouter, screen, waitFor, within } from "expo-router/testing-library";
+import { act, fireEvent, renderRouter, screen, userEvent, waitFor, within } from "expo-router/testing-library";
 import { ActivityIndicator, Alert, KeyboardAvoidingView, ScrollView, StyleSheet, Text } from "react-native";
 
 import TabsLayout from "../../app/(tabs)/_layout";
@@ -432,17 +432,20 @@ describe("the page of machines", () => {
     expect(screen.queryByLabelText("Drag test-box")).toBeNull();
   });
 
-  // A list that mounts under a held touch never sees the touch and locks, so the open machine's
-  // headers, which sit outside the list, start no drag and leave the page as it is.
-  it("starts no drag and keeps the page open on a long press on a header of the open page", async () => {
+  // A list that mounts under a held touch never sees the touch and locks, so the headers of the
+  // open page, which sit outside the list, start no drag. A hold folds the page, as a tap on the
+  // open machine's header does, and letting go does not open the machine that was held.
+  it("starts no drag and folds the page on a hold on a header of the open page, without switching machines", async () => {
+    const user = userEvent.setup();
     mockDrag.mockClear();
     renderMachine();
     await screen.findByText("zsh");
 
-    fireEvent(screen.getByText("test-box"), "longPress");
+    await user.longPress(screen.getByText("home-server"), { duration: 600 });
 
+    await waitFor(() => expect(screen.queryByText("zsh")).toBeNull());
     expect(mockDrag).not.toHaveBeenCalled();
-    expect(screen.getByText("zsh")).toBeTruthy();
+    expect(await getStoredOpenMachine()).toEqual({ id: "m1", isFolded: true });
   });
 
   it("drags a folded machine on a long press, and saves the order", async () => {

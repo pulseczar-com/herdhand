@@ -73,7 +73,7 @@ function MachineList({ onMore }: { onMore: (machineId: string) => void }) {
   const isPageFolded = open?.isFolded === true;
 
   /** A machine's header. Where the machines drag, a hold on it starts the drag. */
-  function renderHeader(machine: Machine, onLongPress?: () => void) {
+  function renderHeader(machine: Machine, onLongPress: () => void) {
     const isOpenMachine = machine.id === id;
     return (
       <MachineHeader
@@ -89,8 +89,10 @@ function MachineList({ onMore }: { onMore: (machineId: string) => void }) {
     );
   }
 
+  // These headers are outside the list, so a hold cannot drag them. It folds the page, as a tap on
+  // the open machine's header does, so that letting go never opens another machine.
   function renderHeaders(machinesToShow: Machine[]) {
-    return <View>{machinesToShow.map((machine) => renderHeader(machine))}</View>;
+    return <View>{machinesToShow.map((machine) => renderHeader(machine, () => toggle(id)))}</View>;
   }
 
   if (!connection || isPageFolded) {

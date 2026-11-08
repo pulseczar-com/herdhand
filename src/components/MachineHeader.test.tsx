@@ -21,7 +21,7 @@ describe("MachineHeader", () => {
         hasDivider={false}
         onPress={onPress}
         onMore={jest.fn()}
-        onLongPress={onLongPress}
+        onLongPress={onLongPress ?? jest.fn()}
       />,
     );
     return onPress;

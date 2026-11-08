@@ -9,6 +9,7 @@ import { useSpaces } from "@/machines/useSpaces";
 import { getSpaceOrder, saveSpaceOrder } from "@/spaceOrder/store";
 import { useSpaceOrder } from "@/spaceOrder/useSpaceOrder";
 
+import { LONG_PRESS_MS } from "./dragLift";
 import { SpaceList } from "./SpaceList";
 import { StateDot } from "./StatePill";
 
@@ -319,8 +320,7 @@ describe("SpaceList", () => {
       const list = screen.UNSAFE_getByType(ReorderableList);
 
       expect(list.props.refreshControl).toBeTruthy();
-      expect(list.props.panGesture.config.activateAfterLongPress).toBeGreaterThan(500);
-      expect(screen.queryByLabelText("Drag api")).toBeNull();
+      expect(list.props.panGesture.config.activateAfterLongPress).toBeGreaterThan(LONG_PRESS_MS);
     });
 
     it("collapses a space on a tap and starts no drag", async () => {

@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { BadgeTone } from "@/herdr/badges";
 import type { ConnectionStatus } from "@/machines/useMachineConnection";
 
+import { LONG_PRESS_MS } from "./dragLift";
 import { StateDot } from "./StatePill";
 
 const ICON_SIZE = 20;
@@ -30,8 +31,8 @@ type MachineHeaderProps = {
   onMore: () => void;
   /** A hairline above the header, to part it from the machine before it. */
   hasDivider: boolean;
-  /** A hold starts the machine's drag; absent where the machine cannot be dragged. */
-  onLongPress?: () => void;
+  /** A hold: starts the machine's drag, or does what a hold does where the machine cannot be dragged. */
+  onLongPress: () => void;
 };
 
 /** A machine's header on the page: its name and state. A tap folds or opens it, a hold drags it; ⋮ opens its sheet. */
@@ -49,6 +50,7 @@ export function MachineHeader({ name, state, isExpanded, onPress, onMore, hasDiv
         accessibilityState={{ expanded: isExpanded }}
         onPress={onPress}
         onLongPress={onLongPress}
+        delayLongPress={LONG_PRESS_MS}
         android_ripple={{ color: colors.border }}
       >
         <MaterialIcons name="dns" size={ICON_SIZE} color={colors.text} style={styles.dimmed} />

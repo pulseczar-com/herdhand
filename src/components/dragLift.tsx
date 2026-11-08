@@ -4,9 +4,11 @@ import { StyleSheet, View } from "react-native";
 import { Gesture } from "react-native-gesture-handler";
 import { useIsActive } from "react-native-reorderable-list";
 
-// A row starts its drag on the long press of a Pressable, which lasts 500 ms. The list's pan
-// waits a little longer, so a swipe before that scrolls or refreshes the list instead.
-const PAN_DELAY_MS = 520;
+/** How long a hold on a row lasts before it counts as a long press. Rows pass it as `delayLongPress`. */
+export const LONG_PRESS_MS = 500;
+// The list's pan waits longer than the row's long press, so a swipe before that scrolls or
+// refreshes the list, and the margin keeps the press ahead of the pan when the JavaScript thread is busy.
+const PAN_DELAY_MS = LONG_PRESS_MS + 100;
 const LIFT_SCALE = 1.03;
 const LIFT_ELEVATION = 8;
 

@@ -11,7 +11,7 @@ import { useCollapsedSpaces } from "@/machines/useCollapsedSpaces";
 import type { SpacesState } from "@/machines/useSpaces";
 import type { SpaceOrderState } from "@/spaceOrder/useSpaceOrder";
 
-import { LiftOnDrag, useDragPan } from "./dragLift";
+import { LiftOnDrag, LONG_PRESS_MS, useDragPan } from "./dragLift";
 import { SpaceBadge } from "./SpaceBadge";
 import { StateDot, StatePill, useToneColor } from "./StatePill";
 
@@ -157,6 +157,7 @@ function SpaceRow({ space, isExpanded, onPress }: SpaceRowProps) {
       accessibilityState={{ expanded: isExpanded }}
       onPress={onPress}
       onLongPress={drag}
+      delayLongPress={LONG_PRESS_MS}
       android_ripple={{ color: colors.border }}
     >
       <SpaceBadge space={space} />
