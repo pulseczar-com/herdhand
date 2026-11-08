@@ -54,8 +54,9 @@ export function getRunningOutput(block: ShellBlock, text: string): RunningOutput
 /** The lines as text cut to the last READ_LINES, cut also when the command line is not in them. */
 function cutToRead(lines: string[], isCommandFound: boolean): RunningOutput {
   const shown = lines.slice(-READ_LINES);
-  const isCut = shown.length < lines.length || (!isCommandFound && lines.length > 0);
-  return { output: shown.join("\n").trimEnd(), isCut };
+  const output = shown.join("\n").trimEnd();
+  const isCut = shown.length < lines.length || (!isCommandFound && output !== "");
+  return { output, isCut };
 }
 
 /**

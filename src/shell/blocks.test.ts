@@ -134,6 +134,10 @@ describe("getRunningOutput", () => {
     expect(getRunningOutput(running("ls", baseline), text)).toEqual({ output, isCut: true });
   });
 
+  it("shows nothing, and no cut mark, for a blank pane without the command line", () => {
+    expect(getRunningOutput(running("ls", "$ "), "")).toEqual({ output: "", isCut: false });
+  });
+
   it("gives null when the pane is as it was before the send, even with the command in an older line", () => {
     expect(getRunningOutput(running("ls", "$ ls\nold\n$ "), "$ ls\nold\n$ ")).toBeNull();
   });
