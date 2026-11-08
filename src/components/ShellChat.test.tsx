@@ -10,7 +10,7 @@ jest.mock("expo-router", () => ({
   useTheme: () => ({ dark: true, colors: { text: "#eee", border: "#333", card: "#111", background: "#000", notification: "#f00" } }),
 }));
 
-const done = (command: string, output: string, isCut = false): ShellBlock => ({ id: 0, command, baseline: "", output, isCut });
+const done = (command: string, output: string, isCut = false): ShellBlock => ({ id: 0, command, baseline: "", sentAtRead: 0, output, isCut });
 
 function renderShell(props: Partial<ComponentProps<typeof ShellChat>> = {}) {
   render(<ShellChat blocks={[]} opening="$ " isRunning={false} text="$ " error={null} {...props} />);
@@ -32,7 +32,7 @@ describe("ShellChat", () => {
   });
 
   it("says a running command runs, and ends the chat with the live screen", () => {
-    const running: ShellBlock = { id: 0, command: "vim notes.txt", baseline: "", output: null, isCut: false };
+    const running: ShellBlock = { id: 0, command: "vim notes.txt", baseline: "", sentAtRead: 0, output: null, isCut: false };
     renderShell({ blocks: [running], isRunning: true, text: "-- INSERT --" });
 
     expect(screen.getByText("Running…")).toBeTruthy();

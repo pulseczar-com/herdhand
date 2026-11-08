@@ -674,8 +674,6 @@ describe("Claude chat", () => {
   });
 });
 
-// Expo's keyboard guide: Android apps are edge-to-edge, so the window does not resize for the
-// keyboard; "padding" usually works best, and under a header the offset is the header's height.
 describe("Shell chat", () => {
   const shellPane = { id: "t6", title: "zsh", agent: null, state: null, isFinished: false, columns: null };
   const spaces = [{ id: "s1", name: "api", tabs: [{ id: "t1", name: "main", panes: [shellPane] }] }];
@@ -745,6 +743,8 @@ describe("Shell chat", () => {
   });
 });
 
+// Expo's keyboard guide: Android apps are edge-to-edge, so the window does not resize for the
+// keyboard; "padding" usually works best, and under a header the offset is the header's height.
 describe("pane screen keyboard", () => {
   it("pads the view by the keyboard, below the header", async () => {
     renderMachine("/machine/m1/pane/t6");

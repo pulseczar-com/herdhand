@@ -57,6 +57,24 @@ describe("useShellBlocks", () => {
     expect(result.current.isRunning).toBe(false);
   });
 
+  it("closes a clear sent twice, though the pane text never changes", async () => {
+    const { backend } = makeBackend();
+    const { result } = renderHook(() => useShellBlocks(backend, "t6"));
+    await act(() => jest.advanceTimersByTimeAsync(0));
+
+    act(() => result.current.onSent("clear"));
+    await waitForNextRead();
+    expect(result.current.blocks[0].output).toBeNull();
+    await waitForNextRead();
+    expect(result.current.blocks[0]).toMatchObject({ output: "", isCut: false });
+
+    act(() => result.current.onSent("clear"));
+    await waitForNextRead();
+    await waitForNextRead();
+    expect(result.current.blocks).toEqual([expect.objectContaining({ output: "" }), expect.objectContaining({ command: "clear", output: "", isCut: false })]);
+    expect(result.current.isRunning).toBe(false);
+  });
+
   it("keeps the block running, with the pane's screen, while another program holds the foreground", async () => {
     const { backend, state } = makeBackend();
     const { result } = renderHook(() => useShellBlocks(backend, "t6"));
