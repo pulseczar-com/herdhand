@@ -94,6 +94,49 @@ describe("the host reader", () => {
       });
     });
 
+    describe("a Claude Code line too long to send that is not part of the chat", () => {
+      const BIG = "x".repeat(20_000);
+      const claudeLine = (fields: object) => JSON.stringify({ parentUuid: "p1", isSidechain: false, ...fields });
+      const readChat = async (line: string) => {
+        write("notes.txt", `${line}\n`);
+        const { text } = await host.readFile("notes.txt");
+        const { chat } = addTranscriptLines({ chat: new Map(), orphans: new Map() }, text.trimEnd().split("\n"));
+        return [...chat.values()];
+      };
+
+      it.each([
+        { kind: "an attachment", line: claudeLine({ attachment: { type: "hook_output", content: BIG }, type: "attachment", uuid: "a1" }) },
+        { kind: "an api-request-blob", line: JSON.stringify({ type: "api-request-blob", payload: BIG }) },
+        { kind: "an api-request-shape", line: JSON.stringify({ type: "api-request-shape", payload: BIG }) },
+      ])("shows no row for $kind", async ({ line }) => {
+        expect(await readChat(line)).toEqual([]);
+      });
+
+      it("keeps the line count when it drops a line", async () => {
+        write("notes.txt", `${claudeLine({ attachment: { content: BIG }, type: "attachment" })}\nc\n`);
+
+        expect(await host.readFile("notes.txt")).toMatchObject({ last: 2, lines: 2 });
+      });
+
+      it("shows the marker for a long assistant message", async () => {
+        const line = claudeLine({ type: "assistant", uuid: "a1", message: { content: [{ type: "text", text: BIG }] } });
+
+        expect(await readChat(line)).toEqual([expect.objectContaining({ kind: "reply", text: "Large item not shown (image or long output)" })]);
+      });
+
+      it("shows no row for a long user message of a sidechain", async () => {
+        const line = claudeLine({ type: "user", uuid: "u1", isSidechain: true, message: { content: BIG } });
+
+        expect(await readChat(line)).toEqual([]);
+      });
+
+      it("shows the marker for a long user message that has an attachment key inside it", async () => {
+        const line = claudeLine({ type: "user", uuid: "u1", message: { content: BIG }, toolUseResult: { attachment: "x" } });
+
+        expect(await readChat(line)).toEqual([expect.objectContaining({ kind: "reply", text: "Large item not shown (image or long output)" })]);
+      });
+    });
+
     describe("a tool call whose result line is too long to send", () => {
       const call = JSON.stringify({
         type: "assistant",
