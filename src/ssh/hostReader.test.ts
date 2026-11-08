@@ -91,6 +91,41 @@ describe("the host reader", () => {
       });
     });
 
+    describe("a tool call whose result line is too long to send", () => {
+      const call = JSON.stringify({
+        type: "assistant",
+        uuid: "a1",
+        message: { content: [{ type: "tool_use", id: "toolu_01-A_b", name: "Read", input: { file_path: "/work/demo/big.txt" } }] },
+      });
+      const result = JSON.stringify({
+        type: "user",
+        uuid: "u1",
+        message: { content: [{ type: "tool_result", tool_use_id: "toolu_01-A_b", content: "z".repeat(20_000) }] },
+        toolUseResult: { content: "z".repeat(20_000) },
+      });
+
+      it("completes the call in the chat with a short result", async () => {
+        write("notes.txt", `${call}\n${result}\n`);
+
+        const { text } = await host.readFile("notes.txt");
+        const { chat } = addTranscriptLines({ chat: new Map(), orphans: new Map() }, text.trimEnd().split("\n"));
+
+        expect([...chat.values()]).toEqual([
+          expect.objectContaining({ kind: "tool", id: "toolu_01-A_b", result: { text: "Result not shown (too long)", isError: false } }),
+        ]);
+      });
+
+      it("keeps the line count and the other lines", async () => {
+        write("notes.txt", `${call}\n${result}\nlast\n`);
+
+        const read = await host.readFile("notes.txt");
+
+        expect(read).toMatchObject({ first: 1, last: 3, lines: 3 });
+        expect(read.text.split("\n")[0]).toBe(call);
+        expect(read.text.split("\n")[2]).toBe("last");
+      });
+    });
+
     it("never runs a path as a glob", async () => {
       write("star1.txt", "x\n");
 

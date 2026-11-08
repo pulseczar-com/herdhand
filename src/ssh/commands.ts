@@ -69,11 +69,27 @@ const LONG_LINE_NOTE = JSON.stringify({
   message: { content: [{ type: "text", text: "Large item not shown (image or long output)" }] },
 });
 
+// A long line that holds a tool result gets this note instead, with the id of the call. The chat
+// then shows the call as done. A long line that holds a tool call has no such note: the call is
+// lost, and its result waits for it without showing.
+const LONG_RESULT_NOTE = JSON.stringify({
+  type: "user",
+  uuid: "long-line-%d",
+  message: { content: [{ type: "tool_result", tool_use_id: "%s", content: "Result not shown (too long)" }] },
+});
+
+const toAwkString = (text: string) => text.replace(/"/g, '\\"');
+
 // Prints each line, or its note when it is long. awk adds the newline of the last line only when
 // nl is 1, so a last line with no newline stays as it is.
 const KEEP_SHORT_LINES_AWK = [
   'NR > 1 { printf "\\n" }',
-  `{ if (length($0) > max) printf "${LONG_LINE_NOTE.replace(/"/g, '\\"')}", start + NR - 1; else printf "%s", $0 }`,
+  "{",
+  'if (length($0) <= max) printf "%s", $0;',
+  'else if (match($0, /"tool_use_id":"[A-Za-z0-9_-]+"/)) {',
+  'id = substr($0, RSTART, RLENGTH); sub(/^"tool_use_id":"/, "", id); sub(/"$/, "", id);',
+  `printf "${toAwkString(LONG_RESULT_NOTE)}", start + NR - 1, id }`,
+  `else printf "${toAwkString(LONG_LINE_NOTE)}", start + NR - 1 }`,
   'END { if (NR > 0 && nl == 1) printf "\\n" }',
 ].join(" ");
 
