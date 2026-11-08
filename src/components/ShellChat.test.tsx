@@ -64,6 +64,21 @@ describe("ShellChat", () => {
     expect(screen.UNSAFE_queryByType(ActivityIndicator)).toBeNull();
   });
 
+  it("shows the whole output of a running command from the phone, so it scrolls back", () => {
+    const running: ShellBlock = { id: 0, command: "npm run build", baseline: "$ ", sentAtRead: 0, output: null, isCut: false };
+    const lines = Array.from({ length: SCREEN_LINES + 25 }, (_, index) => `build step ${index + 1}`);
+    renderShell({ blocks: [running], isRunning: true, text: ["$ npm run build", ...lines].join("\n") });
+
+    expect(within(screen.getByTestId("shell-chat")).getByText(lines.join("\n"))).toBeTruthy();
+  });
+
+  it("shows only the end of the screen of a command typed on the machine", () => {
+    const lines = Array.from({ length: SCREEN_LINES + 25 }, (_, index) => `server line ${index + 1}`);
+    renderShell({ isRunning: true, text: ["$ npm run dev", ...lines].join("\n") });
+
+    expect(screen.getByText(lines.slice(-SCREEN_LINES).join("\n"))).toBeTruthy();
+  });
+
   it("shows no output for a command that printed nothing", () => {
     renderShell({ opening: "", blocks: [done("true", "")] });
 

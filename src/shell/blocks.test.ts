@@ -1,6 +1,6 @@
 import { READ_LINES } from "@/herdr/backend";
 
-import { type ShellBlock, startBlock, updateBlocks } from "./blocks";
+import { getRunningOutput, type ShellBlock, startBlock, updateBlocks } from "./blocks";
 
 const running = (command: string, baseline: string): ShellBlock => ({ id: 0, command, baseline, sentAtRead: 0, output: null, isCut: false });
 
@@ -115,5 +115,29 @@ describe("updateBlocks", () => {
     const [first, second] = updateBlocks([done, { ...running("pwd", "$ ls\na\n$ "), id: 1 }], "$ ls\na\n$ pwd\n/home\n$ ", true, 1);
     expect(first).toBe(done);
     expect(second.output).toBe("/home");
+  });
+});
+
+describe("getRunningOutput", () => {
+  it.each([
+    ["every line after the command line, with the last line", "$ ls\na\nb", "a\nb"],
+    ["the last command's line when the same command ran before", "$ ls\nold\n$ ls\nnew", "new"],
+    ["no output while the command line is the last line", "$ ls\n", ""],
+  ])("shows %s", (_name, text, output) => {
+    expect(getRunningOutput(running("ls", "$ "), text)).toBe(output);
+  });
+
+  it.each([
+    ["the command line is not in the pane, as with a full-screen program", "-- INSERT --", "$ "],
+    ["the pane is as it was before the send, even with the command in an older line", "$ ls\nold\n$ ", "$ ls\nold\n$ "],
+  ])("gives null when %s", (_name, text, baseline) => {
+    expect(getRunningOutput(running("ls", baseline), text)).toBeNull();
+  });
+
+  it("cuts a long output to the last lines Herdr's read holds", () => {
+    const lines = Array.from({ length: READ_LINES + 50 }, (_unused, index) => `line ${index}`);
+    const shown = getRunningOutput(running("seq", "$ "), `$ seq\n${lines.join("\n")}`)?.split("\n");
+    expect(shown).toHaveLength(READ_LINES);
+    expect(shown?.at(-1)).toBe(`line ${READ_LINES + 49}`);
   });
 });

@@ -2,7 +2,7 @@ import { useTheme } from "expo-router";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { READ_LINES } from "@/herdr/backend";
-import type { ShellBlock } from "@/shell/blocks";
+import { getRunningOutput, type ShellBlock } from "@/shell/blocks";
 
 import { PromptBubble } from "./ChatView";
 import { getScreenTail } from "./ScreenCard";
@@ -29,7 +29,7 @@ export function ShellChat({ blocks, opening, isRunning, text, error }: ShellChat
   const { colors } = useTheme();
   const { scrollRef, stopFollowing, trackEnd, keepAtEnd } = useKeepAtEnd();
   const openingText = opening?.trimEnd() ?? "";
-  const liveScreen = isRunning && text !== null ? getLiveScreen(text, opening) : "";
+  const liveScreen = isRunning && text !== null ? getLiveScreen(text, opening, blocks.at(-1)) : "";
 
   return (
     <>
@@ -41,6 +41,7 @@ export function ShellChat({ blocks, opening, isRunning, text, error }: ShellChat
           ref={scrollRef}
           contentContainerStyle={styles.content}
           onScrollBeginDrag={stopFollowing}
+          onMomentumScrollBegin={stopFollowing}
           onScrollEndDrag={trackEnd}
           onMomentumScrollEnd={trackEnd}
           onContentSizeChange={keepAtEnd}
@@ -58,12 +59,15 @@ export function ShellChat({ blocks, opening, isRunning, text, error }: ShellChat
 }
 
 /**
- * The end of the pane's screen while a command runs. A program that held the foreground on open
- * gets the whole pane, as there is no opening text yet to scroll back to.
+ * What follows the chat while a command runs. A program that held the foreground on open gets the
+ * whole pane, as there is no opening text yet to scroll back to. A command sent from the phone
+ * gets its whole output so far. Any other command, and a full-screen program, gets the end of the
+ * pane's screen.
  */
-function getLiveScreen(text: string, opening: string | null): string {
+function getLiveScreen(text: string, opening: string | null, lastBlock: ShellBlock | undefined): string {
   if (opening === null) return text.trimEnd();
-  return getScreenTail(text);
+  const runningOutput = lastBlock?.output === null ? getRunningOutput(lastBlock, text) : null;
+  return runningOutput ?? getScreenTail(text);
 }
 
 function BlockView({ block }: { block: ShellBlock }) {

@@ -45,6 +45,17 @@ describe("useKeepAtEnd", () => {
     expect(scrollToEnd).not.toHaveBeenCalled();
   });
 
+  it("stops following new content from the start of a fling, even after a release near the end", () => {
+    const { keep, scrollToEnd } = renderKeepAtEnd();
+
+    keep.stopFollowing();
+    keep.trackEnd(stoppedAt(10));
+    keep.stopFollowing();
+    changeSize(keep.keepAtEnd);
+
+    expect(scrollToEnd).not.toHaveBeenCalled();
+  });
+
   it.each([
     { distanceToEnd: 0, follows: true },
     { distanceToEnd: 500, follows: false },

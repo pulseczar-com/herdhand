@@ -14,7 +14,7 @@ export function useKeepAtEnd() {
   // the app made can land short of the end while content is mounting.
   const isAtEnd = useRef(true);
 
-  /** For the start of a drag: content that grows during the drag must not pull the view back. */
+  /** For the start of a drag or a fling: content that grows during either must not pull the view back. */
   function stopFollowing() {
     isAtEnd.current = false;
   }
