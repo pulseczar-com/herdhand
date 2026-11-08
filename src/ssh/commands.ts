@@ -33,6 +33,16 @@ export const BRIDGE_COMMANDS: Record<HerdrKind, string> = {
   tui: wrapInPosixShell(`${WITH_LOCAL_BIN} ${TUI_BRIDGE_LOOP}`),
 };
 
+/**
+ * Each kind's events command: a plain command on its own channel, which keeps a subscription
+ * open. The desktop app's `hc connect` serves both. The TUI bridge here is the single-request
+ * bridge, not the loop above, because a subscription takes over its socket until it closes.
+ */
+export const EVENTS_COMMANDS: Record<HerdrKind, string> = {
+  desktop: BRIDGE_COMMANDS.desktop,
+  tui: wrapInPosixShell(`${WITH_LOCAL_BIN} exec herdr remote-api-bridge`),
+};
+
 /** The Herdr kinds that DETECT_COMMAND's output shows, desktop first. */
 export function parseDetection(output: string): HerdrKind[] {
   const lines = output.split("\n").map((line) => line.trim());

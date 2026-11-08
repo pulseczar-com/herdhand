@@ -1,4 +1,5 @@
 import { closeOpenBridge, DISCONNECT_REQUESTED, getOpenBridge, openBridge } from "./bridge";
+import { CHANGE_WINDOW_MS, HEARTBEAT_TIMEOUT_MS } from "./events";
 import { ConnectError } from "./errors";
 
 type Listener = (event: never) => void;
@@ -15,9 +16,12 @@ function mockBuildSsh() {
     failBridgeExec: false,
     detectHangs: false,
     runResult: { output: "", exitCode: 0 },
+    /** The calls for the events stream, kept apart from `log`. */
+    events: [] as string[],
   };
-  function emit(name: string, event: object) {
-    for (const listener of [...(listeners.get(name) ?? [])]) listener(event as never);
+  /** Sends the event as the stream `id` gives it: the bridge's, unless the test says another. */
+  function emit(name: string, event: object, id = "bridge") {
+    for (const listener of [...(listeners.get(name) ?? [])]) listener({ id, ...event } as never);
   }
   const module = {
     addListener: (name: string, listener: Listener) => {
@@ -28,7 +32,11 @@ function mockBuildSsh() {
       state.log.push(`connect ${host} as ${label}`);
       return state.connect(host);
     },
-    exec: async (command: string) => {
+    exec: async (id: string, command: string) => {
+      if (id === "events") {
+        state.events.push(`exec ${command.includes("remote-api-bridge") ? "tui" : "desktop"}`);
+        return;
+      }
       state.log.push(command.includes("--check") ? "exec detect" : "exec bridge");
       if (!command.includes("--check") && state.failBridgeExec) throw new Error("session failed");
       if (command.includes("--check") && !state.detectHangs) {
@@ -42,10 +50,15 @@ function mockBuildSsh() {
       state.log.push(`run ${command}`);
       return state.runResult;
     },
-    write: async (text: string) => {
+    write: async (streamId: string, text: string) => {
+      if (streamId === "events") {
+        state.events.push("write");
+        return;
+      }
       if (!state.answersPing) return;
       const { id } = JSON.parse(text);
-      setTimeout(() => emit("onData", { text: `${JSON.stringify({ id, result: { version: "1.2.3" } })}\n` }));
+      const reply = { jsonrpc: "2.0", id, result: { version: "1.2.3" } };
+      setTimeout(() => emit("onData", { text: `${JSON.stringify(reply)}\n` }));
     },
     close: async () => {
       state.log.push("close");
@@ -75,6 +88,7 @@ beforeEach(() => {
   mockSsh.state.failBridgeExec = false;
   mockSsh.state.detectHangs = false;
   mockSsh.state.runResult = { output: "", exitCode: 0 };
+  mockSsh.state.events = [];
 });
 
 describe("openBridge", () => {
@@ -164,6 +178,15 @@ describe("openBridge", () => {
 
     expect(await failure).toMatchObject({ reason: "closed", message: DISCONNECT_REQUESTED });
     expect(getOpenBridge("a.example.com")).toBeNull();
+    expect(mockSsh.listenerCount()).toBe(0);
+  });
+
+  it("ends the bridge on a disconnect the native module reports for no stream in particular", async () => {
+    const bridge = await open("a.example.com");
+
+    mockSsh.emit("onClosed", { reason: DISCONNECT_REQUESTED }, "");
+
+    expect(await bridge.closed).toBe(DISCONNECT_REQUESTED);
     expect(mockSsh.listenerCount()).toBe(0);
   });
 
@@ -281,5 +304,83 @@ describe("openBridge", () => {
     const failure = await open("a.example.com").catch((error: unknown) => error);
 
     expect(failure).toMatchObject({ reason: "loginFailed", attempt: undefined });
+  });
+
+  describe("live events", () => {
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    /** Opens the bridge with fake timers on, since the mock answers on a timer. */
+    async function openWithFakeTimers(host: string) {
+      jest.useFakeTimers();
+      const opening = open(host);
+      await jest.advanceTimersByTimeAsync(10);
+      return opening;
+    }
+
+    it("starts the events stream once the version is read, and tells the backend's listeners of a change", async () => {
+      const bridge = await openWithFakeTimers("a.example.com");
+      await jest.advanceTimersByTimeAsync(0);
+      const onChange = jest.fn();
+      bridge.backend.onChange?.(onChange);
+
+      expect(mockSsh.state.events).toEqual(["exec tui", "write"]);
+      mockSsh.emit("onData", { text: `${JSON.stringify({ event: "tab_created", data: {} })}\n` }, "events");
+      await jest.advanceTimersByTimeAsync(CHANGE_WINDOW_MS);
+
+      expect(onChange).toHaveBeenCalledTimes(1);
+      await bridge.close();
+    });
+
+    it("keeps the events out of the bridge's replies, and the bridge's replies out of the events", async () => {
+      const bridge = await openWithFakeTimers("a.example.com");
+      const onChange = jest.fn();
+      bridge.backend.onChange?.(onChange);
+
+      mockSsh.emit("onData", { text: `${JSON.stringify({ event: "tab_created", data: {} })}\n` });
+      await jest.advanceTimersByTimeAsync(CHANGE_WINDOW_MS);
+
+      expect(onChange).not.toHaveBeenCalled();
+      await bridge.close();
+    });
+
+    it("ends the bridge as a drop when the desktop app's heartbeat stops, and closes the connection", async () => {
+      mockSsh.state.detectOutput = "hc\n";
+      const bridge = await openWithFakeTimers("a.example.com");
+      mockSsh.state.log = [];
+
+      await jest.advanceTimersByTimeAsync(HEARTBEAT_TIMEOUT_MS);
+
+      expect(bridge.endReason).toBe("no heartbeat");
+      expect(await bridge.closed).toBe("no heartbeat");
+      expect(mockSsh.state.log).toEqual(["close"]);
+      expect(getOpenBridge("a.example.com")).toBeNull();
+      expect(mockSsh.listenerCount()).toBe(0);
+    });
+
+    it("leaves no events listener or timer behind when the bridge closes", async () => {
+      mockSsh.state.detectOutput = "hc\n";
+      const bridge = await openWithFakeTimers("a.example.com");
+
+      await bridge.close();
+      await jest.advanceTimersByTimeAsync(HEARTBEAT_TIMEOUT_MS * 2);
+
+      expect(bridge.endReason).toBeNull();
+      expect(mockSsh.listenerCount()).toBe(0);
+    });
+
+    it("does not start the events stream again when the link drops", async () => {
+      const bridge = await openWithFakeTimers("a.example.com");
+      await jest.advanceTimersByTimeAsync(0);
+      mockSsh.state.events = [];
+
+      mockSsh.emit("onClosed", { reason: "connection lost" }, "events");
+      mockSsh.emit("onClosed", { reason: "connection lost" });
+      await bridge.closed;
+      await jest.advanceTimersByTimeAsync(10_000);
+
+      expect(mockSsh.state.events).toEqual([]);
+    });
   });
 });

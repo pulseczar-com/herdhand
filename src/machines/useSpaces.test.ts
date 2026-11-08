@@ -70,4 +70,52 @@ describe("useSpaces", () => {
 
     expect(result.current.spaces).toBeNull();
   });
+
+  describe("live changes", () => {
+    /** A backend that tells its listener when the test calls `change`. */
+    function makeLiveBackend(...replies: (Space[] | Error)[]) {
+      const backend = makeBackend(...replies);
+      let listener: () => void = () => {};
+      const removeListener = jest.fn();
+      backend.onChange = jest.fn((next: () => void) => {
+        listener = next;
+        return removeListener;
+      });
+      return { backend, change: () => listener(), removeListener };
+    }
+
+    it("loads the list again on a change, with no refresh by the person", async () => {
+      const { backend, change } = makeLiveBackend([space("api")], [space("api"), space("docs")]);
+      const { result } = renderHook(() => useSpaces(backend));
+      await waitFor(() => expect(result.current.spaces).toHaveLength(1));
+
+      act(() => change());
+
+      await waitFor(() => expect(result.current.spaces).toEqual([space("api"), space("docs")]));
+      expect(result.current.refreshing).toBe(false);
+    });
+
+    it("keeps the newest list when an older load finishes last", async () => {
+      const { backend, change } = makeLiveBackend();
+      const slowFirst = new Promise<Space[]>((resolve) => setTimeout(() => resolve([space("old")]), 20));
+      jest.mocked(backend.listSpaces).mockReturnValueOnce(slowFirst).mockResolvedValueOnce([space("new")]);
+      const { result } = renderHook(() => useSpaces(backend));
+
+      act(() => change());
+      await waitFor(() => expect(result.current.spaces).toEqual([space("new")]));
+      await act(() => slowFirst);
+
+      expect(result.current.spaces).toEqual([space("new")]);
+    });
+
+    it("stops listening when the screen leaves or the connection changes", async () => {
+      const { backend, removeListener } = makeLiveBackend([space("api")]);
+      const { result, unmount } = renderHook(() => useSpaces(backend));
+      await waitFor(() => expect(result.current.spaces).toHaveLength(1));
+
+      unmount();
+
+      expect(removeListener).toHaveBeenCalledTimes(1);
+    });
+  });
 });

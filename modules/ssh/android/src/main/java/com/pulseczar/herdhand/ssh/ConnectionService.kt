@@ -28,17 +28,28 @@ const val ACTION_DISCONNECT = "com.pulseczar.herdhand.ssh.DISCONNECT"
 class ConnectionService : Service() {
   override fun onBind(intent: Intent?): IBinder? = null
 
+  // Android ends the app when a service started with `startForegroundService` does not call
+  // `startForeground` in time, and a stop can land before `onStartCommand` runs. `onCreate` runs
+  // before any stop, so the notice starts here and `onStartCommand` adds the machine's name.
+  override fun onCreate() {
+    super.onCreate()
+    showNotice("")
+  }
+
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-    val label = intent?.getStringExtra(EXTRA_LABEL) ?: ""
-    ServiceCompat.startForeground(this, NOTIFICATION_ID, makeNotice(label), serviceType())
+    showNotice(intent?.getStringExtra(EXTRA_LABEL) ?: "")
     // A restart after Android ends the process would hold no connection.
     return START_NOT_STICKY
+  }
+
+  private fun showNotice(label: String) {
+    ServiceCompat.startForeground(this, NOTIFICATION_ID, makeNotice(label), serviceType())
   }
 
   private fun makeNotice(label: String) =
     NotificationCompat.Builder(this, makeChannel())
       .setSmallIcon(R.drawable.ic_connection_notice)
-      .setContentTitle("Connected to $label")
+      .setContentTitle(if (label.isEmpty()) "Connected" else "Connected to $label")
       .setOngoing(true)
       .setSilent(true)
       .setContentIntent(openAppIntent())

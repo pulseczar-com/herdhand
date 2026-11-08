@@ -8,7 +8,7 @@ import { type ConnectAttempt, ConnectError } from "@/ssh/errors";
 import type { HostReader } from "@/ssh/hostReader";
 
 import { getMachine, getSignInPassword, getTrustedFingerprint, saveMachineKind } from "./store";
-import { type ConnectionStatus, PROBE_TIMEOUT_MS, useMachineConnection } from "./useMachineConnection";
+import { type ConnectionStatus, PROBE_TIMEOUT_MS, RETRY_DELAYS_MS, useMachineConnection } from "./useMachineConnection";
 
 jest.mock("@/ssh/bridge", () => ({
   openBridge: jest.fn(),
@@ -482,6 +482,139 @@ describe("useMachineConnection", () => {
       expect(first.sendLine).toHaveBeenCalledTimes(1);
       expect(second.sendLine).not.toHaveBeenCalled();
       expect(second.pressKey).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("after a drop while the app is in use", () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    /** Opens a bridge, drops it, and lets every retry find no network. */
+    async function dropAndFindNoNetwork() {
+      const dropped = makeBridge(makeBackend());
+      mockBridges(dropped);
+      const view = renderConnection();
+      await waitFor(() => expect(view.result.current.status).toMatchObject({ phase: "connected" }));
+      await act(async () => dropped.drop("connection lost"));
+      return view;
+    }
+
+    const wait = (ms: number) => act(() => jest.advanceTimersByTimeAsync(ms));
+
+    it("reconnects by itself, quickly at first and then less often, up to once a minute", async () => {
+      await dropAndFindNoNetwork();
+      expect(openBridge).toHaveBeenCalledTimes(1);
+
+      let calls = 1;
+      for (const delay of [...RETRY_DELAYS_MS, 60_000, 60_000]) {
+        await wait(delay - 1);
+        expect(openBridge).toHaveBeenCalledTimes(calls);
+        await wait(1);
+        calls += 1;
+        expect(openBridge).toHaveBeenCalledTimes(calls);
+      }
+      expect(RETRY_DELAYS_MS.slice(0, 4)).toEqual([1_000, 2_000, 5_000, 10_000]);
+      expect(Math.max(...RETRY_DELAYS_MS)).toBe(60_000);
+    });
+
+    it("shows the connection again when a retry gets through, and starts with the short wait on the next drop", async () => {
+      const { result } = await dropAndFindNoNetwork();
+      const second = makeBridge(makeBackend());
+      mockBridges(second, makeBridge(makeBackend()));
+
+      await wait(RETRY_DELAYS_MS[0]);
+      expect(result.current.status).toMatchObject({ phase: "connected" });
+      await act(async () => second.drop("connection lost"));
+      jest.mocked(openBridge).mockClear();
+      await wait(RETRY_DELAYS_MS[0]);
+
+      expect(openBridge).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not retry after a login failure", async () => {
+      await dropAndFindNoNetwork();
+      jest.mocked(openBridge).mockClear();
+      jest.mocked(openBridge).mockRejectedValue(new ConnectError("loginFailed", "bad"));
+
+      await wait(RETRY_DELAYS_MS[0]);
+      await wait(10 * 60_000);
+
+      expect(openBridge).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not retry a disconnect the person asked for", async () => {
+      const disconnected = makeBridge(makeBackend());
+      mockBridges(disconnected);
+      const { result } = renderConnection();
+      await waitFor(() => expect(result.current.status).toMatchObject({ phase: "connected" }));
+
+      await act(async () => disconnected.drop(DISCONNECT_REQUESTED));
+      await wait(10 * 60_000);
+
+      expect(openBridge).toHaveBeenCalledTimes(1);
+    });
+
+    it("stops retrying when the person disconnects meanwhile", async () => {
+      const { result } = await dropAndFindNoNetwork();
+
+      await act(() => result.current.disconnect());
+      await wait(10 * 60_000);
+
+      expect(openBridge).toHaveBeenCalledTimes(1);
+    });
+
+    it("stops retrying when the screen leaves", async () => {
+      const { unmount } = await dropAndFindNoNetwork();
+
+      unmount();
+      await wait(10 * 60_000);
+
+      expect(openBridge).toHaveBeenCalledTimes(1);
+    });
+
+    it("waits for the return to the app instead of retrying in the background, and then connects at once", async () => {
+      const { result, rerender } = await dropAndFindNoNetwork();
+      rerender({ foreground: false });
+      await wait(RETRY_DELAYS_MS[0] * 10);
+      expect(openBridge).toHaveBeenCalledTimes(1);
+
+      mockBridges(makeBridge(makeBackend()));
+      rerender({ foreground: true });
+      await wait(0);
+
+      expect(openBridge).toHaveBeenCalledTimes(2);
+      expect(result.current.status).toMatchObject({ phase: "connected" });
+    });
+
+    it("runs one connect, not two, when the app returns while a retry is waiting", async () => {
+      const { rerender } = await dropAndFindNoNetwork();
+
+      rerender({ foreground: false });
+      rerender({ foreground: true });
+      await wait(0);
+      expect(openBridge).toHaveBeenCalledTimes(2);
+      await wait(RETRY_DELAYS_MS[0] - 1);
+
+      expect(openBridge).toHaveBeenCalledTimes(2);
+    });
+
+    it("drops the result of a connect that a newer connect replaced", async () => {
+      const { result } = await dropAndFindNoNetwork();
+      let openOld: (bridge: Bridge) => void = () => {};
+      const fresh = makeBackend();
+      jest.mocked(openBridge).mockReturnValueOnce(new Promise((resolve) => (openOld = resolve)));
+      jest.mocked(openBridge).mockResolvedValueOnce(makeBridge(fresh));
+
+      await wait(RETRY_DELAYS_MS[0]);
+      await act(() => result.current.reconnect());
+      await act(async () => openOld(makeBridge(makeBackend())));
+
+      expect(result.current.status).toMatchObject({ phase: "connected", backend: fresh });
     });
   });
 });

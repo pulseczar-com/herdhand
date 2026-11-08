@@ -34,6 +34,12 @@ export type ConnectionStatus =
 
 const CONNECTING: ConnectionStatus = { phase: "connecting" };
 
+/**
+ * The waits before each retry of a link that dropped: quick at first, then once a minute at most.
+ * The last wait repeats until the machine answers or the login fails.
+ */
+export const RETRY_DELAYS_MS = [1_000, 2_000, 5_000, 10_000, 30_000, 60_000];
+
 /** How long the check on return to the app waits for a reply before it treats the link as dead. */
 export const PROBE_TIMEOUT_MS = 5_000;
 
@@ -42,8 +48,9 @@ export const PROBE_TIMEOUT_MS = 5_000;
  * stays open when the screen leaves; `disconnect`, a kind switch, an error or a Disconnect from
  * the notice closes it.
  * Exposes the steps the person can take: trust a new host key, switch kind, reconnect.
- * When the app is in use again (`isForeground`), it reconnects a link that dropped or no
- * longer replies, since Android can cut a background app's network.
+ * Reconnects a link that dropped on its own, with a growing wait between tries while the app is in
+ * use. When the app is in use again (`isForeground`), it reconnects a link that dropped or no
+ * longer replies at once, since Android can cut a background app's network.
  */
 export function useMachineConnection(id: string, isForeground: boolean) {
   const [machine, setMachine] = useState<Machine>();
@@ -56,6 +63,23 @@ export function useMachineConnection(id: string, isForeground: boolean) {
   // The app opens under the lock, so the first connect waits until the app is first in use.
   const [hasBeenForeground, setHasBeenForeground] = useState(isForeground);
   if (isForeground && !hasBeenForeground) setHasBeenForeground(true);
+  // Each connect gets a number, so the result of one that a newer connect replaced is dropped.
+  const generation = useRef(0);
+  const retryTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const retryCount = useRef(0);
+  const connectAgain = useRef<() => Promise<void>>(async () => {});
+  const isForegroundNow = useRef(isForeground);
+
+  /** The one way back from every drop: waits, then connects again if the app is in use. */
+  const scheduleRetry = useCallback(() => {
+    clearTimeout(retryTimer.current);
+    const delay = RETRY_DELAYS_MS[Math.min(retryCount.current, RETRY_DELAYS_MS.length - 1)];
+    retryCount.current += 1;
+    retryTimer.current = setTimeout(() => {
+      // Away from the app, its return connects at once instead.
+      if (isForegroundNow.current) void connectAgain.current();
+    }, delay);
+  }, []);
 
   /**
    * Shows an open bridge as connected, its drop as a failure the app reconnects on return, and
@@ -64,6 +88,7 @@ export function useMachineConnection(id: string, isForeground: boolean) {
   const showOpen = useCallback((opened: Bridge, saved: Machine) => {
     bridge.current = opened;
     isAfterDrop.current = false;
+    retryCount.current = 0;
     setStatus({
       phase: "connected",
       kind: opened.kind,
@@ -82,25 +107,30 @@ export function useMachineConnection(id: string, isForeground: boolean) {
       const attempt = { kind: opened.kind, availableKinds: opened.availableKinds };
       const dropped = new ConnectError("closed", reason, undefined, attempt);
       setStatus(getFailureStatus(dropped, saved, null));
+      scheduleRetry();
     });
-  }, []);
+  }, [scheduleRetry]);
 
   const connectTo = useCallback(async (saved: Machine | undefined) => {
+    const thisConnect = ++generation.current;
+    clearTimeout(retryTimer.current);
     await closeBridge(bridge);
-    if (!saved || servedId.current !== saved.id) return;
+    // The screen left or moved to another machine, or a newer connect took over.
+    const isOutdated = () => servedId.current !== saved?.id || generation.current !== thisConnect;
+    if (!saved || isOutdated()) return;
     setMachine(saved);
     setStatus(CONNECTING);
     const [password, trustedFingerprint] = await Promise.all([getSignInPassword(saved), getTrustedFingerprint(saved.id)]);
-    if (servedId.current !== saved.id) return;
+    if (isOutdated()) return;
     try {
       const opened = await openBridge({ machine: saved, password, trustedFingerprint });
       // The hook moved on meanwhile. A screen that left keeps the bridge for its machine's next
       // screen. The next `openBridge` call, for another machine, closes it.
-      if (servedId.current !== saved.id) return;
+      if (isOutdated()) return;
       showOpen(opened, saved);
       void askNotificationPermissionOnce();
     } catch (error) {
-      if (servedId.current !== saved.id) return;
+      if (isOutdated()) return;
       const connectError = toConnectError(error);
       if (isDisconnectRequested(connectError)) {
         isAfterDrop.current = false;
@@ -110,10 +140,15 @@ export function useMachineConnection(id: string, isForeground: boolean) {
       // A failed reconnect after a drop retries on return only while the network is the cause.
       isAfterDrop.current = isAfterDrop.current && isNetworkFailure(connectError);
       setStatus(getFailureStatus(connectError, saved, trustedFingerprint));
+      if (isAfterDrop.current) scheduleRetry();
     }
-  }, [showOpen]);
+  }, [showOpen, scheduleRetry]);
 
   const connect = useCallback(() => getMachine(id).then(connectTo), [id, connectTo]);
+  useEffect(() => {
+    connectAgain.current = connect;
+    isForegroundNow.current = isForeground;
+  }, [connect, isForeground]);
 
   /** Reconnects when the open link gives no reply, unless a newer link already replaced it. */
   const reconnectIfSilent = useCallback(
@@ -148,6 +183,7 @@ export function useMachineConnection(id: string, isForeground: boolean) {
     void (kept ? showKept(kept) : connect());
     return () => {
       servedId.current = null;
+      clearTimeout(retryTimer.current);
     };
   }, [id, hasBeenForeground, connect, showKept]);
 
@@ -181,6 +217,8 @@ export function useMachineConnection(id: string, isForeground: boolean) {
 
   const disconnect = useCallback(() => {
     bridge.current = null;
+    isAfterDrop.current = false;
+    clearTimeout(retryTimer.current);
     return closeOpenBridge(id);
   }, [id]);
 

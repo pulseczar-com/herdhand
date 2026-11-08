@@ -21,6 +21,7 @@ import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import java.security.Security
 import java.util.Timer
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
@@ -70,18 +71,24 @@ class AuthFailedException(cause: Throwable) : CodedException("AUTH_FAILED", "Log
 class UnreachableException(cause: Throwable) : CodedException("UNREACHABLE", cause.message ?: "Cannot reach host", cause)
 class NotConnectedException : CodedException("NOT_CONNECTED", "Not connected", null)
 
+/** A streaming command and the channel it runs on. */
+private class Stream(val session: Session, val command: Session.Command)
+
 /**
- * One SSH connection that streams one plain command at a time (no terminal). Output arrives as
- * `onData` events; `onClosed` fires when the command ends or the connection drops. `run` is a
- * second way to use the same connection: a one-shot command on a channel of its own, which
- * answers with its whole output and never touches the streaming command.
+ * One SSH connection that streams plain commands (no terminal), each on a channel of its own and
+ * named by an id. A new `exec` with an id ends the old stream of that id; streams with other ids
+ * run beside it. Output arrives as `onData` events and `onClosed` fires when a command ends or
+ * the connection drops; both name the stream. `run` is another way to use the same connection: a
+ * one-shot command on a channel of its own, which answers with its whole output and never
+ * touches the streams.
  * While connected, `ConnectionService` holds the connection in the background; its notice's
- * Disconnect action closes the connection and sends `onClosed` with a reason of its own.
+ * Disconnect action closes the connection and sends `onClosed` with a reason of its own for each
+ * stream.
  */
 class SshModule : Module() {
   @Volatile private var client: SSHClient? = null
-  private var session: Session? = null
-  @Volatile private var command: Session.Command? = null
+  // The reader threads of the streams read this map too.
+  private val streams = ConcurrentHashMap<String, Stream>()
 
   // Expo runs every module's async functions on one shared thread, and an SSH call can block for
   // seconds. The SSH calls run on a thread of their own, one at a time, so they never hold up
@@ -107,11 +114,11 @@ class SshModule : Module() {
 
     AsyncFunction("connect") { options: ConnectOptions -> connect(options) }.runOnQueue(sshQueue)
 
-    AsyncFunction("exec") { line: String -> exec(line) }.runOnQueue(sshQueue)
+    AsyncFunction("exec") { id: String, line: String -> exec(id, line) }.runOnQueue(sshQueue)
 
     AsyncFunction("run") { line: String -> run(line) }.runOnQueue(runQueue)
 
-    AsyncFunction("write") { text: String -> write(text) }.runOnQueue(sshQueue)
+    AsyncFunction("write") { id: String, text: String -> write(id, text) }.runOnQueue(sshQueue)
 
     AsyncFunction("close") { close() }.runOnQueue(sshQueue)
 
@@ -138,11 +145,15 @@ class SshModule : Module() {
 
   private var listeningContext: Context? = null
 
-  /** Forgets the command first, so its reader thread reports no drop for this close. */
+  /**
+   * Forgets the streams first, so their reader threads report no drop for this close. With no
+   * stream open, one event with an empty id still tells JavaScript of the disconnect.
+   */
   private fun disconnectOnRequest() {
     if (client == null) return
-    closeCommand()
-    sendEvent("onClosed", mapOf("reason" to DISCONNECT_REQUESTED))
+    val ids = streams.keys.toList().ifEmpty { listOf("") }
+    closeStreams()
+    for (id in ids) sendEvent("onClosed", mapOf("id" to id, "reason" to DISCONNECT_REQUESTED))
     close()
   }
 
@@ -163,11 +174,16 @@ class SshModule : Module() {
     val ssh = SSHClient(strongConfig())
     ssh.addHostKeyVerifier(verifier)
     ssh.connectTimeout = TIMEOUT_MS
+    // sshj sets this on the socket as it connects, so it also limits the wait for the server's
+    // greeting. The default is no limit, and a silent server would hold the SSH thread.
+    ssh.timeout = TIMEOUT_MS
     // sshj starts the keepalive thread on connect only if the interval is already set.
     ssh.connection.keepAlive.keepAliveInterval = KEEPALIVE_SECONDS
     (ssh.connection.keepAlive as KeepAliveRunner).maxAliveCount = KEEPALIVE_MAX_MISSED
     try {
       ssh.connect(options.host, options.port)
+      // The keepalive decides when a link is dead; no read limit of its own.
+      ssh.socket.soTimeout = 0
       signIn(ssh, options)
     } catch (error: Exception) {
       closeQuietly(ssh)
@@ -199,9 +215,9 @@ class SshModule : Module() {
     }
   }
 
-  private fun exec(line: String) {
+  private fun exec(id: String, line: String) {
     val ssh = client ?: throw NotConnectedException()
-    closeCommand()
+    closeStream(id)
     val newSession = ssh.startSession()
     val newCommand = try {
       newSession.exec(line)
@@ -209,10 +225,9 @@ class SshModule : Module() {
       runCatching { newSession.close() }
       throw error
     }
-    session = newSession
-    command = newCommand
+    streams[id] = Stream(newSession, newCommand)
     drain(newCommand.errorStream)
-    streamOutput(newCommand)
+    streamOutput(id, newCommand)
   }
 
   /**
@@ -262,25 +277,25 @@ class SshModule : Module() {
     return bytes.toString(Charsets.UTF_8.name())
   }
 
-  private fun write(text: String) {
-    val output = command?.outputStream ?: throw NotConnectedException()
+  private fun write(id: String, text: String) {
+    val output = streams[id]?.command?.outputStream ?: throw NotConnectedException()
     output.write(text.toByteArray(Charsets.UTF_8))
     output.flush()
   }
 
   private fun close() {
     context?.let { ConnectionService.stop(it) }
-    closeCommand()
+    closeStreams()
     client?.let { closeQuietly(it) }
     client = null
   }
 
   /**
    * Sends stdout to JavaScript as text; the reader keeps UTF-8 characters whole across reads.
-   * Events stop once `close` or a newer `exec` replaces the command, so JavaScript hears
+   * Events stop once `close` or a newer `exec` replaces the stream's command, so JavaScript hears
    * `onClosed` only when the command exits or the connection drops.
    */
-  private fun streamOutput(running: Session.Command) {
+  private fun streamOutput(id: String, running: Session.Command) {
     Thread {
       val reason = try {
         val reader = InputStreamReader(running.inputStream, Charsets.UTF_8)
@@ -288,15 +303,17 @@ class SshModule : Module() {
         while (true) {
           val count = reader.read(buffer)
           if (count < 0) break
-          if (command === running) sendEvent("onData", mapOf("text" to String(buffer, 0, count)))
+          if (isCurrent(id, running)) sendEvent("onData", mapOf("id" to id, "text" to String(buffer, 0, count)))
         }
         "ended"
       } catch (error: IOException) {
         error.message ?: "connection lost"
       }
-      if (command === running) sendEvent("onClosed", mapOf("reason" to reason))
+      if (isCurrent(id, running)) sendEvent("onClosed", mapOf("id" to id, "reason" to reason))
     }.start()
   }
+
+  private fun isCurrent(id: String, running: Session.Command) = streams[id]?.command === running
 
   /** Reads and drops stderr, so a full stderr window never stalls the command. */
   private fun drain(stream: InputStream) {
@@ -309,17 +326,18 @@ class SshModule : Module() {
     }.start()
   }
 
-  /** Forgets the command first, so its reader thread sends no events while it closes. */
-  private fun closeCommand() {
-    val oldCommand = command
-    val oldSession = session
-    command = null
-    session = null
+  /** Forgets the stream first, so its reader thread sends no events while it closes. */
+  private fun closeStream(id: String) {
+    val old = streams.remove(id) ?: return
     try {
-      oldCommand?.close()
-      oldSession?.close()
+      old.command.close()
+      old.session.close()
     } catch (_: IOException) {
     }
+  }
+
+  private fun closeStreams() {
+    for (id in streams.keys.toList()) closeStream(id)
   }
 }
 
@@ -364,9 +382,14 @@ private fun isWeak(name: String): Boolean =
     name.startsWith("ssh-rsa") ||
     name.startsWith("ssh-dss")
 
-internal fun toCodedException(error: Exception): CodedException = when (error) {
-  is UserAuthException -> AuthFailedException(error)
-  is UnknownHostException, is ConnectException, is NoRouteToHostException, is SocketTimeoutException ->
-    UnreachableException(error)
+internal fun toCodedException(error: Exception): CodedException = when {
+  error is UserAuthException -> AuthFailedException(error)
+  isUnreachable(error) -> UnreachableException(error)
   else -> CodedException("SSH_ERROR", error.message ?: error.javaClass.simpleName, error)
 }
+
+// sshj wraps a socket error that ends the greeting in a TransportException, so the cause counts.
+private fun isUnreachable(error: Throwable): Boolean =
+  generateSequence(error) { it.cause }.any {
+    it is UnknownHostException || it is ConnectException || it is NoRouteToHostException || it is SocketTimeoutException
+  }

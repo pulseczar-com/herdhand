@@ -1,4 +1,4 @@
-import { parseDetection } from "./commands";
+import { BRIDGE_COMMANDS, EVENTS_COMMANDS, parseDetection } from "./commands";
 
 describe("parseDetection", () => {
   it.each([
@@ -10,5 +10,16 @@ describe("parseDetection", () => {
     { name: "\\r\\n line ends", output: "hc\r\nherdr-api-bridge-v1\r\n", expected: ["desktop", "tui"] },
   ])("finds $name", ({ output, expected }) => {
     expect(parseDetection(output)).toEqual(expected);
+  });
+});
+
+describe("EVENTS_COMMANDS", () => {
+  it("keeps one subscription open on the TUI's bridge, with no request loop", () => {
+    expect(EVENTS_COMMANDS.tui).toContain("exec herdr remote-api-bridge");
+    expect(EVENTS_COMMANDS.tui).not.toContain("while");
+  });
+
+  it("uses the desktop app's connect command for events too", () => {
+    expect(EVENTS_COMMANDS.desktop).toBe(BRIDGE_COMMANDS.desktop);
   });
 });
