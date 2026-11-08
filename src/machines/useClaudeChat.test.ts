@@ -324,7 +324,8 @@ describe("useClaudeChat", () => {
         await jest.advanceTimersByTimeAsync(0);
       });
 
-      const pageReads = machine.readFile.mock.calls.filter(([, range]) => range?.limit === 100);
+      // The first read took lines 151 to 250, so the page before them starts at line 51.
+      const pageReads = machine.readFile.mock.calls.filter(([, range]) => range?.offset === 51);
       expect(pageReads).toHaveLength(1);
     });
 
