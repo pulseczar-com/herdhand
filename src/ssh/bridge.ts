@@ -8,6 +8,7 @@ import type { Machine } from "@/machines/store";
 import { type HerdrClient, REQUEST_TIMEOUT_MS, RequestTimeoutError } from "@/rpc/client";
 import { JsonLineReader } from "@/rpc/lines";
 
+import { makeHostReader, type HostReader } from "./hostReader";
 import { BRIDGE_COMMANDS, DETECT_COMMAND, parseDetection } from "./commands";
 import { type ConnectAttempt, ConnectError, toConnectError } from "./errors";
 
@@ -28,6 +29,8 @@ export type Bridge = {
   availableKinds: HerdrKind[];
   version: string;
   backend: Backend;
+  /** Reads the machine's files over a second command channel of the same connection. */
+  host: HostReader;
   /**
    * Resolves with the reason when the bridge ends without `close`: the command exited, the
    * link dropped, or the person disconnected (DISCONNECT_REQUESTED). The connection is closed
@@ -164,6 +167,7 @@ async function startKindBridge(machineId: string, { kind, availableKinds }: Conn
     availableKinds,
     version,
     backend,
+    host: makeHostReader((command) => Ssh.run(command)),
     get endReason() {
       return getEndReason();
     },

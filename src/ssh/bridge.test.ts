@@ -14,6 +14,7 @@ function mockBuildSsh() {
     answersPing: true,
     failBridgeExec: false,
     detectHangs: false,
+    runResult: { output: "", exitCode: 0 },
   };
   function emit(name: string, event: object) {
     for (const listener of [...(listeners.get(name) ?? [])]) listener(event as never);
@@ -36,6 +37,10 @@ function mockBuildSsh() {
           emit("onClosed", { reason: "exit 0" });
         });
       }
+    },
+    run: async (command: string) => {
+      state.log.push(`run ${command}`);
+      return state.runResult;
     },
     write: async (text: string) => {
       if (!state.answersPing) return;
@@ -69,6 +74,7 @@ beforeEach(() => {
   mockSsh.state.answersPing = true;
   mockSsh.state.failBridgeExec = false;
   mockSsh.state.detectHangs = false;
+  mockSsh.state.runResult = { output: "", exitCode: 0 };
 });
 
 describe("openBridge", () => {
@@ -77,6 +83,19 @@ describe("openBridge", () => {
 
     expect(bridge).toMatchObject({ kind: "tui", availableKinds: ["tui"], version: "1.2.3" });
     expect(mockSsh.state.log).toEqual(["connect a.example.com as a.example.com", "exec detect", "exec bridge"]);
+    await bridge.close();
+  });
+
+  it("reads the machine's files through the one-shot channel, and leaves the bridge's command alone", async () => {
+    const bridge = await open("a.example.com");
+    mockSsh.state.log = [];
+    mockSsh.state.runResult = { output: "2\nfirst\nsecond\n", exitCode: 0 };
+
+    const read = await bridge.host.readFile("notes.txt", { offset: 1, limit: 2 });
+
+    expect(read).toEqual({ text: "first\nsecond\n", first: 1, last: 2, lines: 2 });
+    expect(mockSsh.state.log).toHaveLength(1);
+    expect(mockSsh.state.log[0]).toMatch(/^run sh -c '.*' sh 'notes.txt' '1' '2' /);
     await bridge.close();
   });
 

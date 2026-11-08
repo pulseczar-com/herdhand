@@ -33,6 +33,12 @@ export type PhoneKey = {
   createdAt: number;
 };
 
+/** How a command from `run` ended: its whole stdout as text, and its exit code (-1 when it sent none). */
+export type RunResult = {
+  output: string;
+  exitCode: number;
+};
+
 export type SshModuleEvents = {
   onData: (event: { text: string }) => void;
   onClosed: (event: { reason: string }) => void;
@@ -61,6 +67,12 @@ declare class SshModule extends NativeModule<SshModuleEvents> {
   connect(options: ConnectOptions): Promise<void>;
   /** Starts a plain command (no terminal). Only one runs at a time; a new one ends the last. */
   exec(command: string): Promise<void>;
+  /**
+   * Runs one plain command (no terminal) on a channel of its own, beside the one `exec` holds, and
+   * resolves with all of its stdout once it ends. The connection stays open for both. Rejects
+   * with NOT_CONNECTED, or SSH_ERROR when the command runs too long or prints too much.
+   */
+  run(command: string): Promise<RunResult>;
   /** Writes to the running command's stdin. */
   write(text: string): Promise<void>;
   close(): Promise<void>;

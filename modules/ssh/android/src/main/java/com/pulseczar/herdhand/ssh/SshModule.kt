@@ -11,6 +11,7 @@ import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import expo.modules.kotlin.records.Field
 import expo.modules.kotlin.records.Record
+import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
 import java.io.InputStreamReader
@@ -19,7 +20,11 @@ import java.net.NoRouteToHostException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import java.security.Security
+import java.util.Timer
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.concurrent.schedule
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
@@ -39,6 +44,12 @@ private const val KEEPALIVE_SECONDS = 15
 // short time in the background or a brief network gap does not end it. sshj's default is 5.
 private const val KEEPALIVE_MAX_MISSED = 20
 private const val READ_BUFFER_CHARS = 8192
+// A `run` command that takes longer is stopped. A hung command must not hold its channel forever.
+private const val RUN_TIMEOUT_MS = 20_000L
+// How long `run` waits for the exit code after the output ends.
+private const val RUN_EXIT_WAIT_SECONDS = 5L
+// The most stdout one `run` command may print: a transcript page, not a download.
+private const val RUN_MAX_OUTPUT_BYTES = 8 * 1024 * 1024
 // The `onClosed` reason for a disconnect the person asked for; JavaScript tells it from a drop.
 private const val DISCONNECT_REQUESTED = "disconnect requested"
 
@@ -60,8 +71,10 @@ class UnreachableException(cause: Throwable) : CodedException("UNREACHABLE", cau
 class NotConnectedException : CodedException("NOT_CONNECTED", "Not connected", null)
 
 /**
- * One SSH connection that runs one plain command at a time (no terminal). Output arrives as
- * `onData` events; `onClosed` fires when the command ends or the connection drops.
+ * One SSH connection that streams one plain command at a time (no terminal). Output arrives as
+ * `onData` events; `onClosed` fires when the command ends or the connection drops. `run` is a
+ * second way to use the same connection: a one-shot command on a channel of its own, which
+ * answers with its whole output and never touches the streaming command.
  * While connected, `ConnectionService` holds the connection in the background; its notice's
  * Disconnect action closes the connection and sends `onClosed` with a reason of its own.
  */
@@ -75,6 +88,9 @@ class SshModule : Module() {
   // other modules (secure storage, the app lock) and never race each other.
   private val sshThread = Executors.newSingleThreadExecutor()
   private val sshQueue = CoroutineScope(sshThread.asCoroutineDispatcher() + SupervisorJob())
+  // `run` waits for its command, so it has a queue of its own: the streaming command's write and
+  // close calls never wait behind a read.
+  private val runQueue = CoroutineScope(Executors.newSingleThreadExecutor().asCoroutineDispatcher() + SupervisorJob())
   // Pairing waits for the machine for several seconds; on its own queue it does not hold up the
   // open connection's commands.
   private val pairQueue = CoroutineScope(Executors.newSingleThreadExecutor().asCoroutineDispatcher() + SupervisorJob())
@@ -92,6 +108,8 @@ class SshModule : Module() {
     AsyncFunction("connect") { options: ConnectOptions -> connect(options) }.runOnQueue(sshQueue)
 
     AsyncFunction("exec") { line: String -> exec(line) }.runOnQueue(sshQueue)
+
+    AsyncFunction("run") { line: String -> run(line) }.runOnQueue(runQueue)
 
     AsyncFunction("write") { text: String -> write(text) }.runOnQueue(sshQueue)
 
@@ -195,6 +213,53 @@ class SshModule : Module() {
     command = newCommand
     drain(newCommand.errorStream)
     streamOutput(newCommand)
+  }
+
+  /**
+   * Runs the command on a new channel, beside the streaming command's, and answers with its
+   * stdout and exit code. A watchdog closes the channel when the command runs too long, which
+   * ends the read below.
+   */
+  private fun run(line: String): Map<String, Any> {
+    val ssh = client ?: throw NotConnectedException()
+    val oneShot = ssh.startSession()
+    val watchdog = Timer(true)
+    val isTimedOut = AtomicBoolean(false)
+    try {
+      val running = oneShot.exec(line)
+      watchdog.schedule(RUN_TIMEOUT_MS) {
+        isTimedOut.set(true)
+        runCatching { oneShot.close() }
+      }
+      drain(running.errorStream)
+      val output = readAll(running.inputStream)
+      // Closing the channel can end the read as a normal end of output.
+      if (isTimedOut.get()) throw CodedException("SSH_ERROR", "The command took too long", null)
+      // The exit code can arrive just after the output ends.
+      runCatching { running.join(RUN_EXIT_WAIT_SECONDS, TimeUnit.SECONDS) }
+      return mapOf("output" to output, "exitCode" to (running.exitStatus ?: -1))
+    } catch (error: Exception) {
+      if (isTimedOut.get()) throw CodedException("SSH_ERROR", "The command took too long", error)
+      throw error as? CodedException ?: toCodedException(error)
+    } finally {
+      watchdog.cancel()
+      runCatching { oneShot.close() }
+    }
+  }
+
+  /** All of a stream as UTF-8 text, decoded once at the end so no character is cut. */
+  private fun readAll(stream: InputStream): String {
+    val bytes = ByteArrayOutputStream()
+    val buffer = ByteArray(READ_BUFFER_CHARS)
+    while (true) {
+      val count = stream.read(buffer)
+      if (count < 0) break
+      if (bytes.size() + count > RUN_MAX_OUTPUT_BYTES) {
+        throw CodedException("SSH_ERROR", "The command printed too much", null)
+      }
+      bytes.write(buffer, 0, count)
+    }
+    return bytes.toString(Charsets.UTF_8.name())
   }
 
   private fun write(text: String) {

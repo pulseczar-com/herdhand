@@ -11,28 +11,9 @@ export type Backend = {
   /** Types the text into the pane and presses Enter. */
   sendLine(paneId: string, text: string): Promise<void>;
   pressKey(paneId: string, key: PaneKey): Promise<void>;
-  /** One pane, read fresh. Desktop app only. */
+  /** One pane, read fresh. */
   getPane?(paneId: string): Promise<Pane>;
-  /**
-   * Lines of a text file on the machine; a relative path starts at Herdr's own folder. Fails with
-   * FileReadError when Herdr cannot read the file. Desktop app only.
-   */
-  readFile?(path: string, lines?: LineRange): Promise<FileLines>;
 };
-
-/** Which lines to read: from `offset` (the first line is 1), at most `limit`. */
-export type LineRange = { offset?: number; limit?: number };
-
-/** The lines read, with their line ends, and how many lines the file has. */
-export type FileLines = { text: string; first: number; last: number; lines: number };
-
-/** Herdr answered that it cannot read the file: missing, not text, or a line too long. */
-export class FileReadError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "FileReadError";
-  }
-}
 
 /** How many lines of history a pane read asks for. */
 export const READ_LINES = 200;
@@ -50,7 +31,9 @@ export type Tab = { id: string; name: string; panes: Pane[] };
  * `isFinished` is true when the program in the pane has exited but Herdr keeps the pane.
  * `columns` is the pane's width in terminal columns as Herdr reports it, or null when it gives none.
  * An agent pane on the desktop app also has its process id, the agent's own message, such as
- * what it asks while blocked, and what a blocked agent waits for when it says; the TUI gives none.
+ * what it asks while blocked, and what a blocked agent waits for when it says. An agent pane on
+ * the TUI has `sessionId`, the agent's own session id, when the agent's Herdr integration is
+ * installed. The other fields stay unset where the kind gives none.
  */
 export type Pane = {
   id: string;
@@ -60,6 +43,7 @@ export type Pane = {
   isFinished: boolean;
   columns: number | null;
   pid?: number;
+  sessionId?: string;
   message?: string;
   blockedKind?: BlockedKind;
 };

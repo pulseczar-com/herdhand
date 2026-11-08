@@ -29,14 +29,15 @@ import { canReadChat, type ChatBackend, useClaudeChat } from "@/machines/useClau
 import type { ConnectionStatus } from "@/machines/useMachineConnection";
 import { usePaneText } from "@/machines/usePaneText";
 import { type Block, reformatPane } from "@/pane/reformat";
+import type { HostReader } from "@/ssh/hostReader";
 
 const CONTENT_PADDING = 16;
 
 type PaneView = "chat" | "screen";
 
 /**
- * One pane, with the key row and composer to type into it. A Claude pane on the desktop app opens
- * on its chat, with a switch to the screen. The screen is the pane's text, reformatted for the
+ * One pane, with the key row and composer to type into it. A Claude pane whose transcript the app
+ * can find opens on its chat, with a switch to the screen. The screen is the pane's text, reformatted for the
  * phone and kept fresh.
  */
 export default function PaneRoute() {
@@ -87,7 +88,7 @@ function PaneScreen({ connection }: { connection: MachineConnection }) {
         <>
           {chatBackend ? <ViewSwitch view={view} onChange={setView} /> : null}
           {isChat ? (
-            <ClaudeChat backend={chatBackend} paneId={paneId} onPaneChange={setFreshPane} />
+            <ClaudeChat backend={chatBackend} host={status.host} paneId={paneId} onPaneChange={setFreshPane} />
           ) : (
             <PaneText
               backend={status.backend}
@@ -107,7 +108,7 @@ function PaneScreen({ connection }: { connection: MachineConnection }) {
   );
 }
 
-/** The backend, when the pane is a Claude pane and the backend can read its files: the desktop app's. */
+/** The backend, when the pane is a Claude pane whose transcript the app can find and the backend can read the pane. */
 function getChatBackend(status: ConnectionStatus, located: LocatedPane | undefined): ChatBackend | null {
   if (status.phase !== "connected" || !located || !isClaudePane(located.pane)) return null;
   return canReadChat(status.backend) ? status.backend : null;
@@ -176,11 +177,11 @@ function ViewTab({ label, isSelected, onPress }: { label: string; isSelected: bo
   );
 }
 
-type ClaudeChatProps = { backend: ChatBackend; paneId: string; onPaneChange: (pane: Pane | null) => void };
+type ClaudeChatProps = { backend: ChatBackend; host: HostReader; paneId: string; onPaneChange: (pane: Pane | null) => void };
 
 /** The pane's Claude chat. Each fresh read of the pane goes up to the header and the banner. */
-function ClaudeChat({ backend, paneId, onPaneChange }: ClaudeChatProps) {
-  const { chat, info, hasEarlier, loadEarlier, pane, error } = useClaudeChat(backend, paneId);
+function ClaudeChat({ backend, host, paneId, onPaneChange }: ClaudeChatProps) {
+  const { chat, info, hasEarlier, loadEarlier, pane, error } = useClaudeChat(backend, host, paneId);
   useEffect(() => onPaneChange(pane), [pane, onPaneChange]);
 
   return <ChatView chat={chat} info={info} hasEarlier={hasEarlier} onLoadEarlier={loadEarlier} error={error} />;
