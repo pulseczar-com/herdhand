@@ -590,15 +590,18 @@ describe("useMachineConnection", () => {
     });
 
     it("runs one connect, not two, when the app returns while a retry is waiting", async () => {
-      const { rerender } = await dropAndFindNoNetwork();
+      const { result, rerender } = await dropAndFindNoNetwork();
+      const fresh = makeBackend();
+      mockBridges(makeBridge(fresh));
 
       rerender({ foreground: false });
       rerender({ foreground: true });
       await wait(0);
       expect(openBridge).toHaveBeenCalledTimes(2);
-      await wait(RETRY_DELAYS_MS[0] - 1);
+      await wait(RETRY_DELAYS_MS[0]);
 
       expect(openBridge).toHaveBeenCalledTimes(2);
+      expect(result.current.status).toMatchObject({ phase: "connected", backend: fresh });
     });
 
     it("drops the result of a connect that a newer connect replaced", async () => {
