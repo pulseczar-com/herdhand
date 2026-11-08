@@ -288,7 +288,7 @@ describe("useAgentChat", () => {
 
       const { result } = await openChat(machine);
 
-      expect(machine.findFiles).toHaveBeenCalledWith(".codex/sessions", "rollout-*-c-1*.jsonl", 4);
+      expect(machine.findFiles).toHaveBeenCalledWith(".codex/sessions", "rollout-*-c-1.jsonl", 4);
       expect(Array.from(result.current.chat?.values() ?? [])).toEqual([{ kind: "prompt", id: "line-1", text: "Hello" }]);
     });
 

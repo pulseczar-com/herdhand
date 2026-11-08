@@ -8,7 +8,7 @@ const TRANSCRIPT_DEPTH = 2;
 
 /**
  * Claude Code. The desktop app names the agent's process, whose session file names the session.
- * The TUI names the session itself (or its file), and the transcript is the one file of that name.
+ * The TUI names the session itself, and the transcript is the one file of that name.
  */
 export const claudeAdapter: AgentAdapter = {
   agents: CLAUDE_AGENTS,
