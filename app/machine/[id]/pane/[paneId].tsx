@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 
+import { getAdapter } from "@/chat/adapters";
 import { ChatView } from "@/components/ChatView";
 import { NeedsYouBanner } from "@/components/NeedsYouBanner";
 import { getColumnCount, PaneBlocks } from "@/components/PaneBlocks";
@@ -20,12 +21,12 @@ import { SpaceBadge } from "@/components/SpaceBadge";
 import { getPillBackground, StatePill, useToneColor } from "@/components/StatePill";
 import { useKeepAtEnd } from "@/components/useKeepAtEnd";
 import { hideClaudeInput } from "@/claude/inputLine";
-import { isClaudeAgent, isClaudePane } from "@/claude/paths";
+import { isClaudeAgent } from "@/claude/paths";
 import { findPane, type LocatedPane } from "@/herdr/agentPanes";
 import type { Backend, Pane } from "@/herdr/backend";
 import { describePlace, getPaneBadge } from "@/herdr/badges";
 import { type MachineConnection, MachineConnectionContext, useMachines } from "@/machines/MachineConnection";
-import { canReadChat, type ChatBackend, useClaudeChat } from "@/machines/useClaudeChat";
+import { canReadChat, type ChatBackend, useAgentChat } from "@/machines/useAgentChat";
 import type { ConnectionStatus } from "@/machines/useMachineConnection";
 import { usePaneText } from "@/machines/usePaneText";
 import { type Block, reformatPane } from "@/pane/reformat";
@@ -36,7 +37,7 @@ const CONTENT_PADDING = 16;
 type PaneView = "chat" | "screen";
 
 /**
- * One pane, with the key row and composer to type into it. A Claude pane whose transcript the app
+ * One pane, with the key row and composer to type into it. An agent pane whose transcript the app
  * can find opens on its chat, with a switch to the screen. The screen is the pane's text, reformatted for the
  * phone and kept fresh.
  */
@@ -88,7 +89,7 @@ function PaneScreen({ connection }: { connection: MachineConnection }) {
         <>
           {chatBackend ? <ViewSwitch view={view} onChange={setView} /> : null}
           {isChat ? (
-            <ClaudeChat backend={chatBackend} host={status.host} paneId={paneId} onPaneChange={setFreshPane} />
+            <AgentChat backend={chatBackend} host={status.host} paneId={paneId} onPaneChange={setFreshPane} />
           ) : (
             <PaneText
               backend={status.backend}
@@ -108,9 +109,9 @@ function PaneScreen({ connection }: { connection: MachineConnection }) {
   );
 }
 
-/** The backend, when the pane is a Claude pane whose transcript the app can find and the backend can read the pane. */
+/** The backend, when the pane is an agent pane whose transcript the app can find and the backend can read the pane. */
 function getChatBackend(status: ConnectionStatus, located: LocatedPane | undefined): ChatBackend | null {
-  if (status.phase !== "connected" || !located || !isClaudePane(located.pane)) return null;
+  if (status.phase !== "connected" || !located || !getAdapter(located.pane)) return null;
   return canReadChat(status.backend) ? status.backend : null;
 }
 
@@ -177,11 +178,11 @@ function ViewTab({ label, isSelected, onPress }: { label: string; isSelected: bo
   );
 }
 
-type ClaudeChatProps = { backend: ChatBackend; host: HostReader; paneId: string; onPaneChange: (pane: Pane | null) => void };
+type AgentChatProps = { backend: ChatBackend; host: HostReader; paneId: string; onPaneChange: (pane: Pane | null) => void };
 
-/** The pane's Claude chat. Each fresh read of the pane goes up to the header and the banner. */
-function ClaudeChat({ backend, host, paneId, onPaneChange }: ClaudeChatProps) {
-  const { chat, info, hasEarlier, loadEarlier, pane, error } = useClaudeChat(backend, host, paneId);
+/** The pane's agent chat. Each fresh read of the pane goes up to the header and the banner. */
+function AgentChat({ backend, host, paneId, onPaneChange }: AgentChatProps) {
+  const { chat, info, hasEarlier, loadEarlier, pane, error } = useAgentChat(backend, host, paneId);
   useEffect(() => onPaneChange(pane), [pane, onPaneChange]);
 
   return <ChatView chat={chat} info={info} hasEarlier={hasEarlier} onLoadEarlier={loadEarlier} error={error} />;

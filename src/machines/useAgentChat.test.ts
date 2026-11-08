@@ -4,7 +4,7 @@ import { AppState } from "react-native";
 import type { Pane } from "@/herdr/backend";
 import { type FileLines, FileReadError, type HostReader, type LineRange } from "@/ssh/hostReader";
 
-import { type ChatBackend, FIRST_READ_LINES, getCompleteLines, getReadOffset, REFRESH_INTERVAL_MS, useClaudeChat } from "./useClaudeChat";
+import { type ChatBackend, FIRST_READ_LINES, getCompleteLines, getReadOffset, REFRESH_INTERVAL_MS, useAgentChat } from "./useAgentChat";
 
 const SESSION_PATH = ".claude/sessions/100.json";
 const TRANSCRIPT_PATH = ".claude/projects/-work-demo/s-1.jsonl";
@@ -37,12 +37,15 @@ function makeMachine(files: Record<string, string>) {
     return readLines(files[path], range);
   });
   const getPane = jest.fn(async () => claudePane());
-  const findInSubfolders = jest.fn(async (folder: string, fileName: string) =>
-    Object.keys(files).filter((path) => path.startsWith(`${folder}/`) && path.split("/").length === folder.split("/").length + 2 && path.endsWith(`/${fileName}`)),
-  );
-  const host: HostReader = { readFile, findInSubfolders };
+  const findFiles = jest.fn(async (folder: string, namePattern: string, depth: number) => {
+    const name = new RegExp(`^${namePattern.replace(/\*/g, ".*")}$`);
+    return Object.keys(files).filter(
+      (path) => path.startsWith(`${folder}/`) && path.split("/").length === folder.split("/").length + depth && name.test(path.split("/").at(-1) ?? ""),
+    );
+  });
+  const host: HostReader = { readFile, findFiles };
   const backend: ChatBackend = { getVersion: jest.fn(), listSpaces: jest.fn(), readPane: jest.fn(), sendLine: jest.fn(), pressKey: jest.fn(), getPane };
-  return { backend, host, files, readFile, findInSubfolders, getPane };
+  return { backend, host, files, readFile, findFiles, getPane };
 }
 
 // Lines keep their ends; a last line with no newline counts.
@@ -52,12 +55,12 @@ function readLines(text: string, { offset = 1, limit }: LineRange): FileLines {
   return { text: taken.join(""), first: offset, last: offset + taken.length - 1, lines: lines.length };
 }
 
-function getPromptTexts(chat: ReturnType<typeof useClaudeChat>["chat"]): string[] {
+function getPromptTexts(chat: ReturnType<typeof useAgentChat>["chat"]): string[] {
   return Array.from(chat?.values() ?? []).map((item) => (item.kind === "prompt" ? item.text : item.kind));
 }
 
 async function openChat({ backend, host }: { backend: ChatBackend; host: HostReader }) {
-  const hook = renderHook(() => useClaudeChat(backend, host, "t1"));
+  const hook = renderHook(() => useAgentChat(backend, host, "t1"));
   await act(() => jest.advanceTimersByTimeAsync(0));
   return hook;
 }
@@ -91,7 +94,7 @@ describe("getCompleteLines", () => {
   });
 });
 
-describe("useClaudeChat", () => {
+describe("useAgentChat", () => {
   beforeEach(() => jest.useFakeTimers());
   afterEach(() => {
     jest.useRealTimers();
@@ -196,7 +199,7 @@ describe("useClaudeChat", () => {
 
       const { result } = await openChat(machine);
 
-      expect(machine.findInSubfolders).toHaveBeenCalledWith(".claude/projects", "s-1.jsonl");
+      expect(machine.findFiles).toHaveBeenCalledWith(".claude/projects", "s-1.jsonl", 2);
       expect(machine.readFile).not.toHaveBeenCalledWith(SESSION_PATH, expect.anything());
       expect(getPromptTexts(result.current.chat)).toEqual(["Prompt 1"]);
     });
@@ -220,7 +223,7 @@ describe("useClaudeChat", () => {
       const { result } = await openChat(machine);
 
       expect(result.current.chat?.size).toBe(0);
-      expect(machine.findInSubfolders).not.toHaveBeenCalled();
+      expect(machine.findFiles).not.toHaveBeenCalled();
     });
 
     it("starts a new chat when the pane's session id changes", async () => {
@@ -271,6 +274,51 @@ describe("useClaudeChat", () => {
     unmount();
     await jest.advanceTimersByTimeAsync(REFRESH_INTERVAL_MS * 3);
     expect(machine.getPane).toHaveBeenCalledTimes(1);
+  });
+
+  describe("for an agent other than Claude", () => {
+    const ROLLOUT_PATH = ".codex/sessions/2026/11/07/rollout-2026-11-07T10-00-00-c-1.jsonl";
+    const record = (payload: object) => `${JSON.stringify({ type: "response_item", payload })}\n`;
+    const userMessage = (text: string) => record({ type: "message", role: "user", content: [{ type: "input_text", text }] });
+    const askCall = record({
+      type: "function_call",
+      name: "request_user_input",
+      call_id: "call_q",
+      arguments: JSON.stringify({ questions: [{ id: "q", header: "Next", question: "Go on?", options: [{ label: "Yes", description: "" }] }] }),
+    });
+    const codexPane = () => claudePane({ agent: "codex", pid: undefined, sessionId: "c-1" });
+
+    it("reads the transcript through the agent's adapter, and numbers the lines it reads", async () => {
+      const machine = makeMachine({ [ROLLOUT_PATH]: userMessage("Hello") });
+      machine.getPane.mockResolvedValue(codexPane());
+
+      const { result } = await openChat(machine);
+
+      expect(machine.findFiles).toHaveBeenCalledWith(".codex/sessions", "rollout-*-c-1*.jsonl", 4);
+      expect(Array.from(result.current.chat?.values() ?? [])).toEqual([{ kind: "prompt", id: "line-1", text: "Hello" }]);
+    });
+
+    it("gives the question the agent waits for, until it has an answer", async () => {
+      const machine = makeMachine({ [ROLLOUT_PATH]: userMessage("Hello") + askCall });
+      machine.getPane.mockResolvedValue(codexPane());
+      const { result } = await openChat(machine);
+      expect(result.current.question).toMatchObject({ callId: "call_q", questions: [{ text: "Go on?", options: [{ label: "Yes" }] }] });
+
+      machine.files[ROLLOUT_PATH] += record({ type: "function_call_output", call_id: "call_q", output: "{}" });
+      await waitForNextPoll();
+
+      expect(result.current.question).toBeNull();
+    });
+
+    it("shows no chat for a pane with no adapter", async () => {
+      const machine = makeMachine({ [ROLLOUT_PATH]: userMessage("Hello") });
+      machine.getPane.mockResolvedValue(claudePane({ agent: "gemini", pid: undefined, sessionId: "c-1" }));
+
+      const { result } = await openChat(machine);
+
+      expect(result.current.chat?.size).toBe(0);
+      expect(machine.findFiles).not.toHaveBeenCalled();
+    });
   });
 
   describe("loading earlier lines", () => {

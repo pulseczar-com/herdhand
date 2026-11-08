@@ -41,7 +41,7 @@ function makeBackend(): jest.Mocked<Backend> {
 }
 
 function makeHost(): HostReader {
-  return { readFile: jest.fn(), findInSubfolders: jest.fn() };
+  return { readFile: jest.fn(), findFiles: jest.fn() };
 }
 
 /** A bridge whose `drop` ends it the way a dropped link does. */

@@ -19,9 +19,22 @@ Herdr is a terminal multiplexer: it keeps spaces, tabs and panes running on a ma
 - An Agents tab that lists every agent by state.
 - A pane's text, reformatted for the phone, with a composer for a line of input and a key row (Esc, ^C, Tab, Up, Down, Enter, 1 to 6).
 - A banner over a blocked agent's pane says what it waits for (a question, a permission or a sign-in) and shows its message.
-- A Claude Code pane opens as a chat: your prompts, the replies in Markdown, and each tool call as a row. The app reads Claude's transcript over SSH. On Herdr TUI, the chat needs Herdr's Claude integration, which gives the app the session.
+- A pane of a [supported agent](#supported-agents) opens as a chat: your prompts, the replies in Markdown, and each tool call as a row. The app reads the agent's own transcript file over SSH and installs nothing on the machine.
 - Log in with a password, or pair by scanning a code so the phone logs in with its own key.
 - An app lock with fingerprint, face or the screen lock. It is on by default.
+
+## Supported agents
+
+The chat view reads the agent's own session file. Herdr gives the app the session, so the agent needs its [Herdr integration](https://github.com/herdrdev/herdr) (`herdr integration install <agent>`). Without a chat, the pane opens on its screen.
+
+| Agent | Chat view | Answer options | Verified working |
+|---|---|---|---|
+| Claude Code | Herdr App and Herdr TUI | In the transcript (`AskUserQuestion`); not shown yet | Yes |
+| Codex | Herdr TUI | In the transcript (`request_user_input`); not shown yet | From samples, not verified on a device |
+| GitHub Copilot CLI | Herdr TUI | In the transcript (`ask_user`); not shown yet | From samples, not verified on a device |
+| Pi and OMP | Herdr TUI | None; they have no question tool | From samples, not verified on a device |
+
+"Answer options" is whether the question an agent asks, with its choices, is in the transcript. "From samples" means the reader was built and tested on public sample files and the agent's published format, not on a real session. Herdr App gives the app only a process, so only Claude Code opens as a chat there.
 
 ## How it connects
 
@@ -117,7 +130,8 @@ For a signed Google Play bundle, run `just build-release` and follow [`docs/play
 | `modules/ssh/` | The native SSH module: Kotlin on [sshj](https://github.com/hierynomus/sshj) |
 | `src/ssh/` | Opening the bridge over SSH, detecting Herdr and reading the machine's files |
 | `src/herdr/` | The Herdr App and Herdr TUI clients |
-| `src/chat/`, `src/claude/` | The chat view and how a Claude Code transcript becomes it |
+| `src/chat/` | The chat view and the adapter interface that turns an agent's transcript into it |
+| `src/claude/`, `src/codex/`, `src/copilot/`, `src/pi/` | One adapter for each agent: where its transcript is, and how its records become chat items |
 | `src/machines/` | The saved machines and the open connection |
 | `src/pairing/`, `scripts/pair.sh` | Pairing with a code: the scanner in the app and the script on the machine |
 

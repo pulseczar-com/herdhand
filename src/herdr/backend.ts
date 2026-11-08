@@ -32,8 +32,9 @@ export type Tab = { id: string; name: string; panes: Pane[] };
  * `columns` is the pane's width in terminal columns as Herdr reports it, or null when it gives none.
  * An agent pane on the desktop app also has its process id, the agent's own message, such as
  * what it asks while blocked, and what a blocked agent waits for when it says. An agent pane on
- * the TUI has `sessionId`, the agent's own session id, when the agent's Herdr integration is
- * installed. The other fields stay unset where the kind gives none.
+ * the TUI has `sessionId`, the agent's own session id, or `sessionPath`, the path of its session
+ * file, when the agent's Herdr integration is installed. The other fields stay unset where the
+ * kind gives none.
  */
 export type Pane = {
   id: string;
@@ -44,6 +45,7 @@ export type Pane = {
   columns: number | null;
   pid?: number;
   sessionId?: string;
+  sessionPath?: string;
   message?: string;
   blockedKind?: BlockedKind;
 };

@@ -1,6 +1,6 @@
 import type { RunResult } from "../../modules/ssh";
 
-import { findInSubfoldersCommand, NOT_A_FILE_EXIT_CODE, readLinesCommand } from "./commands";
+import { findFilesCommand, NOT_A_FILE_EXIT_CODE, readLinesCommand } from "./commands";
 
 /** Which lines to read: from `offset` (the first line is 1), at most `limit`. */
 export type LineRange = { offset?: number; limit?: number };
@@ -23,8 +23,8 @@ export class FileReadError extends Error {
 export type HostReader = {
   /** Lines of a text file. Fails with FileReadError when the path is not a regular file. */
   readFile(path: string, range?: LineRange): Promise<FileLines>;
-  /** The paths of the files called `fileName` directly inside a folder of `folder`. */
-  findInSubfolders(folder: string, fileName: string): Promise<string[]>;
+  /** The paths of the files whose name matches `namePattern` (a glob), `depth` levels below `folder`. */
+  findFiles(folder: string, namePattern: string, depth: number): Promise<string[]>;
 };
 
 // A read with no `limit` stops at what `head` accepts as a count; the native module caps the output.
@@ -39,8 +39,8 @@ export function makeHostReader(run: (command: string) => Promise<RunResult>): Ho
       if (exitCode !== 0) throw new Error(`Could not read ${path}: exit ${exitCode}`);
       return parseFileLines(output, offset);
     },
-    findInSubfolders: async (folder, fileName) => {
-      const { output, exitCode } = await run(findInSubfoldersCommand(folder, fileName));
+    findFiles: async (folder, namePattern, depth) => {
+      const { output, exitCode } = await run(findFilesCommand(folder, namePattern, depth));
       if (exitCode !== 0) throw new Error(`Could not look in ${folder}: exit ${exitCode}`);
       return output.split("\n").filter((line) => line !== "");
     },

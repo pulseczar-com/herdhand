@@ -58,6 +58,7 @@ describe("snapshotToSpaces (TUI)", () => {
   it.each([
     { where: "a session id", session: { kind: "id", value: "s-1" }, expected: "s-1" },
     { where: "a session that is a path", session: { kind: "path", value: "/work/s.jsonl" }, expected: undefined },
+    { where: "a session of a kind it does not know", session: { kind: "url", value: "x" }, expected: undefined },
     { where: "a session with no value", session: { kind: "id" }, expected: undefined },
     { where: "no session", session: undefined, expected: undefined },
   ])("reads $where as the pane's session id", ({ session, expected }) => {
@@ -69,6 +70,21 @@ describe("snapshotToSpaces (TUI)", () => {
       },
     };
     expect(snapshotToSpaces(reply)[0].tabs[0].panes[0].sessionId).toBe(expected);
+  });
+
+  it.each([
+    { where: "a session path", session: { kind: "path", value: "/work/s.jsonl" }, expected: "/work/s.jsonl" },
+    { where: "a session id", session: { kind: "id", value: "s-1" }, expected: undefined },
+    { where: "a session path with no value", session: { kind: "path" }, expected: undefined },
+  ])("reads $where as the pane's session path", ({ session, expected }) => {
+    const reply = {
+      snapshot: {
+        workspaces: [{ workspace_id: "w1", label: "api" }],
+        tabs: [{ tab_id: "w1:t1", workspace_id: "w1", label: "main" }],
+        panes: [{ pane_id: "w1:p1", tab_id: "w1:t1", agent: "pi", agent_session: session }],
+      },
+    };
+    expect(snapshotToSpaces(reply)[0].tabs[0].panes[0].sessionPath).toBe(expected);
   });
 
   it("does not fail on an empty reply", () => {

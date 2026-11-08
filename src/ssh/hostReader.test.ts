@@ -4,7 +4,11 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { EMPTY_TRANSCRIBED } from "@/chat/transcribed";
 import { addTranscriptLines } from "@/claude/transcript";
+import { codexAdapter } from "@/codex/adapter";
+import { copilotAdapter } from "@/copilot/adapter";
+import { piAdapter } from "@/pi/adapter";
 
 import { FileReadError, makeHostReader } from "./hostReader";
 
@@ -62,8 +66,7 @@ describe("the host reader", () => {
 
     describe("a line too long to send", () => {
       const LONG = "x".repeat(300_000);
-      const note = (line: number) =>
-        `{"type":"assistant","uuid":"long-line-${line}","message":{"content":[{"type":"text","text":"Large item not shown (image or long output)"}]}}`;
+      const note = (line: number) => `{"herdhandLongLine":${line}}`;
 
       it.each([
         { where: "in the middle", text: `a\n${LONG}\nc\n`, range: {}, expected: `a\n${note(2)}\nc\n`, last: 3, lines: 3 },
@@ -87,7 +90,7 @@ describe("the host reader", () => {
         const { text } = await host.readFile("notes.txt");
         const { chat } = addTranscriptLines({ chat: new Map(), orphans: new Map() }, [text.trimEnd()]);
 
-        expect([...chat.values()]).toEqual([{ kind: "reply", id: "long-line-1/0", text: "Large item not shown (image or long output)" }]);
+        expect([...chat.values()]).toEqual([{ kind: "reply", id: "long-line-1", text: "Large item not shown (image or long output)" }]);
       });
     });
 
@@ -139,6 +142,65 @@ describe("the host reader", () => {
       });
     });
 
+    describe("a tool call of another agent whose line is too long to send", () => {
+      const BIG = "z".repeat(20_000);
+      const ID = "call_1-A";
+      const agents = [
+        {
+          agent: "Codex",
+          adapter: codexAdapter,
+          call: { type: "response_item", payload: { type: "function_call", name: "shell_command", arguments: JSON.stringify({ command: "ls" }), call_id: ID } },
+          result: (output: string) => ({ type: "response_item", payload: { type: "function_call_output", call_id: ID, output } }),
+          failedResult: null,
+        },
+        {
+          agent: "Copilot",
+          adapter: copilotAdapter,
+          call: { type: "assistant.message", id: "e1", data: { content: "", toolRequests: [{ toolCallId: ID, name: "bash", arguments: { command: "ls" } }] } },
+          result: (content: string) => ({ type: "tool.execution_complete", id: "e2", data: { toolCallId: ID, success: true, result: { content } } }),
+          failedResult: { type: "tool.execution_complete", id: "e2", data: { toolCallId: ID, success: false, result: { content: BIG } } },
+        },
+        {
+          agent: "Pi",
+          adapter: piAdapter,
+          call: { type: "message", id: "e1", message: { role: "assistant", content: [{ type: "toolCall", id: ID, name: "bash", arguments: { command: "ls" } }] } },
+          result: (text: string) => ({ type: "message", id: "e2", message: { role: "toolResult", toolCallId: ID, content: [{ type: "text", text }], isError: false } }),
+          failedResult: { type: "message", id: "e2", message: { role: "toolResult", toolCallId: ID, content: [{ type: "text", text: BIG }], isError: true } },
+        },
+      ];
+
+      it.each(agents)("completes a $agent call with a short result", async ({ adapter, call, result }) => {
+        write("notes.txt", `${JSON.stringify(call)}\n${JSON.stringify(result(BIG))}\n`);
+
+        const { text } = await host.readFile("notes.txt");
+        const { chat } = adapter.addLines(EMPTY_TRANSCRIBED, text.trimEnd().split("\n"), 1);
+
+        expect([...chat.values()]).toEqual([
+          expect.objectContaining({ kind: "tool", id: ID, result: { text: "Result not shown (too long)", isError: false } }),
+        ]);
+      });
+
+      it.each(agents.filter(({ failedResult }) => failedResult))("completes a failed $agent call as failed", async ({ adapter, call, failedResult }) => {
+        write("notes.txt", `${JSON.stringify(call)}\n${JSON.stringify(failedResult)}\n`);
+
+        const { text } = await host.readFile("notes.txt");
+        const { chat } = adapter.addLines(EMPTY_TRANSCRIBED, text.trimEnd().split("\n"), 1);
+
+        expect([...chat.values()]).toEqual([expect.objectContaining({ result: { text: "Result not shown (too long)", isError: true } })]);
+      });
+
+      it("does not take a long tool call for a result", async () => {
+        const longCall = { type: "response_item", payload: { type: "function_call", name: "apply_patch", arguments: BIG, call_id: ID } };
+        write("notes.txt", `${JSON.stringify(longCall)}\n`);
+
+        const { text } = await host.readFile("notes.txt");
+        const { chat, orphans } = codexAdapter.addLines(EMPTY_TRANSCRIBED, text.trimEnd().split("\n"), 1);
+
+        expect([...chat.values()]).toEqual([expect.objectContaining({ kind: "reply", id: "long-line-1" })]);
+        expect(orphans.size).toBe(0);
+      });
+    });
+
     it("never runs a path as a glob", async () => {
       write("star1.txt", "x\n");
 
@@ -168,7 +230,7 @@ describe("the host reader", () => {
     });
   });
 
-  describe("findInSubfolders", () => {
+  describe("findFiles", () => {
     it.each([
       { where: "one match", files: ["p/one/s-1.jsonl", "p/two/other.jsonl"], expected: ["p/one/s-1.jsonl"] },
       { where: "two matches", files: ["p/one/s-1.jsonl", "p/two/s-1.jsonl"], expected: ["p/one/s-1.jsonl", "p/two/s-1.jsonl"] },
@@ -177,19 +239,27 @@ describe("the host reader", () => {
     ])("finds $where", async ({ files, expected }) => {
       for (const file of files) write(file, "x\n");
 
-      expect(await host.findInSubfolders("p", "s-1.jsonl")).toEqual(expected);
+      expect((await host.findFiles("p", "s-1.jsonl", 2)).sort()).toEqual(expected);
+    });
+
+    it.each([
+      { depth: 1, expected: ["p/a.jsonl"] },
+      { depth: 4, expected: ["p/2026/11/07/rollout-1-s-1.jsonl"] },
+    ])("finds a name pattern exactly $depth levels down", async ({ depth, expected }) => {
+      for (const file of ["p/a.jsonl", "p/one/a.jsonl", "p/2026/11/07/rollout-1-s-1.jsonl", "p/2026/11/07/other.jsonl"]) write(file, "x\n");
+
+      expect(await host.findFiles("p", depth === 1 ? "a.jsonl" : "rollout-*-s-1*.jsonl", depth)).toEqual(expected);
     });
 
     it("finds nothing in a folder that does not exist", async () => {
-      expect(await host.findInSubfolders("missing", "s-1.jsonl")).toEqual([]);
+      expect(await host.findFiles("missing", "s-1.jsonl", 2)).toEqual([]);
     });
 
     it("takes a name that is hostile to a shell as plain text", async () => {
       write("p/one/it's.jsonl", "x\n");
 
-      expect(await host.findInSubfolders("p", "it's.jsonl")).toEqual(["p/one/it's.jsonl"]);
-      expect(await host.findInSubfolders("p", "*")).toEqual([]);
-      expect(await host.findInSubfolders("p", "$(touch pwned)")).toEqual([]);
+      expect(await host.findFiles("p", "it's.jsonl", 2)).toEqual(["p/one/it's.jsonl"]);
+      expect(await host.findFiles("p", "$(touch pwned)", 2)).toEqual([]);
       expect(existsSync(join(home, "pwned"))).toBe(false);
     });
   });

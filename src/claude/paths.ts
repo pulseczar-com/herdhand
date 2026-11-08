@@ -1,3 +1,4 @@
+import { parseObject } from "@/chat/transcribed";
 import type { Pane } from "@/herdr/backend";
 
 /**
@@ -6,7 +7,7 @@ import type { Pane } from "@/herdr/backend";
  */
 
 // The agent name Claude Code has in Herdr: the desktop app's, then the TUI's.
-const CLAUDE_AGENTS = ["claude-code", "claude"];
+export const CLAUDE_AGENTS = ["claude-code", "claude"];
 const CLAUDE_FOLDER = ".claude";
 const NOT_LETTER_OR_DIGIT = /[^A-Za-z0-9]/g;
 
@@ -16,14 +17,6 @@ type ClaudeSession = { sessionId: string; cwd: string };
 /** A pane that runs Claude Code, as Herdr names its agent. */
 export function isClaudeAgent(pane: Pane): boolean {
   return pane.agent !== null && CLAUDE_AGENTS.includes(pane.agent);
-}
-
-/**
- * A Claude Code pane whose transcript the app can find: by its process (the desktop app) or by
- * its session id (the TUI, with Herdr's Claude integration installed).
- */
-export function isClaudePane(pane: Pane): boolean {
-  return isClaudeAgent(pane) && (pane.pid !== undefined || pane.sessionId !== undefined);
 }
 
 /** The folder of all transcripts, which holds one folder for each project. */
@@ -44,15 +37,6 @@ export function parseSession(text: string): ClaudeSession | null {
   const session = parseObject(text);
   if (typeof session?.sessionId !== "string" || typeof session.cwd !== "string") return null;
   return { sessionId: session.sessionId, cwd: session.cwd };
-}
-
-function parseObject(text: string): Record<string, unknown> | null {
-  try {
-    const parsed: unknown = JSON.parse(text);
-    return typeof parsed === "object" ? (parsed as Record<string, unknown> | null) : null;
-  } catch {
-    return null;
-  }
 }
 
 /**
