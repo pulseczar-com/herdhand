@@ -2,8 +2,8 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "expo-router";
 import { type ReactElement, useCallback, useState } from "react";
 import { ActivityIndicator, Platform, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
-import { runOnJS } from "react-native-reanimated";
 import ReorderableList, { useReorderableDrag } from "react-native-reorderable-list";
+import { scheduleOnRN } from "react-native-worklets";
 
 import { getBlockedPanes, getMostUrgentState, type LocatedPane } from "@/herdr/agentPanes";
 import type { Pane, Space, Tab } from "@/herdr/backend";
@@ -12,7 +12,7 @@ import { useCollapsedSpaces } from "@/machines/useCollapsedSpaces";
 import type { SpacesState } from "@/machines/useSpaces";
 import type { SpaceOrderState } from "@/spaceOrder/useSpaceOrder";
 
-import { LONG_PRESS_MS, useDragPan } from "./dragLift";
+import { LONG_PRESS_MS, useDragPan } from "./dragPan";
 import { SpaceBadge } from "./SpaceBadge";
 import { StateDot, StatePill, useToneColor } from "./StatePill";
 
@@ -51,11 +51,11 @@ export function SpaceList({ machineId, list, spaceOrder, header, footer, onOpenP
   // refresh that is already running stays on screen.
   const disableRefresh = useCallback(() => {
     "worklet";
-    if (Platform.OS === "android" && !refreshing) runOnJS(setIsRefreshEnabled)(false);
+    if (Platform.OS === "android" && !refreshing) scheduleOnRN(setIsRefreshEnabled, false);
   }, [refreshing]);
   const enableRefresh = useCallback(() => {
     "worklet";
-    runOnJS(setIsRefreshEnabled)(true);
+    scheduleOnRN(setIsRefreshEnabled, true);
   }, []);
 
   return (

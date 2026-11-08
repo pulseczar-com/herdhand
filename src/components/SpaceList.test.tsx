@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { act, fireEvent, render, screen, userEvent, waitFor, within } from "@testing-library/react-native";
-import { ActivityIndicator, Text } from "react-native";
+import { ActivityIndicator, Platform, Text } from "react-native";
 import ReorderableList from "react-native-reorderable-list";
 
 import type { Backend, Pane, Space } from "@/herdr/backend";
@@ -9,7 +9,7 @@ import { useSpaces } from "@/machines/useSpaces";
 import { getSpaceOrder, saveSpaceOrder } from "@/spaceOrder/store";
 import { useSpaceOrder } from "@/spaceOrder/useSpaceOrder";
 
-import { LONG_PRESS_MS } from "./dragLift";
+import { LONG_PRESS_MS } from "./dragPan";
 import { SpaceList } from "./SpaceList";
 import { StateDot } from "./StatePill";
 
@@ -303,6 +303,8 @@ describe("SpaceList", () => {
       panes: [makePane(`p${index}`, "zsh")],
     }));
     const tall: Space = { id: "s1", name: "api", tabs };
+    const alpha: Space = { id: "s1", name: "alpha", tabs: [] };
+    const beta: Space = { id: "s2", name: "beta", tabs: [] };
 
     beforeEach(() => {
       jest.useFakeTimers();
@@ -343,6 +345,90 @@ describe("SpaceList", () => {
 
       expect(mockDrag).toHaveBeenCalledTimes(1);
       expect(screen.getByText("tab 29")).toBeTruthy();
+    });
+
+    it("drags on a hold and a move in one motion: the order is saved and the refresh is back on after the drop", async () => {
+      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+      renderSpaces([alpha, beta]);
+      await screen.findByText("beta");
+
+      await user.longPress(screen.getByText("beta"), { duration: 600 });
+      expect(mockDrag).toHaveBeenCalledTimes(1);
+      const list = screen.UNSAFE_getByType(ReorderableList);
+      act(() => list.props.onDragStart({ index: 1 }));
+      act(() => list.props.onReorder({ from: 1, to: 0 }));
+      act(() => list.props.onDragEnd({ from: 1, to: 0 }));
+
+      await waitFor(async () => expect(await getSpaceOrder(MACHINE_ID, "desktop")).toEqual(["s2", "s1"]));
+      expect(screen.UNSAFE_getByType(ReorderableList).props.refreshControl.props.enabled).toBe(true);
+    });
+
+    it("keeps the order, and a tap still works, when the finger lifts right after the lift", async () => {
+      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+      renderSpaces([alpha, beta]);
+      await screen.findByText("beta");
+
+      await user.longPress(screen.getByText("beta"), { duration: 600 });
+      const list = screen.UNSAFE_getByType(ReorderableList);
+      act(() => list.props.onDragStart({ index: 1 }));
+      act(() => list.props.onDragEnd({ from: 1, to: 1 }));
+
+      expect(screen.UNSAFE_getByType(ReorderableList).props.refreshControl.props.enabled).toBe(true);
+      expect(screen.UNSAFE_getByType(ReorderableList).props.data.map((space: Space) => space.id)).toEqual(["s1", "s2"]);
+      mockDrag.mockClear();
+      await user.press(screen.getByText("beta"));
+      expect(mockDrag).not.toHaveBeenCalled();
+    });
+  });
+
+  // The library's README, in its Refresh Control section: on Android the spinner would follow a
+  // dragged item, so the control is off from the drag start to the drop. The mocked worklet
+  // scheduler runs the state update a frame later, so each test waits for it.
+  describe("pull to refresh while a space is dragged", () => {
+    const api: Space = { id: "s1", name: "api", tabs: [] };
+
+    const settle = () => act(async () => void (await new Promise((resolve) => setTimeout(resolve, 50))));
+    const getList = () => screen.UNSAFE_getByType(ReorderableList);
+
+    afterEach(() => jest.restoreAllMocks());
+
+    it("turns off on Android from the drag start to the drop", async () => {
+      jest.replaceProperty(Platform, "OS", "android");
+      renderSpaces([api]);
+      await screen.findByText("api");
+
+      act(() => getList().props.onDragStart({ index: 0 }));
+      await settle();
+      expect(getList().props.refreshControl.props.enabled).toBe(false);
+      act(() => getList().props.onDragEnd({ from: 0, to: 0 }));
+      await settle();
+
+      expect(getList().props.refreshControl.props.enabled).toBe(true);
+    });
+
+    it("stays on while a refresh is running, so its spinner does not disappear", async () => {
+      jest.replaceProperty(Platform, "OS", "android");
+      const listSpaces = jest.fn().mockResolvedValueOnce([api]).mockReturnValue(new Promise(() => {}));
+      render(<LoadedSpaceList backend={makeBackend(listSpaces)} onOpenPane={jest.fn()} />);
+      await screen.findByText("api");
+      act(() => getList().props.refreshControl.props.onRefresh());
+      await waitFor(() => expect(getList().props.refreshControl.props.refreshing).toBe(true));
+
+      act(() => getList().props.onDragStart({ index: 0 }));
+      await settle();
+
+      expect(getList().props.refreshControl.props.enabled).toBe(true);
+    });
+
+    it("stays on elsewhere than Android", async () => {
+      jest.replaceProperty(Platform, "OS", "ios");
+      renderSpaces([api]);
+      await screen.findByText("api");
+
+      act(() => getList().props.onDragStart({ index: 0 }));
+      await settle();
+
+      expect(getList().props.refreshControl.props.enabled).toBe(true);
     });
   });
 

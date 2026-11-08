@@ -3,7 +3,7 @@ import { type ReactElement, type ReactNode, useContext, useState } from "react";
 import { ActivityIndicator, Alert, Button, ScrollView, StyleSheet, Text, View } from "react-native";
 import ReorderableList, { useReorderableDrag } from "react-native-reorderable-list";
 
-import { useDragPan } from "@/components/dragLift";
+import { useDragPan } from "@/components/dragPan";
 import { MachineHeader } from "@/components/MachineHeader";
 import { MachineSheet } from "@/components/MachineSheet";
 import { NeedsYouCards, SpaceList } from "@/components/SpaceList";

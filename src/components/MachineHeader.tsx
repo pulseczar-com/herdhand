@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { BadgeTone } from "@/herdr/badges";
 import type { ConnectionStatus } from "@/machines/useMachineConnection";
 
-import { LONG_PRESS_MS } from "./dragLift";
+import { LONG_PRESS_MS } from "./dragPan";
 import { StateDot } from "./StatePill";
 
 const ICON_SIZE = 20;
