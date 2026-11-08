@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react-native";
 import { ActivityIndicator, Text } from "react-native";
 import ReorderableList from "react-native-reorderable-list";
 
@@ -101,9 +101,39 @@ describe("SpaceList", () => {
 
     await screen.findByText("api");
     expect(screen.getByText("A")).toBeTruthy();
-    expect(screen.getByText("2 tabs")).toBeTruthy();
+    expect(screen.getByText("2 tabs · 3 panes")).toBeTruthy();
     expect(screen.getByText("D")).toBeTruthy();
     expect(screen.getByText("1 tab")).toBeTruthy();
+  });
+
+  it.each([
+    { where: "one pane in each tab", tabs: [["a"], ["b"]], expected: "2 tabs" },
+    { where: "one tab split into two panes", tabs: [["a", "b"]], expected: "1 tab · 2 panes" },
+    { where: "a split tab and a plain tab", tabs: [["a", "b", "c"], ["d"]], expected: "2 tabs · 4 panes" },
+  ])("counts $where as $expected", async ({ tabs, expected }) => {
+    renderSpaces([
+      { id: "s1", name: "api", tabs: tabs.map((ids, i) => ({ id: `t${i}`, name: `tab${i}`, panes: ids.map((id) => makePane(id, id)) })) },
+    ]);
+
+    expect(await screen.findByText(expected)).toBeTruthy();
+  });
+
+  it("groups the panes of a split tab under a line, and not a tab with one pane", async () => {
+    renderSpaces([
+      {
+        id: "s1",
+        name: "api",
+        tabs: [
+          { id: "t1", name: "agents", panes: [makePane("p1", "zsh"), makePane("p2", "sh")] },
+          { id: "t2", name: "logs", panes: [makePane("p3", "tail")] },
+        ],
+      },
+    ]);
+
+    await screen.findByText("agents");
+    expect(screen.getAllByTestId("pane-group")).toHaveLength(1);
+    expect(within(screen.getByTestId("pane-group")).getByText("zsh")).toBeTruthy();
+    expect(within(screen.getByTestId("pane-group")).getByText("sh")).toBeTruthy();
   });
 
   it.each([
