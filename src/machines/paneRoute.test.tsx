@@ -434,7 +434,7 @@ describe("the page of machines", () => {
     renderMachine();
     await screen.findByText("zsh");
 
-    fireEvent(screen.getByLabelText("Drag test-box"), "pressIn");
+    fireEvent(screen.getByLabelText("Drag test-box"), "longPress");
     await waitFor(() => expect(screen.queryByText("zsh")).toBeNull());
     expect(screen.getByLabelText("Drag home-server")).toBeTruthy();
     const [machineList] = screen.UNSAFE_root.findAll((node) => typeof node.props.onDragEnd === "function");
@@ -447,7 +447,7 @@ describe("the page of machines", () => {
     renderMachine();
     await screen.findByText("zsh");
 
-    fireEvent(screen.getByLabelText("Drag test-box"), "pressIn");
+    fireEvent(screen.getByLabelText("Drag test-box"), "longPress");
     await waitFor(() => expect(screen.queryByText("zsh")).toBeNull());
     fireEvent.press(screen.getByText("test-box"));
 
