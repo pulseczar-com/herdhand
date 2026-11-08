@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react-native";
-import { ActivityIndicator, Text } from "react-native";
+import { act, fireEvent, render, screen, userEvent, waitFor, within } from "@testing-library/react-native";
+import { ActivityIndicator, Platform, Text } from "react-native";
 import ReorderableList from "react-native-reorderable-list";
 
 import type { Backend, Pane, Space } from "@/herdr/backend";
@@ -9,12 +9,22 @@ import { useSpaces } from "@/machines/useSpaces";
 import { getSpaceOrder, saveSpaceOrder } from "@/spaceOrder/store";
 import { useSpaceOrder } from "@/spaceOrder/useSpaceOrder";
 
+import { LONG_PRESS_MS } from "./dragPan";
 import { SpaceList } from "./SpaceList";
 import { StateDot } from "./StatePill";
 
 jest.mock("@react-native-async-storage/async-storage", () =>
   jest.requireActual("@react-native-async-storage/async-storage/jest/async-storage-mock"),
 );
+
+const mockDrag = jest.fn();
+
+// The library's drag runs on the native UI thread: only whether a long press starts it is checked here.
+jest.mock("react-native-reorderable-list", () => ({
+  ...jest.requireActual("react-native-reorderable-list"),
+  __esModule: true,
+  useReorderableDrag: () => mockDrag,
+}));
 
 jest.mock("expo-router", () => ({
   useTheme: () => ({ dark: false, colors: { text: "#000", border: "#000", background: "#fff", notification: "#f00" } }),
@@ -34,11 +44,9 @@ function makeBackend(listSpaces: Backend["listSpaces"]): Backend {
 /** The list as the machine screen shows it: loaded from the backend by `useSpaces`, with the phone's order. */
 function LoadedSpaceList({
   backend,
-  isReordering = false,
   onOpenPane,
 }: {
   backend: Backend;
-  isReordering?: boolean;
   onOpenPane: (pane: Pane) => void;
 }) {
   const list = useSpaces(backend);
@@ -50,7 +58,6 @@ function LoadedSpaceList({
       spaceOrder={spaceOrder}
       header={<Text>test-box</Text>}
       footer={<Text>home-server</Text>}
-      isReordering={isReordering}
       onOpenPane={onOpenPane}
     />
   );
@@ -58,10 +65,6 @@ function LoadedSpaceList({
 
 function renderSpaces(spaces: Space[], onOpenPane = jest.fn()) {
   render(<LoadedSpaceList backend={makeBackend(jest.fn().mockResolvedValue(spaces))} onOpenPane={onOpenPane} />);
-}
-
-function renderReordering(spaces: Space[]) {
-  render(<LoadedSpaceList backend={makeBackend(jest.fn().mockResolvedValue(spaces))} isReordering onOpenPane={jest.fn()} />);
 }
 
 function makePane(id: string, title: string, fields: Partial<Pane> = {}): Pane {
@@ -293,34 +296,119 @@ describe("SpaceList", () => {
     });
   });
 
-  describe("reorder mode", () => {
+  describe("long press to drag", () => {
     const tabs = Array.from({ length: 30 }, (_, index) => ({
       id: `t${index}`,
       name: `tab ${index}`,
       panes: [makePane(`p${index}`, "zsh")],
     }));
     const tall: Space = { id: "s1", name: "api", tabs };
+    const alpha: Space = { id: "s1", name: "alpha", tabs: [] };
+    const beta: Space = { id: "s2", name: "beta", tabs: [] };
 
-    // On Android the drag's pan takes the touch from a list under a refresh control, so an
-    // expanded space taller than the screen could not scroll.
-    it("has no drag gesture or handle outside reorder mode, so a tall expanded space scrolls", async () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+      mockDrag.mockClear();
+    });
+
+    afterEach(() => jest.useRealTimers());
+
+    // The drag's pan takes the touch from a list under a refresh control on Android, so an
+    // expanded space taller than the screen could not scroll. The pan waits for a long press
+    // that lasts longer than the row's own, so a swipe goes to the scroll and the refresh.
+    it("scrolls and refreshes a tall expanded space: the drag pan waits for the row's long press", async () => {
       renderSpaces([tall]);
       await screen.findByText("tab 29");
       const list = screen.UNSAFE_getByType(ReorderableList);
 
-      expect(list.props.panEnabled).toBe(false);
       expect(list.props.refreshControl).toBeTruthy();
-      expect(screen.queryByLabelText("Drag api")).toBeNull();
+      expect(list.props.panGesture.config.activateAfterLongPress).toBeGreaterThan(LONG_PRESS_MS);
     });
 
-    it("shows the handles and turns the drag on in reorder mode, without pull to refresh", async () => {
-      renderReordering([tall]);
+    it("collapses a space on a tap and starts no drag", async () => {
+      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+      renderSpaces([tall]);
       await screen.findByText("tab 29");
-      const list = screen.UNSAFE_getByType(ReorderableList);
 
-      expect(screen.getByLabelText("Drag api")).toBeTruthy();
-      expect(list.props.panEnabled).toBe(true);
-      expect(list.props.refreshControl).toBeUndefined();
+      await user.press(screen.getByText("api"));
+
+      expect(screen.queryByText("tab 29")).toBeNull();
+      expect(mockDrag).not.toHaveBeenCalled();
+    });
+
+    it("starts the drag on a long press and does not collapse the space", async () => {
+      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+      renderSpaces([tall]);
+      await screen.findByText("tab 29");
+
+      await user.longPress(screen.getByText("api"), { duration: 600 });
+
+      expect(mockDrag).toHaveBeenCalledTimes(1);
+      expect(screen.getByText("tab 29")).toBeTruthy();
+    });
+
+    it("saves the new order after a hold and a move in one motion", async () => {
+      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+      renderSpaces([alpha, beta]);
+      await screen.findByText("beta");
+
+      await user.longPress(screen.getByText("beta"), { duration: 600 });
+      expect(mockDrag).toHaveBeenCalledTimes(1);
+      const list = screen.UNSAFE_getByType(ReorderableList);
+      act(() => list.props.onReorder({ from: 1, to: 0 }));
+
+      await waitFor(async () => expect(await getSpaceOrder(MACHINE_ID, "desktop")).toEqual(["s2", "s1"]));
+    });
+  });
+
+  // The library's README, in its Refresh Control section: on Android the spinner would follow a
+  // dragged item, so the control is off from the drag start to the drop. The mocked worklet
+  // scheduler runs the state update a frame later, so each test waits for it.
+  describe("pull to refresh while a space is dragged", () => {
+    const api: Space = { id: "s1", name: "api", tabs: [] };
+
+    const settle = () => act(async () => void (await new Promise((resolve) => setTimeout(resolve, 50))));
+    const getList = () => screen.UNSAFE_getByType(ReorderableList);
+
+    afterEach(() => jest.restoreAllMocks());
+
+    it("turns off on Android from the drag start to the drop", async () => {
+      jest.replaceProperty(Platform, "OS", "android");
+      renderSpaces([api]);
+      await screen.findByText("api");
+
+      act(() => getList().props.onDragStart({ index: 0 }));
+      await settle();
+      expect(getList().props.refreshControl.props.enabled).toBe(false);
+      act(() => getList().props.onDragEnd({ from: 0, to: 0 }));
+      await settle();
+
+      expect(getList().props.refreshControl.props.enabled).toBe(true);
+    });
+
+    it("stays on while a refresh is running, so its spinner does not disappear", async () => {
+      jest.replaceProperty(Platform, "OS", "android");
+      const listSpaces = jest.fn().mockResolvedValueOnce([api]).mockReturnValue(new Promise(() => {}));
+      render(<LoadedSpaceList backend={makeBackend(listSpaces)} onOpenPane={jest.fn()} />);
+      await screen.findByText("api");
+      act(() => getList().props.refreshControl.props.onRefresh());
+      await waitFor(() => expect(getList().props.refreshControl.props.refreshing).toBe(true));
+
+      act(() => getList().props.onDragStart({ index: 0 }));
+      await settle();
+
+      expect(getList().props.refreshControl.props.enabled).toBe(true);
+    });
+
+    it("stays on elsewhere than Android", async () => {
+      jest.replaceProperty(Platform, "OS", "ios");
+      renderSpaces([api]);
+      await screen.findByText("api");
+
+      act(() => getList().props.onDragStart({ index: 0 }));
+      await settle();
+
+      expect(getList().props.refreshControl.props.enabled).toBe(true);
     });
   });
 

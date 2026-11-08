@@ -1,11 +1,11 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "expo-router";
-import type { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import type { BadgeTone } from "@/herdr/badges";
 import type { ConnectionStatus } from "@/machines/useMachineConnection";
 
+import { LONG_PRESS_MS } from "./dragPan";
 import { StateDot } from "./StatePill";
 
 const ICON_SIZE = 20;
@@ -31,12 +31,12 @@ type MachineHeaderProps = {
   onMore: () => void;
   /** A hairline above the header, to part it from the machine before it. */
   hasDivider: boolean;
-  /** Shown last: the drag handle. */
-  children?: ReactNode;
+  /** A hold: starts the machine's drag, or does what a hold does where the machine cannot be dragged. */
+  onLongPress: () => void;
 };
 
-/** A machine's header on the page: its name and state. A tap folds or opens it; ⋮ opens its sheet. */
-export function MachineHeader({ name, state, isExpanded, onPress, onMore, hasDivider, children }: MachineHeaderProps) {
+/** A machine's header on the page: its name and state. A tap folds or opens it, a hold drags it; ⋮ opens its sheet. */
+export function MachineHeader({ name, state, isExpanded, onPress, onMore, hasDivider, onLongPress }: MachineHeaderProps) {
   const { colors } = useTheme();
   const { label, tone } = MACHINE_STATES[state];
   const chevronName = isExpanded ? "expand-more" : "chevron-right";
@@ -49,6 +49,8 @@ export function MachineHeader({ name, state, isExpanded, onPress, onMore, hasDiv
         accessibilityRole="button"
         accessibilityState={{ expanded: isExpanded }}
         onPress={onPress}
+        onLongPress={onLongPress}
+        delayLongPress={LONG_PRESS_MS}
         android_ripple={{ color: colors.border }}
       >
         <MaterialIcons name="dns" size={ICON_SIZE} color={colors.text} style={styles.dimmed} />
@@ -62,7 +64,6 @@ export function MachineHeader({ name, state, isExpanded, onPress, onMore, hasDiv
       <Pressable accessibilityRole="button" accessibilityLabel={`${name} actions`} hitSlop={HIT_SLOP} onPress={onMore}>
         <MaterialIcons name="more-vert" size={ICON_SIZE} color={colors.text} style={styles.dimmed} />
       </Pressable>
-      {children}
     </View>
   );
 }

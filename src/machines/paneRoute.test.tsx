@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { userEvent } from "@testing-library/react-native";
 import { router, Stack } from "expo-router";
 import { act, fireEvent, renderRouter, screen, waitFor, within } from "expo-router/testing-library";
 import { ActivityIndicator, Alert, KeyboardAvoidingView, ScrollView, StyleSheet, Text } from "react-native";
@@ -10,7 +11,7 @@ import PaneScreen from "../../app/machine/[id]/pane/[paneId]";
 import type { Backend } from "@/herdr/backend";
 import { FileReadError, type HostReader, type LineRange } from "@/ssh/hostReader";
 
-import { type MachineConnection, MachinesProvider, useMachines } from "./MachineConnection";
+import { type MachineConnection, MachinesProvider } from "./MachineConnection";
 import { getStoredOpenMachine } from "./openMachine";
 import { type Machine, moveMachine, removeMachine } from "./store";
 
@@ -88,10 +89,11 @@ jest.mock("./store", () => ({
 }));
 // The router's test library swaps in Reanimated's own mock, which lacks a hook the reorderable
 // list calls, so these route tests get a plain list: they do not drag.
+const mockDrag = jest.fn();
 jest.mock("react-native-reorderable-list", () => ({
   __esModule: true,
   default: jest.requireActual("react-native").FlatList,
-  useReorderableDrag: () => () => {},
+  useReorderableDrag: () => mockDrag,
   reorderItems: jest.requireActual("react-native-reorderable-list/src/utils").reorderItems,
 }));
 
@@ -127,16 +129,6 @@ function renderMachine(initialUrl = "/", routes = {}) {
     },
     { initialUrl },
   );
-}
-
-/** A stand-in for the add form: it loads the saved machines and goes back to the page. */
-function AddSavedMachines() {
-  const { reload } = useMachines();
-  async function add() {
-    await reload();
-    router.back();
-  }
-  return <Text onPress={() => void add()}>Add the saved machines</Text>;
 }
 
 /** The page's texts in order, to check what shows above what. */
@@ -432,78 +424,45 @@ describe("the page of machines", () => {
     expect(await screen.findByText("This machine is no longer on this phone.")).toBeTruthy();
   });
 
-  it("shows the drag handles only between Reorder and Done", async () => {
+  it("has no Reorder button and no drag handles: a long press drags instead", async () => {
     renderMachine();
     await screen.findByText("zsh");
-    expect(screen.queryByLabelText("Drag test-box")).toBeNull();
 
-    fireEvent.press(screen.getByLabelText("Reorder"));
-    expect(await screen.findByLabelText("Drag test-box")).toBeTruthy();
-    fireEvent.press(screen.getByText("Done"));
-
-    await waitFor(() => expect(screen.queryByLabelText("Drag test-box")).toBeNull());
-    expect(screen.getByLabelText("Reorder")).toBeTruthy();
-  });
-
-  it("starts in normal mode after the last machine is removed in reorder mode and one is added", async () => {
-    mockSavedMachines = [testBox];
-    const alert = jest.spyOn(Alert, "alert");
-    renderMachine("/", { "machine/new": AddSavedMachines });
-    fireEvent.press(await screen.findByLabelText("Reorder"));
-    fireEvent.press(await screen.findByRole("button", { name: "test-box actions" }));
-    fireEvent.press(screen.getByText("Remove machine"));
-    const removeButton = alert.mock.calls[0][2]?.find((button) => button.text === "Remove");
-    await act(async () => removeButton?.onPress?.());
-    await screen.findByText(/Tap \+ to add a machine/);
-
-    mockSavedMachines = [testBox];
-    act(() => router.push("/machine/new"));
-    fireEvent.press(await screen.findByText("Add the saved machines"));
-
-    expect(await screen.findByLabelText("Reorder")).toBeTruthy();
+    expect(screen.queryByLabelText("Reorder")).toBeNull();
     expect(screen.queryByLabelText("Drag test-box")).toBeNull();
   });
 
-  it("drags the machines to reorder them, saves the order, and shows the handle on every header", async () => {
+  // A list that mounts under a held touch never sees the touch and locks, so the headers of the
+  // open page, which sit outside the list, start no drag. A hold folds the page, as a tap on the
+  // open machine's header does, and letting go does not open the machine that was held.
+  it("starts no drag and folds the page on a hold on a header of the open page, without switching machines", async () => {
+    const user = userEvent.setup();
+    mockDrag.mockClear();
     renderMachine();
-    fireEvent.press(await screen.findByLabelText("Reorder"));
-    expect(await screen.findByLabelText("Drag test-box")).toBeTruthy();
-    expect(screen.getByLabelText("Drag home-server")).toBeTruthy();
+    await screen.findByText("zsh");
 
+    await user.longPress(screen.getByText("home-server"), { duration: 600 });
+
+    await waitFor(() => expect(screen.queryByText("zsh")).toBeNull());
+    expect(mockDrag).not.toHaveBeenCalled();
+    expect(await getStoredOpenMachine()).toEqual({ id: "m1", isFolded: true });
+  });
+
+  it("drags a folded machine on a long press, and saves the order", async () => {
+    mockDrag.mockClear();
+    renderMachine();
+    await screen.findByText("zsh");
     fireEvent.press(screen.getByText("test-box"));
-    expect(await screen.findByLabelText("Drag test-box")).toBeTruthy();
+    await waitFor(() => expect(screen.queryByText("zsh")).toBeNull());
+
+    fireEvent(screen.getByText("home-server"), "longPress");
+    expect(mockDrag).toHaveBeenCalledTimes(1);
     const [machineList] = screen.UNSAFE_root.findAll((node) => typeof node.props.onReorder === "function");
     act(() => machineList.props.onReorder({ from: 1, to: 0 }));
 
     expect(moveMachine).toHaveBeenCalledWith(1, 0);
     const texts = getPageTexts();
     expect(texts.indexOf("home-server")).toBeLessThan(texts.indexOf("test-box"));
-  });
-
-  it("folds every machine while a machine is dragged, and brings the open one back at the drop", async () => {
-    renderMachine();
-    await screen.findByText("zsh");
-    fireEvent.press(screen.getByLabelText("Reorder"));
-
-    fireEvent(screen.getByLabelText("Drag test-box"), "longPress");
-    await waitFor(() => expect(screen.queryByText("zsh")).toBeNull());
-    expect(screen.getByLabelText("Drag home-server")).toBeTruthy();
-    const [machineList] = screen.UNSAFE_root.findAll((node) => typeof node.props.onDragEnd === "function");
-    act(() => machineList.props.onDragEnd());
-
-    expect(await screen.findByText("zsh")).toBeTruthy();
-  });
-
-  it("brings the page back on a tap on a header when a touch on a handle did not become a drag", async () => {
-    renderMachine();
-    await screen.findByText("zsh");
-    fireEvent.press(screen.getByLabelText("Reorder"));
-
-    fireEvent(screen.getByLabelText("Drag test-box"), "longPress");
-    await waitFor(() => expect(screen.queryByText("zsh")).toBeNull());
-    fireEvent.press(screen.getByText("test-box"));
-
-    expect(await screen.findByText("zsh")).toBeTruthy();
   });
 
   it("draws a divider above every machine header but the first", async () => {
