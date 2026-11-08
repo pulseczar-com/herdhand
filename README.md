@@ -18,6 +18,7 @@ Herdr is a terminal multiplexer: it keeps spaces, tabs and panes running on a ma
 - Your machines on one page, each with its spaces, tabs and panes. Agents that wait for an answer show first.
 - An Agents tab that lists every agent by state.
 - A pane's text, reformatted for the phone, with a composer for a line of input and a key row (Esc, ^C, Tab, Up, Down, Enter, 1 to 6).
+- The lists update by themselves when Herdr changes, for example when an agent waits, a tab opens or a pane closes. After a drop, the app reconnects by itself.
 - A banner over a blocked agent's pane says what it waits for (a question, a permission or a sign-in) and shows its message.
 - A pane of a [supported agent](#supported-agents) opens as a chat: your prompts, the replies in Markdown, and each tool call as a row. The app reads the agent's own transcript file over SSH and installs nothing on the machine.
 - When Claude asks a question, the chat shows its options as buttons. When an agent waits on something the chat does not record, such as a permission prompt or a sign-in, a live screen card shows the end of the pane. An agent pane with no chat opens on its screen, with a line that says why.
@@ -52,7 +53,7 @@ The chat view reads the agent's own session file. Herdr gives the app the sessio
 
 1. You add a machine with its address, SSH port, user name and password, or you [pair it with a code](#pair-with-a-code).
 2. On the first connection with a password, the app shows the machine's SHA-256 host key fingerprint. Compare it with the machine's own (`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`), then tap **Trust and connect**. A pairing code carries the host keys, so the app checks them for you. The app pins that key; a different key later blocks the connection.
-3. The app logs in with the password or the phone key and runs Herdr's own bridge as a plain command: `hc connect` for Herdr App, or `herdr remote-api-bridge` for Herdr TUI. The bridge speaks JSON over the SSH channel.
+3. The app logs in with the password or the phone key and runs Herdr's own bridge as a plain command: `hc connect` for Herdr App, or `herdr remote-api-bridge` for Herdr TUI. The bridge speaks JSON over the SSH channel. A second channel of the same connection runs Herdr's event subscription, which is how the app learns of changes.
 
 Herdhand installs nothing on the machine. Pairing leaves one line there: the phone's public key in `~/.ssh/authorized_keys`. The password and the host key stay in Android's secure storage, and the phone key stays in the Android Keystore. Herdhand has no server and sends no data anywhere else; see the [privacy policy](PRIVACY.md).
 
@@ -122,6 +123,10 @@ To build the app:
 
 For a signed Google Play bundle, run `just build-release` and follow [`docs/play-console.md`](docs/play-console.md).
 
+## Known limits
+
+- On Herdr TUI, an agent that starts to wait shows on the next change event or on pull to refresh. Herdr 0.9.3 accepts the agent status event for one pane at a time only.
+
 ## Commands
 
 | Command | What it does |
@@ -140,7 +145,7 @@ For a signed Google Play bundle, run `just build-release` and follow [`docs/play
 |---|---|
 | `app/` | Screens ([expo-router](https://docs.expo.dev/router/introduction/)) |
 | `modules/ssh/` | The native SSH module: Kotlin on [sshj](https://github.com/hierynomus/sshj) |
-| `src/ssh/` | Opening the bridge over SSH, detecting Herdr and reading the machine's files |
+| `src/ssh/` | Opening the bridge and the event stream over SSH, detecting Herdr and reading the machine's files |
 | `src/herdr/` | The Herdr App and Herdr TUI clients |
 | `src/chat/` | The chat view and the adapter interface that turns an agent's transcript into it |
 | `src/claude/`, `src/codex/`, `src/copilot/`, `src/pi/` | One adapter for each agent: where its transcript is, and how its records become chat items |

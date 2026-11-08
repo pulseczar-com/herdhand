@@ -11,6 +11,8 @@ import { JsonLineReader } from "@/rpc/lines";
 import { makeHostReader, type HostReader } from "./hostReader";
 import { BRIDGE_COMMANDS, DETECT_COMMAND, parseDetection } from "./commands";
 import { type ConnectAttempt, ConnectError, toConnectError } from "./errors";
+import { startEvents } from "./events";
+import { BRIDGE_STREAM, listenToStream } from "./stream";
 
 /** The `onClosed` reason the native module gives when the person disconnects from the notice. */
 export const DISCONNECT_REQUESTED = "disconnect requested";
@@ -29,7 +31,7 @@ export type Bridge = {
   availableKinds: HerdrKind[];
   version: string;
   backend: Backend;
-  /** Reads the machine's files over a second command channel of the same connection. */
+  /** Reads the machine's files over another command channel of the same connection. */
   host: HostReader;
   /**
    * Resolves with the reason when the bridge ends without `close`: the command exited, the
@@ -124,7 +126,8 @@ async function attemptOpen({ machine, password, trustedFingerprint }: OpenBridge
 function runToEnd(command: string): Promise<string> {
   return new Promise((resolve, reject) => {
     let output = "";
-    const stopListening = listenToCommand(
+    const stopListening = listenToStream(
+      BRIDGE_STREAM,
       (text) => {
         output += text;
       },
@@ -132,7 +135,7 @@ function runToEnd(command: string): Promise<string> {
     );
     const rejectAsHung = () => settle(() => reject(new RequestTimeoutError(command)));
     const timer = setTimeout(rejectAsHung, REQUEST_TIMEOUT_MS);
-    Ssh.exec(command).catch((error: unknown) => settle(() => reject(error)));
+    Ssh.exec(BRIDGE_STREAM, command).catch((error: unknown) => settle(() => reject(error)));
 
     function settle(finish: () => void) {
       clearTimeout(timer);
@@ -155,11 +158,13 @@ function chooseKind(available: HerdrKind[], saved: HerdrKind | undefined): Herdr
  */
 async function startKindBridge(machineId: string, { kind, availableKinds }: ConnectAttempt): Promise<Bridge> {
   const { client, stop, ended, getEndReason } = await startBridge(kind);
-  const backend = KIND_PARTS[kind].makeBackend(client);
-  const version = await backend.getVersion().catch(async (error: unknown) => {
+  const baseBackend = KIND_PARTS[kind].makeBackend(client);
+  const version = await baseBackend.getVersion().catch(async (error: unknown) => {
     await stop();
     throw error;
   });
+  const events = startEvents(kind);
+  const backend = { ...baseBackend, onChange: events.onChange };
   let closing: Promise<void> | undefined;
   const bridge: Bridge = {
     machineId,
@@ -177,6 +182,7 @@ async function startKindBridge(machineId: string, { kind, availableKinds }: Conn
       return reason;
     }),
     close: () => {
+      events.stop();
       closing ??= stop().finally(() => {
         if (current === bridge) current = null;
       });
@@ -201,21 +207,23 @@ type StartedBridge = {
 async function startBridge(kind: HerdrKind): Promise<StartedBridge> {
   const reader = new JsonLineReader();
   const client = KIND_PARTS[kind].makeClient((line) => {
-    Ssh.write(`${line}\n`).catch((error: unknown) => client.rejectAll(String(error)));
+    Ssh.write(BRIDGE_STREAM, `${line}\n`).catch((error: unknown) => client.rejectAll(String(error)));
   });
   let endReason: string | null = null;
   let resolveEnded: (reason: string) => void = () => {};
   const ended = new Promise<string>((resolve) => (resolveEnded = resolve));
-  const stopListening = listenToCommand(
+  const stopListening = listenToStream(
+    BRIDGE_STREAM,
     (text) => {
       for (const message of reader.push(text)) client.receive(message);
     },
-    (reason) => {
-      endReason = reason;
-      detach();
-      resolveEnded(reason);
-    },
+    end,
   );
+  function end(reason: string) {
+    endReason = reason;
+    detach();
+    resolveEnded(reason);
+  }
   function detach() {
     stopListening();
     client.rejectAll("Connection closed");
@@ -226,7 +234,7 @@ async function startBridge(kind: HerdrKind): Promise<StartedBridge> {
   }
 
   try {
-    await Ssh.exec(BRIDGE_COMMANDS[kind]);
+    await Ssh.exec(BRIDGE_STREAM, BRIDGE_COMMANDS[kind]);
   } catch (error) {
     detach();
     throw error;
@@ -238,14 +246,4 @@ async function startBridge(kind: HerdrKind): Promise<StartedBridge> {
 function withAttempt(failure: ConnectError, attempt: ConnectAttempt | undefined): ConnectError {
   if (!attempt) return failure;
   return new ConnectError(failure.reason, failure.message, failure.fingerprint, attempt);
-}
-
-/** Listens to the running command's output and end. Returns the function that stops listening. */
-function listenToCommand(onData: (text: string) => void, onEnd: (reason: string) => void): () => void {
-  const dataListener = Ssh.addListener("onData", (event) => onData(event.text));
-  const closedListener = Ssh.addListener("onClosed", (event) => onEnd(event.reason));
-  return () => {
-    dataListener.remove();
-    closedListener.remove();
-  };
 }

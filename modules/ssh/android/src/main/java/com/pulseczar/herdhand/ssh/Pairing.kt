@@ -45,6 +45,7 @@ fun pair(options: PairOptions): String {
   val ssh = makeClient(verifier)
   try {
     ssh.connect(options.host, options.port)
+    ssh.socket.soTimeout = 0
     ssh.authPublickey(options.user, makeOneTimeKey(options.oneTimeKeySeed))
     sendPhoneKeyLine(ssh, options.phoneKeyLine)
   } catch (error: CodedException) {
@@ -87,6 +88,7 @@ private fun canSignInWithPhoneKey(options: PairOptions, fingerprint: String): Bo
   val ssh = makeClient(TrustOnFirstUseVerifier(listOf(fingerprint)))
   return try {
     ssh.connect(options.host, options.port)
+    ssh.socket.soTimeout = 0
     ssh.authPublickey(options.user, PhoneKey.provider())
     true
   } catch (_: UserAuthException) {
@@ -102,5 +104,6 @@ private fun makeClient(verifier: TrustOnFirstUseVerifier): SSHClient {
   val ssh = SSHClient(strongConfig())
   ssh.addHostKeyVerifier(verifier)
   ssh.connectTimeout = TIMEOUT_MS
+  ssh.timeout = TIMEOUT_MS
   return ssh
 }

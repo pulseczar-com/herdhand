@@ -13,6 +13,11 @@ export type Backend = {
   pressKey(paneId: string, key: PaneKey): Promise<void>;
   /** One pane, read fresh. */
   getPane?(paneId: string): Promise<Pane>;
+  /**
+   * Calls the listener once after Herdr changes (an agent's state, a tab or pane opening or
+   * closing). Returns the function that removes it. Unset when the backend has no live events.
+   */
+  onChange?(listener: () => void): () => void;
 };
 
 /** How many lines of history a pane read asks for. */

@@ -9,26 +9,30 @@ export type SpacesState = ReturnType<typeof useSpaces>;
 type LoadResult = { backend: Backend; spaces: Space[] | null; error: string | null };
 
 /**
- * The machine's spaces: loaded once connected, and again on `refresh` (pull to refresh).
- * A failed load keeps the last list, so the person still sees it next to the error.
+ * The machine's spaces: loaded once connected, again on `refresh` (pull to refresh), and again
+ * when the backend reports a change. A failed load keeps the last list, so the person still sees it next to the error.
  * With no backend (not connected) there is nothing to load.
  */
 export function useSpaces(backend: Backend | null) {
   const [result, setResult] = useState<LoadResult | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const isOpen = useRef(true);
+  // Only the newest load may set the result, so a slow older load cannot bring back an old list.
+  const latestLoad = useRef(0);
   // A new connection, or another Herdr kind, starts from an empty list.
   const currentResult = result?.backend === backend ? result : null;
 
   const load = useCallback(async () => {
     if (!backend) return;
+    const thisLoad = ++latestLoad.current;
+    const isCurrent = () => isOpen.current && latestLoad.current === thisLoad;
     await backend.listSpaces().then(
       (spaces) => {
-        if (isOpen.current) setResult({ backend, spaces, error: null });
+        if (isCurrent()) setResult({ backend, spaces, error: null });
       },
       (failure: unknown) => {
         const error = `Could not load the list: ${getErrorMessage(failure)}`;
-        if (isOpen.current) setResult((last) => makeFailedResult(last, backend, error));
+        if (isCurrent()) setResult((last) => makeFailedResult(last, backend, error));
       },
     );
   }, [backend]);
@@ -40,6 +44,8 @@ export function useSpaces(backend: Backend | null) {
       isOpen.current = false;
     };
   }, [load]);
+
+  useEffect(() => backend?.onChange?.(() => void load()), [backend, load]);
 
   const refresh = useCallback(async () => {
     setRefreshing(true);

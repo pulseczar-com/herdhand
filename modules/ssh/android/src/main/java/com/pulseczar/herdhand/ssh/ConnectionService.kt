@@ -28,17 +28,35 @@ const val ACTION_DISCONNECT = "com.pulseczar.herdhand.ssh.DISCONNECT"
 class ConnectionService : Service() {
   override fun onBind(intent: Intent?): IBinder? = null
 
+  // Android ends the app when a service started with `startForegroundService` is stopped before
+  // it calls `startForeground`. So `stop` only stops a service that is in the foreground; before
+  // that it leaves a request, and `onStartCommand` stops the service once the notice is up.
+  override fun onCreate() {
+    super.onCreate()
+    showNotice("")
+    synchronized(lock) { isForeground = true }
+  }
+
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-    val label = intent?.getStringExtra(EXTRA_LABEL) ?: ""
-    ServiceCompat.startForeground(this, NOTIFICATION_ID, makeNotice(label), serviceType())
+    showNotice(intent?.getStringExtra(EXTRA_LABEL) ?: "")
+    if (takeStopRequest()) stopSelf()
     // A restart after Android ends the process would hold no connection.
     return START_NOT_STICKY
+  }
+
+  override fun onDestroy() {
+    synchronized(lock) { isForeground = false }
+    super.onDestroy()
+  }
+
+  private fun showNotice(label: String) {
+    ServiceCompat.startForeground(this, NOTIFICATION_ID, makeNotice(label), serviceType())
   }
 
   private fun makeNotice(label: String) =
     NotificationCompat.Builder(this, makeChannel())
       .setSmallIcon(R.drawable.ic_connection_notice)
-      .setContentTitle("Connected to $label")
+      .setContentTitle(if (label.isEmpty()) "Connected" else "Connected to $label")
       .setOngoing(true)
       .setSilent(true)
       .setContentIntent(openAppIntent())
@@ -68,14 +86,31 @@ class ConnectionService : Service() {
     )
 
   companion object {
+    private val lock = Any()
+    private var isForeground = false
+    private var isStopRequested = false
+
     fun start(context: Context, label: String) {
+      synchronized(lock) {
+        isStopRequested = false
+        isForeground = false
+      }
       val intent = Intent(context, ConnectionService::class.java).putExtra(EXTRA_LABEL, label)
       ContextCompat.startForegroundService(context, intent)
     }
 
     fun stop(context: Context) {
-      context.stopService(Intent(context, ConnectionService::class.java))
+      synchronized(lock) {
+        if (isForeground) {
+          context.stopService(Intent(context, ConnectionService::class.java))
+        } else {
+          isStopRequested = true
+        }
+      }
     }
+
+    private fun takeStopRequest(): Boolean =
+      synchronized(lock) { isStopRequested.also { isStopRequested = false } }
   }
 }
 
