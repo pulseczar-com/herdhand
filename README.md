@@ -21,8 +21,18 @@ Herdr is a terminal multiplexer: it keeps spaces, tabs and panes running on a ma
 - A banner over a blocked agent's pane says what it waits for (a question, a permission or a sign-in) and shows its message.
 - A pane of a [supported agent](#supported-agents) opens as a chat: your prompts, the replies in Markdown, and each tool call as a row. The app reads the agent's own transcript file over SSH and installs nothing on the machine.
 - When Claude asks a question, the chat shows its options as buttons. When an agent waits on something the chat does not record, such as a permission prompt or a sign-in, a live screen card shows the end of the pane. An agent pane with no chat opens on its screen, with a line that says why.
+- A shell pane opens as a chat: each command you send from the phone is a bubble with its output under it. The app knows a command has ended when the shell holds the foreground again. See [Shell panes](#shell-panes).
 - Log in with a password, or pair by scanning a code so the phone logs in with its own key.
 - An app lock with fingerprint, face or the screen lock. It is on by default.
+
+## Shell panes
+
+A command sent from the phone becomes a bubble, and the output of the command shows under it. Commands typed on the machine get no bubble. The limits:
+
+- The app shows no exit code.
+- The app cuts a long output to the last 200 lines.
+- A full-screen program, such as vim, shows the live screen card until the shell holds the foreground again.
+- The app expects a one-line prompt with no right-side prompt and no transient prompt. With another kind of prompt, the output can include prompt lines, or can show the whole screen with a note that it is cut.
 
 ## Supported agents
 

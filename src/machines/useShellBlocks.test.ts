@@ -75,6 +75,35 @@ describe("useShellBlocks", () => {
     expect(result.current.isRunning).toBe(false);
   });
 
+  it("counts the reads from when a slow send resolves, not from when Send was pressed", async () => {
+    const { backend } = makeBackend();
+    const { result } = renderHook(() => useShellBlocks(backend, "t6"));
+    await act(() => jest.advanceTimersByTimeAsync(0));
+
+    const pressedSend = result.current.onSent;
+    await waitForNextRead();
+    await waitForNextRead();
+    act(() => pressedSend("clear"));
+
+    await waitForNextRead();
+    expect(result.current.blocks[0].output).toBeNull();
+    await waitForNextRead();
+    expect(result.current.blocks[0]).toMatchObject({ output: "", isCut: false });
+  });
+
+  it("starts no block for a line sent while a program started on the host holds the foreground", async () => {
+    const { backend, state } = makeBackend();
+    const { result } = renderHook(() => useShellBlocks(backend, "t6"));
+    await act(() => jest.advanceTimersByTimeAsync(0));
+
+    state.text = "~\n-- INSERT --";
+    state.pane = shell(false);
+    await waitForNextRead();
+    act(() => result.current.onSent(":wq"));
+
+    expect(result.current.blocks).toEqual([]);
+  });
+
   it("keeps the block running, with the pane's screen, while another program holds the foreground", async () => {
     const { backend, state } = makeBackend();
     const { result } = renderHook(() => useShellBlocks(backend, "t6"));

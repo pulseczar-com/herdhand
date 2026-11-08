@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { Backend } from "@/herdr/backend";
 import { type ShellBlock, startBlock, updateBlocks } from "@/shell/blocks";
@@ -29,8 +29,20 @@ export function useShellBlocks(backend: Backend, paneId: string) {
     }
   }
 
-  // The text and the read count at the render that made the callback are those before the command.
-  const onSent = useCallback((command: string) => setBlocks((current) => startBlock(current, command, text ?? "", reads)), [text, reads]);
+  // The send resolves after the render that made the callback, so the read count and the foreground are those at that moment.
+  const latest = useRef({ reads, isShellForeground });
+  useEffect(() => {
+    latest.current = { reads, isShellForeground };
+  });
+
+  // The text at the render that made the callback is the text before the command.
+  const onSent = useCallback(
+    (command: string) => {
+      if (latest.current.isShellForeground === false) return;
+      setBlocks((current) => startBlock(current, command, text ?? "", latest.current.reads));
+    },
+    [text],
+  );
   const isRunning = blocks.at(-1)?.output === null || isShellForeground === false;
   return { blocks, opening, isRunning, text, dimLines, pane, error, onSent };
 }
