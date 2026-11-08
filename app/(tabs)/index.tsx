@@ -71,14 +71,14 @@ function MachineList({ onMore }: { onMore: (machineId: string) => void }) {
   const status = connection?.status ?? NOT_OPEN_STATUS;
   const spaces = connection?.list.spaces ?? null;
   const spaceOrder = useSpaceOrder(id, status.phase === "connected" ? status.kind : null, spaces);
-  // Set by a touch on a handle in the open machine's page: every machine shows folded until the drop.
+  // Set by a hold on a handle in the open machine's page: every machine shows folded until the drop.
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const isPageFolded = draggedId !== null || open?.isFolded === true;
 
   // The drop brings the open machine back.
   const endDrag = useCallback(() => setDraggedId(null), []);
 
-  // A touch on a handle that never became a drag leaves the page folded; a tap on a header brings it back.
+  // A hold on a handle that never became a drag leaves the page folded; a tap on a header brings it back.
   function pressHeader(machineId: string) {
     if (draggedId === null) toggle(machineId);
     else setDraggedId(null);
@@ -101,12 +101,12 @@ function MachineList({ onMore }: { onMore: (machineId: string) => void }) {
     );
   }
 
-  /** Headers outside the reorderable list: a touch on the handle folds the page and starts the drag there. */
+  /** Headers outside the reorderable list: a short hold on the handle folds the page and starts the drag there. */
   function renderHeaders(machinesToShow: Machine[]) {
     return (
       <View>
         {machinesToShow.map((machine) =>
-          renderHeader(machine, <HandleButton name={machine.name} onPressIn={() => setDraggedId(machine.id)} />),
+          renderHeader(machine, <HandleButton name={machine.name} onLongPress={() => setDraggedId(machine.id)} />),
         )}
       </View>
     );

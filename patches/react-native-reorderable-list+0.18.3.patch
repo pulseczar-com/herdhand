@@ -1,0 +1,86 @@
+diff --git a/node_modules/react-native-reorderable-list/lib/commonjs/components/ReorderableListCore.js b/node_modules/react-native-reorderable-list/lib/commonjs/components/ReorderableListCore.js
+index f659ccf..5fd8953 100644
+--- a/node_modules/react-native-reorderable-list/lib/commonjs/components/ReorderableListCore.js
++++ b/node_modules/react-native-reorderable-list/lib/commonjs/components/ReorderableListCore.js
+@@ -641,6 +641,15 @@ const ReorderableListCore = ({
+       return;
+     }
+ 
++    // A touch that already ended must not start a drag: nothing would end it.
++    if (
++      gestureState.value === _reactNativeGestureHandler.State.END ||
++      gestureState.value === _reactNativeGestureHandler.State.FAILED ||
++      gestureState.value === _reactNativeGestureHandler.State.CANCELLED
++    ) {
++      return;
++    }
++
+     // Allow new drag when item is completely released.
+     if (state.value === _types.ReorderableListState.IDLE) {
+       // Resetting shared values again fixes a flickeing bug in nested lists where
+@@ -664,7 +673,7 @@ const ReorderableListCore = ({
+         index
+       });
+     }
+-  }, [dragEnabledProp, resetSharedValues, shouldUpdateActiveItem, dragInitialScrollOffsetXY, scrollViewScrollOffsetXY, scrollViewDragInitialScrollOffsetXY, setScrollEnabled, currentIndex, dropIndicatorTranslationXY, itemOffset, draggedSize, draggedIndex, state, flatListScrollOffsetXY, itemSize, onDragStart, runDefaultDragAnimations]);
++  }, [gestureState, dragEnabledProp, resetSharedValues, shouldUpdateActiveItem, dragInitialScrollOffsetXY, scrollViewScrollOffsetXY, scrollViewDragInitialScrollOffsetXY, setScrollEnabled, currentIndex, dropIndicatorTranslationXY, itemOffset, draggedSize, draggedIndex, state, flatListScrollOffsetXY, itemSize, onDragStart, runDefaultDragAnimations]);
+   const handleFlatListLayout = (0, _react.useCallback)(e => {
+     flatListSize.value = horizontalProp.value ? e.nativeEvent.layout.width : e.nativeEvent.layout.height;
+ 
+diff --git a/node_modules/react-native-reorderable-list/lib/module/components/ReorderableListCore.js b/node_modules/react-native-reorderable-list/lib/module/components/ReorderableListCore.js
+index 6acda86..7e87a61 100644
+--- a/node_modules/react-native-reorderable-list/lib/module/components/ReorderableListCore.js
++++ b/node_modules/react-native-reorderable-list/lib/module/components/ReorderableListCore.js
+@@ -633,6 +633,15 @@ const ReorderableListCore = ({
+       return;
+     }
+ 
++    // A touch that already ended must not start a drag: nothing would end it.
++    if (
++      gestureState.value === State.END ||
++      gestureState.value === State.FAILED ||
++      gestureState.value === State.CANCELLED
++    ) {
++      return;
++    }
++
+     // Allow new drag when item is completely released.
+     if (state.value === ReorderableListState.IDLE) {
+       // Resetting shared values again fixes a flickeing bug in nested lists where
+@@ -656,7 +665,7 @@ const ReorderableListCore = ({
+         index
+       });
+     }
+-  }, [dragEnabledProp, resetSharedValues, shouldUpdateActiveItem, dragInitialScrollOffsetXY, scrollViewScrollOffsetXY, scrollViewDragInitialScrollOffsetXY, setScrollEnabled, currentIndex, dropIndicatorTranslationXY, itemOffset, draggedSize, draggedIndex, state, flatListScrollOffsetXY, itemSize, onDragStart, runDefaultDragAnimations]);
++  }, [gestureState, dragEnabledProp, resetSharedValues, shouldUpdateActiveItem, dragInitialScrollOffsetXY, scrollViewScrollOffsetXY, scrollViewDragInitialScrollOffsetXY, setScrollEnabled, currentIndex, dropIndicatorTranslationXY, itemOffset, draggedSize, draggedIndex, state, flatListScrollOffsetXY, itemSize, onDragStart, runDefaultDragAnimations]);
+   const handleFlatListLayout = useCallback(e => {
+     flatListSize.value = horizontalProp.value ? e.nativeEvent.layout.width : e.nativeEvent.layout.height;
+ 
+diff --git a/node_modules/react-native-reorderable-list/src/components/ReorderableListCore.tsx b/node_modules/react-native-reorderable-list/src/components/ReorderableListCore.tsx
+index 1ed661b..33f2e79 100644
+--- a/node_modules/react-native-reorderable-list/src/components/ReorderableListCore.tsx
++++ b/node_modules/react-native-reorderable-list/src/components/ReorderableListCore.tsx
+@@ -1006,6 +1006,15 @@ const ReorderableListCore = <T,>(
+         return;
+       }
+ 
++    // A touch that already ended must not start a drag: nothing would end it.
++    if (
++      gestureState.value === State.END ||
++      gestureState.value === State.FAILED ||
++      gestureState.value === State.CANCELLED
++    ) {
++      return;
++    }
++
+       // Allow new drag when item is completely released.
+       if (state.value === ReorderableListState.IDLE) {
+         // Resetting shared values again fixes a flickeing bug in nested lists where
+@@ -1034,6 +1043,7 @@ const ReorderableListCore = <T,>(
+       }
+     },
+     [
++      gestureState,
+       dragEnabledProp,
+       resetSharedValues,
+       shouldUpdateActiveItem,
