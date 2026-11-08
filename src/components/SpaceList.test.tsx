@@ -9,6 +9,7 @@ import { useSpaces } from "@/machines/useSpaces";
 import { getSpaceOrder, saveSpaceOrder } from "@/spaceOrder/store";
 import { useSpaceOrder } from "@/spaceOrder/useSpaceOrder";
 
+import { DRAG_DELAY_MS } from "./DragHandle";
 import { SpaceList } from "./SpaceList";
 import { StateDot } from "./StatePill";
 
@@ -247,6 +248,26 @@ describe("SpaceList", () => {
       fireEvent.press(await screen.findByText("Answer"));
 
       expect(onOpenPane).toHaveBeenCalledWith(blocked);
+    });
+  });
+
+  describe("scroll", () => {
+    const tabs = Array.from({ length: 30 }, (_, index) => ({
+      id: `t${index}`,
+      name: `tab ${index}`,
+      panes: [makePane(`p${index}`, "zsh")],
+    }));
+    const tall: Space = { id: "s1", name: "api", tabs };
+
+    // On Android a drag gesture that activates as a scroll starts takes the touch from the list
+    // under its refresh control, so an expanded space taller than the screen cannot scroll.
+    it("waits for a hold longer than the handle's before the drag gesture takes the touch", async () => {
+      renderSpaces([tall]);
+      await screen.findByText("tab 29");
+
+      const { panGesture } = screen.UNSAFE_getByType(ReorderableList).props;
+
+      expect(panGesture?.config.activateAfterLongPress).toBeGreaterThan(DRAG_DELAY_MS);
     });
   });
 

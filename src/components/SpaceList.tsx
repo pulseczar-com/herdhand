@@ -1,7 +1,8 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "expo-router";
-import { type ReactElement, useCallback, useState } from "react";
+import { type ReactElement, useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { Gesture } from "react-native-gesture-handler";
 import ReorderableList from "react-native-reorderable-list";
 import { scheduleOnRN } from "react-native-worklets";
 
@@ -12,7 +13,7 @@ import { useCollapsedSpaces } from "@/machines/useCollapsedSpaces";
 import type { SpacesState } from "@/machines/useSpaces";
 import type { SpaceOrderState } from "@/spaceOrder/useSpaceOrder";
 
-import { DragHandle } from "./DragHandle";
+import { DRAG_DELAY_MS, DragHandle } from "./DragHandle";
 import { SpaceBadge } from "./SpaceBadge";
 import { StateDot, StatePill, useToneColor } from "./StatePill";
 
@@ -23,6 +24,12 @@ const CHEVRON_SIZE = 20;
 const CARD_ICON_SIZE = 18;
 // Hex alpha of the Needs you card's background: the attention color at about 12%.
 const CARD_BACKGROUND_ALPHA = "1f";
+// On Android the drag's pan gesture takes the touch from a list under a refresh control as soon
+// as it activates, so a pan that activates on a scroll leaves the list unable to scroll. As the
+// list's docs advise, the pan activates only after a hold a little longer than the handle's;
+// a scroll moves before that and fails it.
+const PAN_HOLD_MARGIN_MS = 50;
+const PAN_ACTIVATE_AFTER_MS = DRAG_DELAY_MS + PAN_HOLD_MARGIN_MS;
 
 type SpaceListProps = {
   machineId: string;
@@ -44,10 +51,12 @@ export function SpaceList({ machineId, list, spaceOrder, header, footer, onOpenP
   const { spaces, error, refreshing, refresh } = list;
   const { collapsedIds, toggle } = useCollapsedSpaces(machineId, spaces);
   const pullToRefresh = useRefreshOffDuringDrag();
+  const panGesture = useMemo(() => Gesture.Pan().activateAfterLongPress(PAN_ACTIVATE_AFTER_MS), []);
 
   return (
     <ReorderableList
       style={styles.list}
+      panGesture={panGesture}
       data={spaceOrder.spaces}
       keyExtractor={(space) => space.id}
       onReorder={({ from, to }) => spaceOrder.moveSpace(from, to)}

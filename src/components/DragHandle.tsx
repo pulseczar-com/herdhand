@@ -7,7 +7,7 @@ import { useReorderableDrag } from "react-native-reorderable-list";
 const ICON_SIZE = 20;
 const HIT_SLOP = 8;
 // A tap on the handle must not start a drag: the library's gesture can end before a drag from a press starts, and the list stays stuck.
-const DRAG_DELAY_MS = 150;
+export const DRAG_DELAY_MS = 150;
 
 /** The handle's look and its label, for a list item or for a header outside any list. A short hold starts the drag. */
 export function HandleButton({
