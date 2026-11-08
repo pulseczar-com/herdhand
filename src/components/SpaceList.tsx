@@ -8,6 +8,7 @@ import { scheduleOnRN } from "react-native-worklets";
 import { getBlockedPanes, getMostUrgentState, type LocatedPane } from "@/herdr/agentPanes";
 import type { Pane, Space, Tab } from "@/herdr/backend";
 import { describePane, describePlace, getAgentName, getPaneBadge, STATE_TONES } from "@/herdr/badges";
+import type { HerdrKind } from "@/herdr/kinds";
 import { useCollapsedSpaces } from "@/machines/useCollapsedSpaces";
 import type { SpacesState } from "@/machines/useSpaces";
 import type { SpaceOrderState } from "@/spaceOrder/useSpaceOrder";
@@ -27,6 +28,7 @@ const CARD_BACKGROUND_ALPHA = "1f";
 
 type SpaceListProps = {
   machineId: string;
+  kind: HerdrKind;
   list: SpacesState;
   spaceOrder: SpaceOrderState;
   /** Above the spaces, below the Needs you cards: the machine headers down to this machine's. */
@@ -40,10 +42,10 @@ type SpaceListProps = {
  * The machine's spaces, below its header and a card for each blocked agent. Pull to refresh; tap
  * a pane to open it, a space to collapse or expand it; hold a space to drag it to a new place.
  */
-export function SpaceList({ machineId, list, spaceOrder, header, footer, onOpenPane }: SpaceListProps) {
+export function SpaceList({ machineId, kind, list, spaceOrder, header, footer, onOpenPane }: SpaceListProps) {
   const { colors } = useTheme();
   const { spaces, error, refreshing, refresh } = list;
-  const { collapsedIds, toggle } = useCollapsedSpaces(machineId, spaces);
+  const { collapsedIds, toggle } = useCollapsedSpaces(machineId, kind, spaces);
   const dragPan = useDragPan();
   const [isRefreshEnabled, setIsRefreshEnabled] = useState(true);
 

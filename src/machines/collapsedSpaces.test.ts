@@ -2,7 +2,13 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import type { Space } from "@/herdr/backend";
 
-import { getCollapsedSpaceIds, keepExistingSpaceIds, saveCollapsedSpaceIds, toggleSpaceId } from "./collapsedSpaces";
+import {
+  getCollapsedSpaceIds,
+  keepExistingSpaceIds,
+  removeCollapsedSpaceIds,
+  saveCollapsedSpaceIds,
+  toggleSpaceId,
+} from "./collapsedSpaces";
 
 jest.mock("@react-native-async-storage/async-storage", () =>
   jest.requireActual("@react-native-async-storage/async-storage/jest/async-storage-mock"),
@@ -38,20 +44,45 @@ describe("keepExistingSpaceIds", () => {
 
 describe("stored collapsed spaces", () => {
   it("starts with nothing collapsed", async () => {
-    expect(await getCollapsedSpaceIds("m1")).toEqual([]);
+    expect(await getCollapsedSpaceIds("m1", "desktop")).toEqual([]);
   });
 
   it("keeps each machine's spaces apart", async () => {
-    await saveCollapsedSpaceIds("m1", ["s1"]);
-    await saveCollapsedSpaceIds("m2", ["s2"]);
+    await saveCollapsedSpaceIds("m1", "desktop", ["s1"]);
+    await saveCollapsedSpaceIds("m2", "desktop", ["s2"]);
 
-    expect(await getCollapsedSpaceIds("m1")).toEqual(["s1"]);
-    expect(await getCollapsedSpaceIds("m2")).toEqual(["s2"]);
+    expect(await getCollapsedSpaceIds("m1", "desktop")).toEqual(["s1"]);
+    expect(await getCollapsedSpaceIds("m2", "desktop")).toEqual(["s2"]);
+  });
+
+  it("keeps each Herdr kind's spaces apart", async () => {
+    await saveCollapsedSpaceIds("m1", "desktop", ["s1"]);
+
+    expect(await getCollapsedSpaceIds("m1", "tui")).toEqual([]);
+  });
+
+  it.each([
+    { when: "is not JSON", stored: "{not json", expected: [] },
+    { when: "is not an array", stored: '{"a":1}', expected: [] },
+    { when: "holds other values than ids", stored: '["s1",2,null]', expected: ["s1"] },
+  ])("reads nothing wrong when the stored value $when", async ({ stored, expected }) => {
+    await AsyncStorage.setItem("spaces.collapsed.m1.desktop", stored);
+
+    expect(await getCollapsedSpaceIds("m1", "desktop")).toEqual(expected);
+  });
+
+  it("removes the collapsed spaces of every kind of a machine", async () => {
+    await saveCollapsedSpaceIds("m1", "desktop", ["s1"]);
+    await saveCollapsedSpaceIds("m1", "tui", ["w1"]);
+
+    await removeCollapsedSpaceIds("m1");
+
+    expect(await AsyncStorage.getAllKeys()).toEqual([]);
   });
 
   it("removes the key when nothing is collapsed", async () => {
-    await saveCollapsedSpaceIds("m1", ["s1"]);
-    await saveCollapsedSpaceIds("m1", []);
+    await saveCollapsedSpaceIds("m1", "desktop", ["s1"]);
+    await saveCollapsedSpaceIds("m1", "desktop", []);
 
     expect(await AsyncStorage.getAllKeys()).toEqual([]);
   });

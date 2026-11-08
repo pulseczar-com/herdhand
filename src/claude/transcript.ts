@@ -155,7 +155,8 @@ function getTagText(text: string, tag: string): string | null {
 }
 
 function addToolResult(working: Working, block: ContentBlock) {
-  setToolResult(working, String(block.tool_use_id), makeToolResult(getResultText(block.content), Boolean(block.is_error)));
+  if (!block.tool_use_id) return;
+  setToolResult(working, block.tool_use_id, makeToolResult(getResultText(block.content), Boolean(block.is_error)));
 }
 
 function getResultText(content: string | ContentBlock[] | undefined): string {

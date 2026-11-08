@@ -93,11 +93,11 @@ describe("machines store", () => {
 
   it("removes the collapsed spaces with the machine", async () => {
     const machine = await addMachine(newMachine, "secret");
-    await saveCollapsedSpaceIds(machine.id, ["s1"]);
+    await saveCollapsedSpaceIds(machine.id, "desktop", ["s1"]);
 
     await removeMachine(machine.id);
 
-    expect(await getCollapsedSpaceIds(machine.id)).toEqual([]);
+    expect(await getCollapsedSpaceIds(machine.id, "desktop")).toEqual([]);
   });
 
   it("removes the space order with the machine", async () => {

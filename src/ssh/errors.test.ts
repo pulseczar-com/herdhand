@@ -35,6 +35,8 @@ describe("toConnectError", () => {
     { error: nativeError("PAIRING_NOT_FINISHED", "late"), reason: "pairingNotFinished", fingerprint: undefined },
     { error: new RequestTimeoutError("hello"), reason: "noReply", fingerprint: undefined },
     { error: new Error("something else"), reason: "other", fingerprint: undefined },
+    { error: null, reason: "other", fingerprint: undefined },
+    { error: undefined, reason: "other", fingerprint: undefined },
   ])("maps $reason", ({ error, reason, fingerprint }) => {
     const converted = toConnectError(error);
 

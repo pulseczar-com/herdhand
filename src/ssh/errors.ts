@@ -53,7 +53,7 @@ export function toConnectError(error: unknown): ConnectError {
   if (error instanceof RequestTimeoutError) return new ConnectError("noReply", error.message);
 
   const message = removeExpoPrefix(getErrorMessage(error));
-  const code = (error as { code?: SshErrorCode }).code;
+  const code = (error as { code?: SshErrorCode } | null)?.code;
   const reason = (code && FAILURES_BY_CODE[code]) ?? "other";
   const isHostKeyError = reason === "hostKeyUnknown" || reason === "hostKeyChanged";
   const fingerprint = isHostKeyError ? message.match(FINGERPRINT_PATTERN)?.[0] : undefined;

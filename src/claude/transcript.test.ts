@@ -167,6 +167,12 @@ describe("addTranscriptLines: tool calls", () => {
     expect(read([toolResult("5")])).toEqual([]);
   });
 
+  it("holds no result that has no tool call id", () => {
+    const withoutId = user([{ type: "tool_result", content: "5" }], { uuid: "u3" });
+
+    expect(addTranscriptLines(EMPTY, [withoutId]).orphans.size).toBe(0);
+  });
+
   it("gives a result that waits to the call in an earlier page", () => {
     const held = addTranscriptLines(EMPTY, [toolResult("5", { is_error: true })]);
 

@@ -153,6 +153,7 @@ function OpenMachinePage({ connection, spaceOrder, header, footer }: OpenMachine
     return (
       <SpaceList
         machineId={id}
+        kind={status.kind}
         list={list}
         spaceOrder={spaceOrder}
         header={header}

@@ -1,28 +1,34 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import type { Space } from "@/herdr/backend";
+import { HERDR_KINDS, type HerdrKind } from "@/herdr/kinds";
+import { parseStoredOrder } from "@/spaceOrder/order";
 
 // Only collapsed spaces are stored, so a new space starts expanded.
 const COLLAPSED_SPACES_KEY_PREFIX = "spaces.collapsed.";
 
-/** The ids of the machine's spaces that the person collapsed on this phone. */
-export async function getCollapsedSpaceIds(machineId: string): Promise<string[]> {
-  const stored = await AsyncStorage.getItem(getCollapsedSpacesKey(machineId));
-  return stored ? (JSON.parse(stored) as string[]) : [];
+/**
+ * The ids of one Herdr kind's spaces on a machine that the person collapsed on this phone. Each
+ * kind has its own list, because the kinds have different space ids.
+ */
+export async function getCollapsedSpaceIds(machineId: string, kind: HerdrKind): Promise<string[]> {
+  const stored = await AsyncStorage.getItem(getCollapsedSpacesKey(machineId, kind));
+  return parseStoredOrder(stored);
 }
 
 /** Saves the collapsed spaces; with none, removes the key so no empty key stays behind. */
-export function saveCollapsedSpaceIds(machineId: string, spaceIds: string[]): Promise<void> {
-  if (spaceIds.length === 0) return removeCollapsedSpaceIds(machineId);
-  return AsyncStorage.setItem(getCollapsedSpacesKey(machineId), JSON.stringify(spaceIds));
+export function saveCollapsedSpaceIds(machineId: string, kind: HerdrKind, spaceIds: string[]): Promise<void> {
+  const key = getCollapsedSpacesKey(machineId, kind);
+  if (spaceIds.length === 0) return AsyncStorage.removeItem(key);
+  return AsyncStorage.setItem(key, JSON.stringify(spaceIds));
 }
 
 export function removeCollapsedSpaceIds(machineId: string): Promise<void> {
-  return AsyncStorage.removeItem(getCollapsedSpacesKey(machineId));
+  return AsyncStorage.multiRemove(HERDR_KINDS.map((kind) => getCollapsedSpacesKey(machineId, kind)));
 }
 
-function getCollapsedSpacesKey(machineId: string): string {
-  return COLLAPSED_SPACES_KEY_PREFIX + machineId;
+function getCollapsedSpacesKey(machineId: string, kind: HerdrKind): string {
+  return `${COLLAPSED_SPACES_KEY_PREFIX}${machineId}.${kind}`;
 }
 
 /** Collapses the space when it is expanded, and expands it when it is collapsed. */
