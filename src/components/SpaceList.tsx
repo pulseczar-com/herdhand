@@ -49,10 +49,11 @@ export function SpaceList({ machineId, list, spaceOrder, header, footer, onOpenP
 
   // On Android the pull-to-refresh spinner would follow a space dragged down from the top. A
   // refresh that is already running stays on screen.
+  const isAndroid = Platform.OS === "android";
   const disableRefresh = useCallback(() => {
     "worklet";
-    if (Platform.OS === "android" && !refreshing) scheduleOnRN(setIsRefreshEnabled, false);
-  }, [refreshing]);
+    if (isAndroid && !refreshing) scheduleOnRN(setIsRefreshEnabled, false);
+  }, [isAndroid, refreshing]);
   const enableRefresh = useCallback(() => {
     "worklet";
     scheduleOnRN(setIsRefreshEnabled, true);
