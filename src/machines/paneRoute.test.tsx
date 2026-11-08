@@ -421,8 +421,22 @@ describe("the page of machines", () => {
     expect(await screen.findByText("This machine is no longer on this phone.")).toBeTruthy();
   });
 
+  it("shows the drag handles only between Reorder and Done", async () => {
+    renderMachine();
+    await screen.findByText("zsh");
+    expect(screen.queryByLabelText("Drag test-box")).toBeNull();
+
+    fireEvent.press(screen.getByLabelText("Reorder"));
+    expect(await screen.findByLabelText("Drag test-box")).toBeTruthy();
+    fireEvent.press(screen.getByText("Done"));
+
+    await waitFor(() => expect(screen.queryByLabelText("Drag test-box")).toBeNull());
+    expect(screen.getByLabelText("Reorder")).toBeTruthy();
+  });
+
   it("drags the machines to reorder them, saves the order, and shows the handle on every header", async () => {
     renderMachine();
+    fireEvent.press(await screen.findByLabelText("Reorder"));
     expect(await screen.findByLabelText("Drag test-box")).toBeTruthy();
     expect(screen.getByLabelText("Drag home-server")).toBeTruthy();
 
@@ -439,6 +453,7 @@ describe("the page of machines", () => {
   it("folds every machine while a machine is dragged, and brings the open one back at the drop", async () => {
     renderMachine();
     await screen.findByText("zsh");
+    fireEvent.press(screen.getByLabelText("Reorder"));
 
     fireEvent(screen.getByLabelText("Drag test-box"), "longPress");
     await waitFor(() => expect(screen.queryByText("zsh")).toBeNull());
@@ -452,6 +467,7 @@ describe("the page of machines", () => {
   it("brings the page back on a tap on a header when a touch on a handle did not become a drag", async () => {
     renderMachine();
     await screen.findByText("zsh");
+    fireEvent.press(screen.getByLabelText("Reorder"));
 
     fireEvent(screen.getByLabelText("Drag test-box"), "longPress");
     await waitFor(() => expect(screen.queryByText("zsh")).toBeNull());

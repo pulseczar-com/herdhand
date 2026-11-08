@@ -1,10 +1,8 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "expo-router";
-import { type ReactElement, useCallback, useMemo, useState } from "react";
+import type { ReactElement } from "react";
 import { ActivityIndicator, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
-import { Gesture } from "react-native-gesture-handler";
 import ReorderableList from "react-native-reorderable-list";
-import { scheduleOnRN } from "react-native-worklets";
 
 import { getBlockedPanes, getMostUrgentState, type LocatedPane } from "@/herdr/agentPanes";
 import type { Pane, Space, Tab } from "@/herdr/backend";
@@ -13,7 +11,7 @@ import { useCollapsedSpaces } from "@/machines/useCollapsedSpaces";
 import type { SpacesState } from "@/machines/useSpaces";
 import type { SpaceOrderState } from "@/spaceOrder/useSpaceOrder";
 
-import { DRAG_DELAY_MS, DragHandle } from "./DragHandle";
+import { DragHandle } from "./DragHandle";
 import { SpaceBadge } from "./SpaceBadge";
 import { StateDot, StatePill, useToneColor } from "./StatePill";
 
@@ -24,13 +22,6 @@ const CHEVRON_SIZE = 20;
 const CARD_ICON_SIZE = 18;
 // Hex alpha of the Needs you card's background: the attention color at about 12%.
 const CARD_BACKGROUND_ALPHA = "1f";
-// On Android the drag's pan takes the touch from a list under a refresh control when it activates,
-// so, as the list's docs advise, it waits for a hold a little longer than the handle's: a scroll
-// moves first and fails it. The margin has two limits. A finger that moves after the handle's hold
-// but before the pan's cancels the drag, and a handle timer that the JS thread delays by more than
-// the margin lets the pan win, so the hold starts no drag.
-const PAN_HOLD_MARGIN_MS = 150;
-const PAN_ACTIVATE_AFTER_MS = DRAG_DELAY_MS + PAN_HOLD_MARGIN_MS;
 
 type SpaceListProps = {
   machineId: string;
@@ -40,30 +31,34 @@ type SpaceListProps = {
   header: ReactElement;
   /** Below the spaces: the headers of the machines after this one. */
   footer: ReactElement;
+  /** Reorder mode: the handles show and drag; there is no pull to refresh. */
+  isReordering: boolean;
   onOpenPane: (pane: Pane) => void;
 };
 
 /**
  * The machine's spaces, below its header and a card for each blocked agent. Pull to refresh; tap
- * a pane to open it, a space to collapse or expand it; drag the handle to reorder.
+ * a pane to open it, a space to collapse or expand it; in reorder mode, drag a handle to reorder.
  */
-export function SpaceList({ machineId, list, spaceOrder, header, footer, onOpenPane }: SpaceListProps) {
+export function SpaceList({ machineId, list, spaceOrder, header, footer, isReordering, onOpenPane }: SpaceListProps) {
   const { colors } = useTheme();
   const { spaces, error, refreshing, refresh } = list;
   const { collapsedIds, toggle } = useCollapsedSpaces(machineId, spaces);
-  const pullToRefresh = useRefreshOffDuringDrag();
-  const panGesture = useMemo(() => Gesture.Pan().activateAfterLongPress(PAN_ACTIVATE_AFTER_MS), []);
+  // On Android the drag's pan takes the touch from a list under a refresh control, so the list
+  // could not scroll. Each mode keeps one of the two: refresh outside reorder mode, the pan in it.
+  const refreshControl = isReordering ? undefined : <RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} />;
+  // The list reads panEnabled only when it first builds its gesture, so a mode switch remounts it.
+  const listKey = isReordering ? "reorder" : "browse";
 
   return (
     <ReorderableList
+      key={listKey}
       style={styles.list}
-      panGesture={panGesture}
+      panEnabled={isReordering}
       data={spaceOrder.spaces}
       keyExtractor={(space) => space.id}
       onReorder={({ from, to }) => spaceOrder.moveSpace(from, to)}
-      onDragStart={pullToRefresh.onDragStart}
-      onDragEnd={pullToRefresh.onDragEnd}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} enabled={pullToRefresh.isEnabled} />}
+      refreshControl={refreshControl}
       ListHeaderComponent={
         <View style={styles.header}>
           <NeedsYouCards spaces={spaces ?? []} onOpenPane={onOpenPane} />
@@ -74,27 +69,16 @@ export function SpaceList({ machineId, list, spaceOrder, header, footer, onOpenP
       ListFooterComponent={footer}
       ListEmptyComponent={<EmptyList isLoaded={spaces !== null} hasError={error !== null} />}
       renderItem={({ item }) => (
-        <SpaceItem space={item} isExpanded={!collapsedIds.includes(item.id)} onToggle={() => toggle(item.id)} onOpenPane={onOpenPane} />
+        <SpaceItem
+          space={item}
+          isExpanded={!collapsedIds.includes(item.id)}
+          isReordering={isReordering}
+          onToggle={() => toggle(item.id)}
+          onOpenPane={onOpenPane}
+        />
       )}
     />
   );
-}
-
-/**
- * Turns pull to refresh off while a row is dragged, as the list's docs advise: on Android the
- * refresh control can take the drag's gesture. The drag events run on the UI thread.
- */
-function useRefreshOffDuringDrag() {
-  const [isEnabled, setIsEnabled] = useState(true);
-  const onDragStart = useCallback(() => {
-    "worklet";
-    scheduleOnRN(setIsEnabled, false);
-  }, []);
-  const onDragEnd = useCallback(() => {
-    "worklet";
-    scheduleOnRN(setIsEnabled, true);
-  }, []);
-  return { isEnabled, onDragStart, onDragEnd };
 }
 
 /** A spinner until the first load ends; nothing more when it failed, as the error shows. */
@@ -151,28 +135,29 @@ function NeedsYouCard({ blocked, onPress }: { blocked: LocatedPane; onPress: () 
 type SpaceItemProps = {
   space: Space;
   isExpanded: boolean;
+  isReordering: boolean;
   onToggle: () => void;
   onOpenPane: (pane: Pane) => void;
 };
 
 /** A space's row and, when it is expanded, its tabs: one item of the list, so they move together. */
-function SpaceItem({ space, isExpanded, onToggle, onOpenPane }: SpaceItemProps) {
+function SpaceItem({ space, isExpanded, isReordering, onToggle, onOpenPane }: SpaceItemProps) {
   return (
     <View>
-      <SpaceRow space={space} isExpanded={isExpanded} onPress={onToggle} />
+      <SpaceRow space={space} isExpanded={isExpanded} isReordering={isReordering} onPress={onToggle} />
       {isExpanded ? space.tabs.map((tab) => <TabRows key={tab.id} tab={tab} onOpenPane={onOpenPane} />) : null}
     </View>
   );
 }
 
-type SpaceRowProps = { space: Space; isExpanded: boolean; onPress: () => void };
+type SpaceRowProps = { space: Space; isExpanded: boolean; isReordering: boolean; onPress: () => void };
 
 /**
  * A space: its badge, name, the dot of its most urgent agent and its tab count. All of it shows
- * when the space is collapsed, so a blocked agent stays in sight. A tap folds it and the handle
- * drags it.
+ * when the space is collapsed, so a blocked agent stays in sight. A tap folds it; in reorder mode,
+ * its handle drags it.
  */
-function SpaceRow({ space, isExpanded, onPress }: SpaceRowProps) {
+function SpaceRow({ space, isExpanded, isReordering, onPress }: SpaceRowProps) {
   const { colors } = useTheme();
   const urgentState = getMostUrgentState(space);
   const chevronName = isExpanded ? "expand-more" : "chevron-right";
@@ -192,7 +177,7 @@ function SpaceRow({ space, isExpanded, onPress }: SpaceRowProps) {
       {urgentState ? <StateDot tone={STATE_TONES[urgentState]} /> : null}
       <Text style={[styles.count, { color: colors.text }]}>{formatTabCount(space)}</Text>
       <MaterialIcons name={chevronName} size={CHEVRON_SIZE} color={colors.text} style={styles.dimmed} />
-      <DragHandle name={space.name} />
+      {isReordering ? <DragHandle name={space.name} /> : null}
     </Pressable>
   );
 }
