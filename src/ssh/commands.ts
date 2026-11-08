@@ -60,6 +60,7 @@ export const NOT_A_FILE_EXIT_CODE = 3;
 const READ_LINES_SCRIPT = [
   `f=$1; [ -f "$f" ] || exit ${NOT_A_FILE_EXIT_CODE};`,
   'n=$(wc -l < "$f"); [ -n "$(tail -c 1 "$f")" ] && n=$((n + 1)); echo $n;',
+  '[ "$3" -gt 0 ] || exit 0;',
   'tail -n +"$2" "$f" | head -n "$3"',
 ].join(" ");
 

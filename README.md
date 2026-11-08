@@ -18,7 +18,7 @@ Herdr is a terminal multiplexer: it keeps spaces, tabs and panes running on a ma
 - Your machines on one page, each with its spaces, tabs and panes. Agents that wait for an answer show first.
 - An Agents tab that lists every agent by state.
 - A pane's text, reformatted for the phone, with a composer for a line of input and a key row (Esc, ^C, Tab, Up, Down, Enter, 1 to 6).
-- On Herdr App, a banner over a blocked agent's pane says what it waits for (a question, a permission or a sign-in) and shows its message.
+- A banner over a blocked agent's pane says what it waits for (a question, a permission or a sign-in) and shows its message.
 - A Claude Code pane opens as a chat: your prompts, the replies in Markdown, and each tool call as a row. The app reads Claude's transcript over SSH. On Herdr TUI, the chat needs Herdr's Claude integration, which gives the app the session.
 - Log in with a password, or pair by scanning a code so the phone logs in with its own key.
 - An app lock with fingerprint, face or the screen lock. It is on by default.
