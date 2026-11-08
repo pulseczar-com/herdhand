@@ -55,18 +55,39 @@ function runScript(script: string, values: (string | number)[]): string {
 /** The exit code the file-reading command gives for a path that is not a regular file. */
 export const NOT_A_FILE_EXIT_CODE = 3;
 
+// A line longer than this is replaced by a short note, so a page of lines stays under the native
+// module's output cap. Claude Code writes an image or a long tool result as one very long line.
+const MAX_LINE_LENGTH = 256_000;
+
+// The note is one line of a Claude Code transcript, which the chat shows as a reply. It takes the
+// number of its line, so each note has its own id.
+const LONG_LINE_NOTE = JSON.stringify({
+  type: "assistant",
+  uuid: "long-line-%d",
+  message: { content: [{ type: "text", text: "Large item not shown (image or long output)" }] },
+});
+
+// Prints each line, or its note when it is long. awk adds the newline of the last line only when
+// nl is 1, so a last line with no newline stays as it is.
+const KEEP_SHORT_LINES_AWK = [
+  'NR > 1 { printf "\\n" }',
+  `{ if (length($0) > max) printf "${LONG_LINE_NOTE.replace(/"/g, '\\"')}", start + NR - 1; else printf "%s", $0 }`,
+  'END { if (NR > 0 && nl == 1) printf "\\n" }',
+].join(" ");
+
 // Prints the file's line count (a last line with no newline counts), then the lines from $2, at
-// most $3 of them. `tail` and `head` keep a last line with no newline as it is.
+// most $3 of them, with a note for each line longer than $4. $5 is the awk program.
 const READ_LINES_SCRIPT = [
   `f=$1; [ -f "$f" ] || exit ${NOT_A_FILE_EXIT_CODE};`,
-  'n=$(wc -l < "$f"); [ -n "$(tail -c 1 "$f")" ] && n=$((n + 1)); echo $n;',
+  'n=$(wc -l < "$f"); partial=$(tail -c 1 "$f"); [ -n "$partial" ] && n=$((n + 1)); echo $n;',
   '[ "$3" -gt 0 ] || exit 0;',
-  'tail -n +"$2" "$f" | head -n "$3"',
+  'nl=1; [ -n "$partial" ] && [ $(($2 + $3 - 1)) -ge $n ] && nl=0;',
+  'tail -n +"$2" "$f" | head -n "$3" | awk -v start="$2" -v max="$4" -v nl="$nl" "$5"',
 ].join(" ");
 
 /** The command that prints a file's line count on the first line, and then the lines from `offset` (the first line is 1), at most `limit`. */
 export function readLinesCommand(path: string, offset: number, limit: number): string {
-  return runScript(READ_LINES_SCRIPT, [path, offset, limit]);
+  return runScript(READ_LINES_SCRIPT, [path, offset, limit, MAX_LINE_LENGTH, KEEP_SHORT_LINES_AWK]);
 }
 
 // Prints the path of each file named $2 directly inside a folder of folder $1.

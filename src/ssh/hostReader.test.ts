@@ -4,6 +4,8 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { addTranscriptLines } from "@/claude/transcript";
+
 import { FileReadError, makeHostReader } from "./hostReader";
 
 // The commands run on a real shell in a fake login folder, as sshd runs them for the phone.
@@ -56,6 +58,36 @@ describe("the host reader", () => {
       expect((await host.readFile(`./${name}`)).text).toBe("ok\n");
       expect(await host.readFile(`./${name}`, { limit: 0 })).toMatchObject({ lines: 1 });
       expect(existsSync(join(home, "pwned"))).toBe(false);
+    });
+
+    describe("a line too long to send", () => {
+      const LONG = "x".repeat(300_000);
+      const note = (line: number) =>
+        `{"type":"assistant","uuid":"long-line-${line}","message":{"content":[{"type":"text","text":"Large item not shown (image or long output)"}]}}`;
+
+      it.each([
+        { where: "in the middle", text: `a\n${LONG}\nc\n`, range: {}, expected: `a\n${note(2)}\nc\n`, last: 3, lines: 3 },
+        { where: "as a page that starts on it", text: `a\n${LONG}\nc\n`, range: { offset: 2, limit: 1 }, expected: `${note(2)}\n`, last: 2, lines: 3 },
+        { where: "as the last line with no newline", text: `a\n${LONG}`, range: { offset: 2 }, expected: note(2), last: 2, lines: 2 },
+        { where: "as the last line of a page that stops before the end", text: `a\n${LONG}\nc`, range: { limit: 2 }, expected: `a\n${note(2)}\n`, last: 2, lines: 3 },
+        { where: "next to a line just short enough", text: `${"y".repeat(256_000)}\n${LONG}\n`, range: {}, expected: `${"y".repeat(256_000)}\n${note(2)}\n`, last: 2, lines: 2 },
+      ])("replaces it with a note, $where", async ({ text, range, expected, last, lines }) => {
+        write("notes.txt", text);
+
+        const read = await host.readFile("notes.txt", range);
+
+        expect(read.text).toBe(expected);
+        expect(read).toMatchObject({ last, lines });
+      });
+
+      it("makes a note the chat shows as a reply", async () => {
+        write("notes.txt", `${LONG}\n`);
+
+        const { text } = await host.readFile("notes.txt");
+        const { chat } = addTranscriptLines({ chat: new Map(), orphans: new Map() }, [text.trimEnd()]);
+
+        expect([...chat.values()]).toEqual([{ kind: "reply", id: "long-line-1/0", text: "Large item not shown (image or long output)" }]);
+      });
     });
 
     it("never runs a path as a glob", async () => {
