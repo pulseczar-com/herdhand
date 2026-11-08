@@ -63,6 +63,7 @@ const MAX_LINE_LENGTH = 16_000;
 // The note is one JSON line with the number of the line it replaces, so each note has its own id.
 // It is the same for every agent (see `parseLongLineNote`).
 const LONG_LINE_NOTE = '{"herdhandLongLine":%d}';
+const HIDDEN_LINE_NOTE = '{"herdhandLongLine":%d,"hidden":true}';
 
 // A long line that holds a tool result gets this note instead, with the id of the call. The chat
 // then shows the call as done, or as failed when the line says the result is an error. A long
@@ -76,6 +77,15 @@ const RESULT_LINE_AWK =
 const CALL_ID_AWK = '/"(tool_use_id|call_id|toolCallId)":"[^"\\\\]+"/';
 const FAILED_AWK = '/"(is_error|isError)":true|"success":false/';
 
+// A Claude Code line that is not part of the chat has a top-level "attachment" key, or a "type"
+// that is not user or assistant. The cut keeps no prefix, so awk reads the start of the line: its
+// scalar keys, then the one that decides. A key deep inside a long message does not count. The
+// other agents' types are not in the list, so their lines never match. Such a line gets a note
+// with "hidden", and the chat shows no row for it.
+const SCALAR_KEYS_AWK = String.raw`^\{("[A-Za-z]+":("[^"\\]*"|null|true|false|[0-9]+),)*`;
+const HIDDEN_LINE_AWK =
+  String.raw`/${SCALAR_KEYS_AWK}("attachment":\{|"type":"(attachment|system|progress|summary|file-history-snapshot|queue-operation|last-prompt|api-request-[a-z]+)")/`;
+
 const toAwkString = (text: string) => text.replace(/"/g, '\\"');
 
 // Prints each line, or its note when it is long. awk adds the newline of the last line only when
@@ -84,6 +94,7 @@ const KEEP_SHORT_LINES_AWK = [
   'NR > 1 { printf "\\n" }',
   "{",
   'if (length($0) <= max) printf "%s", $0;',
+  `else if ($0 ~ ${HIDDEN_LINE_AWK}) printf "${toAwkString(HIDDEN_LINE_NOTE)}", start + NR - 1;`,
   `else if ($0 ~ ${RESULT_LINE_AWK} && match($0, ${CALL_ID_AWK})) {`,
   'id = substr($0, RSTART, RLENGTH); sub(/^"[A-Za-z_]+":"/, "", id); sub(/"$/, "", id);',
   `failed = ($0 ~ ${FAILED_AWK}) ? "true" : "false";`,
