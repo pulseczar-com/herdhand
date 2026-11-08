@@ -31,6 +31,8 @@ export default function SpacesScreen() {
   const showLockNotice = useNoScreenLockNotice();
   const [isReordering, setIsReordering] = useState(false);
   const hasMachines = machines.length > 0;
+  // With no machine left the button hides, so the mode ends too: the next machine starts in normal mode.
+  if (!hasMachines && isReordering) setIsReordering(false);
   const reorderButton = hasMachines ? <ReorderButton isReordering={isReordering} onPress={() => setIsReordering(!isReordering)} /> : null;
 
   return (

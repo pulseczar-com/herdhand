@@ -10,7 +10,7 @@ import PaneScreen from "../../app/machine/[id]/pane/[paneId]";
 import type { Backend } from "@/herdr/backend";
 import { FileReadError, type HostReader, type LineRange } from "@/ssh/hostReader";
 
-import { type MachineConnection, MachinesProvider } from "./MachineConnection";
+import { type MachineConnection, MachinesProvider, useMachines } from "./MachineConnection";
 import { getStoredOpenMachine } from "./openMachine";
 import { type Machine, moveMachine, removeMachine } from "./store";
 
@@ -109,8 +109,8 @@ jest.mock("expo-router/react-navigation", () => ({
 // The first render in this file loads React Native's list modules, which can take over 5 s on a cold CI runner.
 jest.setTimeout(20_000);
 
-/** The app's routes, under the root's machines provider. */
-function renderMachine(initialUrl = "/") {
+/** The app's routes, under the root's machines provider; `routes` replaces some of them. */
+function renderMachine(initialUrl = "/", routes = {}) {
   return renderRouter(
     {
       _layout: () => (
@@ -123,9 +123,20 @@ function renderMachine(initialUrl = "/") {
       "(tabs)/agents": AgentsScreen,
       "machine/new": () => <Text>Add a machine form</Text>,
       "machine/[id]/pane/[paneId]": PaneScreen,
+      ...routes,
     },
     { initialUrl },
   );
+}
+
+/** A stand-in for the add form: it loads the saved machines and goes back to the page. */
+function AddSavedMachines() {
+  const { reload } = useMachines();
+  async function add() {
+    await reload();
+    router.back();
+  }
+  return <Text onPress={() => void add()}>Add the saved machines</Text>;
 }
 
 /** The page's texts in order, to check what shows above what. */
@@ -432,6 +443,25 @@ describe("the page of machines", () => {
 
     await waitFor(() => expect(screen.queryByLabelText("Drag test-box")).toBeNull());
     expect(screen.getByLabelText("Reorder")).toBeTruthy();
+  });
+
+  it("starts in normal mode after the last machine is removed in reorder mode and one is added", async () => {
+    mockSavedMachines = [testBox];
+    const alert = jest.spyOn(Alert, "alert");
+    renderMachine("/", { "machine/new": AddSavedMachines });
+    fireEvent.press(await screen.findByLabelText("Reorder"));
+    fireEvent.press(await screen.findByRole("button", { name: "test-box actions" }));
+    fireEvent.press(screen.getByText("Remove machine"));
+    const removeButton = alert.mock.calls[0][2]?.find((button) => button.text === "Remove");
+    await act(async () => removeButton?.onPress?.());
+    await screen.findByText(/Tap \+ to add a machine/);
+
+    mockSavedMachines = [testBox];
+    act(() => router.push("/machine/new"));
+    fireEvent.press(await screen.findByText("Add the saved machines"));
+
+    expect(await screen.findByLabelText("Reorder")).toBeTruthy();
+    expect(screen.queryByLabelText("Drag test-box")).toBeNull();
   });
 
   it("drags the machines to reorder them, saves the order, and shows the handle on every header", async () => {
