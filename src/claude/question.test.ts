@@ -54,6 +54,13 @@ describe("showsOptions", () => {
       asked: { ...question, options: ["Use the existing branch for it"] },
     },
     { where: "an echoed answer with no digit", screen: "· Which branch? → dev\n1. Yes\n2. Yes, and don't ask again\n3. No", picked: [1], expected: false },
+    {
+      where: "an echoed answer before a prompt with the same option on the same digit",
+      screen: "· Run the migration? → Yes\n1. Yes\n2. Yes, and don't ask again\n3. No",
+      picked: [0],
+      expected: false,
+      asked: { ...question, question: "Run the migration?", options: ["Yes", "No"] },
+    },
     { where: "a longer option that starts with the label", screen: "Run the migration?\n1. Yes\n2. Yes, and don't ask again\n3. No", picked: [1], expected: false, asked: yesNo },
     {
       where: "a numbered list above the echo of the question",

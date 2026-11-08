@@ -33,14 +33,17 @@ export function getAnswerKeys(multiSelect: boolean, picked: number[]): PaneKey[]
  * Whether the screen still lists each picked option on its own digit ("2. dev"), so the digit key
  * selects that option, not a longer option that starts with its label. Only the text after the
  * last place the question shows counts: the live dialog lists its options under the question, and
- * after an answer the echo of the question comes before the next dialog. A checkbox mark after
- * the digit, or a line the screen wrapped, still counts.
+ * after an answer the echo of the question ("Which branch? → dev") comes before the next dialog,
+ * so an answered question never counts. A checkbox mark after the digit, or a line the screen
+ * wrapped, still counts.
  */
 export function showsOptions(screenText: string, question: AskedQuestion, picked: number[]): boolean {
   const screen = collapseSpace(screenText);
-  const asked = screen.lastIndexOf(collapseSpace(question.question));
+  const text = collapseSpace(question.question);
+  const asked = screen.lastIndexOf(text);
   if (asked < 0) return false;
   const dialog = screen.slice(asked);
+  if (dialog.startsWith(`${text} →`)) return false;
   return picked.every((index) => {
     const listed = `(?:^|\\s)${index + 1}\\.\\s(?:\\[[^\\]]*\\]\\s)?${escapeRegExp(collapseSpace(question.options[index]))}(?=\\s|$)`;
     return new RegExp(listed).test(dialog);
