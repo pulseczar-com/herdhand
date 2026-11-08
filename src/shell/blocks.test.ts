@@ -1,6 +1,6 @@
 import { READ_LINES } from "@/herdr/backend";
 
-import { type ShellBlock, startBlock, updateBlocks } from "./blocks";
+import { getRunningOutput, type ShellBlock, startBlock, updateBlocks } from "./blocks";
 
 const running = (command: string, baseline: string): ShellBlock => ({ id: 0, command, baseline, sentAtRead: 0, output: null, isCut: false });
 
@@ -115,5 +115,42 @@ describe("updateBlocks", () => {
     const [first, second] = updateBlocks([done, { ...running("pwd", "$ ls\na\n$ "), id: 1 }], "$ ls\na\n$ pwd\n/home\n$ ", true, 1);
     expect(first).toBe(done);
     expect(second.output).toBe("/home");
+  });
+});
+
+describe("getRunningOutput", () => {
+  it.each([
+    ["every line after the command line, with the last line", "$ ls\na\nb", "a\nb"],
+    ["the last command's line when the same command ran before", "$ ls\nold\n$ ls\nnew", "new"],
+    ["no output while the command line is the last line", "$ ls\n", ""],
+  ])("shows %s", (_name, text, output) => {
+    expect(getRunningOutput(running("ls", "$ "), text)).toEqual({ output, isCut: false });
+  });
+
+  it.each([
+    ["the command line is not in the pane, as with a full-screen program", "-- INSERT --", "$ ", "-- INSERT --"],
+    ["output has pushed the command line out of the pane", "line 1\nline 2", "$ ", "line 1\nline 2"],
+  ])("shows the whole pane, marked cut, when %s", (_name, text, baseline, output) => {
+    expect(getRunningOutput(running("ls", baseline), text)).toEqual({ output, isCut: true });
+  });
+
+  it("shows nothing, and no cut mark, for a blank pane without the command line", () => {
+    expect(getRunningOutput(running("ls", "$ "), "")).toEqual({ output: "", isCut: false });
+  });
+
+  it("gives null when the pane is as it was before the send, even with the command in an older line", () => {
+    expect(getRunningOutput(running("ls", "$ ls\nold\n$ "), "$ ls\nold\n$ ")).toBeNull();
+  });
+
+  it.each([
+    ["with the command line", (lines: string[]) => `$ seq\n${lines.join("\n")}`],
+    ["without the command line", (lines: string[]) => lines.join("\n")],
+  ])("cuts a long output to the last lines Herdr's read holds, %s", (_name, toText) => {
+    const lines = Array.from({ length: READ_LINES + 50 }, (_unused, index) => `line ${index}`);
+    const running_ = getRunningOutput(running("seq", "$ "), toText(lines));
+    const shown = running_?.output.split("\n");
+    expect(shown).toHaveLength(READ_LINES);
+    expect(shown?.at(-1)).toBe(`line ${READ_LINES + 49}`);
+    expect(running_?.isCut).toBe(true);
   });
 });

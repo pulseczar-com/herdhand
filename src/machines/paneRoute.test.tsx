@@ -722,7 +722,7 @@ describe("Shell chat", () => {
     state.text = "~\n-- INSERT --";
     state.isShellForeground = false;
 
-    expect(await screen.findByTestId("screen-card", {}, { timeout: 4_000 })).toBeTruthy();
+    expect(await within(screen.getByTestId("shell-chat")).findByText("~\n-- INSERT --", {}, { timeout: 4_000 })).toBeTruthy();
     expect(screen.getByText("Running…")).toBeTruthy();
   });
 
