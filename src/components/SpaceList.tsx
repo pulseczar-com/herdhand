@@ -18,7 +18,8 @@ import { StateDot, StatePill, useToneColor } from "./StatePill";
 
 const ROW_PADDING = 16;
 const ROW_INSET = 56;
-const PANE_INSET = 72;
+// Inside the line that groups the panes of a split tab, which sits at ROW_INSET.
+const GROUPED_PANE_INSET = 16;
 const CHEVRON_SIZE = 20;
 const CARD_ICON_SIZE = 18;
 // Hex alpha of the Needs you card's background: the attention color at about 12%.
@@ -187,15 +188,20 @@ function SpaceRow({ space, isExpanded, onPress }: SpaceRowProps) {
   );
 }
 
-/** "1 tab" or "3 tabs". */
+/** "1 tab" or "3 tabs", and "· 4 panes" too when a tab is split, so a split tab does not look like two. */
 function formatTabCount(space: Space): string {
   const count = space.tabs.length;
-  return count === 1 ? "1 tab" : `${count} tabs`;
+  const tabs = count === 1 ? "1 tab" : `${count} tabs`;
+  const hasSplitTab = space.tabs.some((tab) => tab.panes.length > 1);
+  if (!hasSplitTab) return tabs;
+
+  const paneCount = space.tabs.reduce((total, tab) => total + tab.panes.length, 0);
+  return `${tabs} · ${paneCount} panes`;
 }
 
 /**
  * A tab with one pane is one row, named by the tab. A tab with more panes gets a heading
- * and a row for each pane, so a tab and a pane never look alike.
+ * and a row for each pane, joined by a line under the heading, so a tab and a pane never look alike.
  */
 function TabRows({ tab, onOpenPane }: { tab: Tab; onOpenPane: (pane: Pane) => void }) {
   const { colors } = useTheme();
@@ -210,9 +216,11 @@ function TabRows({ tab, onOpenPane }: { tab: Tab; onOpenPane: (pane: Pane) => vo
   return (
     <View>
       {tab.name ? <Text style={[styles.tabHeading, { color: colors.text, paddingLeft: ROW_INSET }]}>{tab.name}</Text> : null}
-      {tab.panes.map((pane) => (
-        <PaneRow key={pane.id} title={describePane(pane) || pane.id} pane={pane} inset={PANE_INSET} onOpenPane={onOpenPane} />
-      ))}
+      <View testID="pane-group" style={[styles.paneGroup, { borderLeftColor: colors.border }]}>
+        {tab.panes.map((pane) => (
+          <PaneRow key={pane.id} title={describePane(pane) || pane.id} pane={pane} inset={GROUPED_PANE_INSET} onOpenPane={onOpenPane} />
+        ))}
+      </View>
     </View>
   );
 }
@@ -291,6 +299,7 @@ const styles = StyleSheet.create({
   count: { fontSize: 13, opacity: 0.6 },
   dimmed: { opacity: 0.6 },
   tabHeading: { fontSize: 13, opacity: 0.6, paddingTop: 8 },
+  paneGroup: { marginLeft: ROW_INSET, borderLeftWidth: StyleSheet.hairlineWidth },
   paneRow: {
     flexDirection: "row",
     alignItems: "center",
