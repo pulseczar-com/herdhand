@@ -70,8 +70,9 @@ const LONG_LINE_NOTE = JSON.stringify({
 });
 
 // A long line that holds a tool result gets this note instead, with the id of the call. The chat
-// then shows the call as done, or as failed when the line says the result is an error. A long line that holds a tool call has no such note: the call is
-// lost, and its result waits for it without showing.
+// then shows the call as done, or as failed when the line says the result is an error. A long
+// line that holds a tool call has no such note: the call is lost, and its result waits for it
+// without showing.
 const LONG_RESULT_NOTE = JSON.stringify({
   type: "user",
   uuid: "long-line-%d",
