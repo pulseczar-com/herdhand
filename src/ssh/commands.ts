@@ -77,14 +77,18 @@ const RESULT_LINE_AWK =
 const CALL_ID_AWK = '/"(tool_use_id|call_id|toolCallId)":"[^"\\\\]+"/';
 const FAILED_AWK = '/"(is_error|isError)":true|"success":false/';
 
-// A Claude Code line that is not part of the chat has a top-level "attachment" key, or a "type"
-// that is not user or assistant. The cut keeps no prefix, so awk reads the start of the line: its
-// scalar keys, then the one that decides. A key deep inside a long message does not count. The
-// other agents' types are not in the list, so their lines never match. Such a line gets a note
-// with "hidden", and the chat shows no row for it.
+// A Claude Code line that is not part of the chat has a top-level "attachment" key, a top-level
+// "isSidechain":true, or a "type" that is not user or assistant. The cut keeps no prefix, so awk
+// reads the start of the line: its scalar keys, then the one that decides. A key deep inside a
+// long message does not count. The other agents' types are not in the list, so their lines never
+// match. Such a line gets a note with "hidden", and the chat shows no row for it. Two kinds of
+// long user line are not shown at full size but still show the marker, because the start of the
+// line cannot show them: a line with "isMeta" (it comes after "message"), and a line whose text
+// starts with a hidden tag, such as bash-stdout or local-command-stdout (the tag is inside
+// "message").
 const SCALAR_KEYS_AWK = String.raw`^\{("[A-Za-z]+":("[^"\\]*"|null|true|false|[0-9]+),)*`;
 const HIDDEN_LINE_AWK =
-  String.raw`/${SCALAR_KEYS_AWK}("attachment":\{|"type":"(attachment|system|progress|summary|file-history-snapshot|queue-operation|last-prompt|api-request-[a-z]+)")/`;
+  String.raw`/${SCALAR_KEYS_AWK}("attachment":\{|"isSidechain":true[,}]|"type":"(attachment|system|progress|summary|file-history-snapshot|queue-operation|last-prompt|api-request-[a-z]+)")/`;
 
 const toAwkString = (text: string) => text.replace(/"/g, '\\"');
 

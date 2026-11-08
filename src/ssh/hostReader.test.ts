@@ -124,6 +124,12 @@ describe("the host reader", () => {
         expect(await readChat(line)).toEqual([expect.objectContaining({ kind: "reply", text: "Large item not shown (image or long output)" })]);
       });
 
+      it("shows no row for a long user message of a sidechain", async () => {
+        const line = claudeLine({ type: "user", uuid: "u1", isSidechain: true, message: { content: BIG } });
+
+        expect(await readChat(line)).toEqual([]);
+      });
+
       it("shows the marker for a long user message that has an attachment key inside it", async () => {
         const line = claudeLine({ type: "user", uuid: "u1", message: { content: BIG }, toolUseResult: { attachment: "x" } });
 
