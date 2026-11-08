@@ -32,22 +32,30 @@ export function updateBlocks(blocks: ShellBlock[], text: string, isShellForegrou
   if (text === block.baseline && reads < block.sentAtRead + 2) return blocks;
 
   const { lines, isFound } = linesAfterCommand(block, text);
-  const after = lines.slice(0, -1);
-  const shown = after.slice(-READ_LINES);
-  const isCut = shown.length < after.length || (!isFound && after.length > 0);
-  return [...blocks.slice(0, -1), { ...block, output: shown.join("\n").trimEnd(), isCut }];
+  const { output, isCut } = cutToRead(lines.slice(0, -1), isFound);
+  return [...blocks.slice(0, -1), { ...block, output, isCut }];
 }
+
+/** The output of the running block so far, as `output` and `isCut` of a block. */
+export type RunningOutput = Pick<ShellBlock, "isCut"> & { output: string };
 
 /**
  * The output of the running block so far: every pane line after its command line, cut to the last
  * READ_LINES. The last line counts, as the command has not ended and there is no new prompt yet.
- * Null when the pane does not show the command line yet, or no longer, as with a full-screen program.
+ * When the pane no longer shows the command line, as after a long output or with a full-screen
+ * program, it is the whole pane. Null while the pane is as it was before the send.
  */
-export function getRunningOutput(block: ShellBlock, text: string): string | null {
+export function getRunningOutput(block: ShellBlock, text: string): RunningOutput | null {
   if (text === block.baseline) return null;
   const { lines, isFound } = linesAfterCommand(block, text);
-  if (!isFound) return null;
-  return lines.slice(-READ_LINES).join("\n").trimEnd();
+  return cutToRead(lines, isFound);
+}
+
+/** The lines as text cut to the last READ_LINES, cut also when the command line is not in them. */
+function cutToRead(lines: string[], isCommandFound: boolean): RunningOutput {
+  const shown = lines.slice(-READ_LINES);
+  const isCut = shown.length < lines.length || (!isCommandFound && lines.length > 0);
+  return { output: shown.join("\n").trimEnd(), isCut };
 }
 
 /**

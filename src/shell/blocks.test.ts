@@ -124,20 +124,29 @@ describe("getRunningOutput", () => {
     ["the last command's line when the same command ran before", "$ ls\nold\n$ ls\nnew", "new"],
     ["no output while the command line is the last line", "$ ls\n", ""],
   ])("shows %s", (_name, text, output) => {
-    expect(getRunningOutput(running("ls", "$ "), text)).toBe(output);
+    expect(getRunningOutput(running("ls", "$ "), text)).toEqual({ output, isCut: false });
   });
 
   it.each([
-    ["the command line is not in the pane, as with a full-screen program", "-- INSERT --", "$ "],
-    ["the pane is as it was before the send, even with the command in an older line", "$ ls\nold\n$ ", "$ ls\nold\n$ "],
-  ])("gives null when %s", (_name, text, baseline) => {
-    expect(getRunningOutput(running("ls", baseline), text)).toBeNull();
+    ["the command line is not in the pane, as with a full-screen program", "-- INSERT --", "$ ", "-- INSERT --"],
+    ["output has pushed the command line out of the pane", "line 1\nline 2", "$ ", "line 1\nline 2"],
+  ])("shows the whole pane, marked cut, when %s", (_name, text, baseline, output) => {
+    expect(getRunningOutput(running("ls", baseline), text)).toEqual({ output, isCut: true });
   });
 
-  it("cuts a long output to the last lines Herdr's read holds", () => {
+  it("gives null when the pane is as it was before the send, even with the command in an older line", () => {
+    expect(getRunningOutput(running("ls", "$ ls\nold\n$ "), "$ ls\nold\n$ ")).toBeNull();
+  });
+
+  it.each([
+    ["with the command line", (lines: string[]) => `$ seq\n${lines.join("\n")}`],
+    ["without the command line", (lines: string[]) => lines.join("\n")],
+  ])("cuts a long output to the last lines Herdr's read holds, %s", (_name, toText) => {
     const lines = Array.from({ length: READ_LINES + 50 }, (_unused, index) => `line ${index}`);
-    const shown = getRunningOutput(running("seq", "$ "), `$ seq\n${lines.join("\n")}`)?.split("\n");
+    const running_ = getRunningOutput(running("seq", "$ "), toText(lines));
+    const shown = running_?.output.split("\n");
     expect(shown).toHaveLength(READ_LINES);
     expect(shown?.at(-1)).toBe(`line ${READ_LINES + 49}`);
+    expect(running_?.isCut).toBe(true);
   });
 });

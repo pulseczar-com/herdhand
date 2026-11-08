@@ -1,10 +1,11 @@
-import { render, screen, within } from "@testing-library/react-native";
+import { act, fireEvent, render, screen, within } from "@testing-library/react-native";
 import type { ComponentProps } from "react";
-import { ActivityIndicator, StyleSheet } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet } from "react-native";
 import type { ReactTestInstance } from "react-test-renderer";
 
 import type { ShellBlock } from "@/shell/blocks";
 
+import { READ_LINES } from "@/herdr/backend";
 import { SCREEN_LINES } from "./ScreenCard";
 import { ShellChat } from "./ShellChat";
 
@@ -79,6 +80,15 @@ describe("ShellChat", () => {
     expect(screen.getByText(lines.slice(-SCREEN_LINES).join("\n"))).toBeTruthy();
   });
 
+  it("shows the whole pane with a cut note when the output has pushed the command line out of the read", () => {
+    const running: ShellBlock = { id: 0, command: "npm run dev", baseline: "$ ", sentAtRead: 0, output: null, isCut: false };
+    const lines = Array.from({ length: READ_LINES }, (_, index) => `server line ${index + 1}`);
+    renderShell({ blocks: [running], isRunning: true, text: lines.join("\n") });
+
+    expect(within(screen.getByTestId("shell-chat")).getByText(lines.join("\n"))).toBeTruthy();
+    expect(screen.getByText(`Cut to the last ${READ_LINES} lines.`)).toBeTruthy();
+  });
+
   it("shows no output for a command that printed nothing", () => {
     renderShell({ opening: "", blocks: [done("true", "")] });
 
@@ -98,5 +108,37 @@ describe("ShellChat", () => {
 
     renderShell({ opening: null, text: null, error: "Could not read the pane: Connection closed" });
     expect(screen.getByText("Could not read the pane: Connection closed")).toBeTruthy();
+  });
+
+  describe("following the end", () => {
+    // A frame runs when time moves on; the scroll command waits one frame.
+    const FRAME_MS = 16;
+    const makeScrollEvent = (offsetY: number) => ({
+      nativeEvent: { contentOffset: { x: 0, y: offsetY }, contentSize: { width: 400, height: 2000 }, layoutMeasurement: { width: 400, height: 600 } },
+    });
+
+    beforeEach(() => jest.useFakeTimers());
+    afterEach(() => jest.useRealTimers());
+
+    function renderScrolledShell() {
+      renderShell();
+      const scrollView = screen.UNSAFE_getAllByType(ScrollView).find((view) => view.props.testID === "shell-chat")!;
+      act(() => jest.advanceTimersByTime(FRAME_MS));
+      jest.mocked(scrollView.instance.scrollToEnd).mockClear();
+      return scrollView;
+    }
+
+    it("does not pull the view back to the end while a fling that began near the end carries it up", () => {
+      const scrollView = renderScrolledShell();
+      const shell = screen.getByTestId("shell-chat");
+
+      // A short flick releases within the slack of the end, then the momentum starts.
+      fireEvent(shell, "scrollEndDrag", makeScrollEvent(1390));
+      fireEvent(shell, "momentumScrollBegin");
+      fireEvent(shell, "contentSizeChange", 400, 2100);
+      act(() => jest.advanceTimersByTime(FRAME_MS));
+
+      expect(scrollView.instance.scrollToEnd).not.toHaveBeenCalled();
+    });
   });
 });

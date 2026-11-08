@@ -32,7 +32,7 @@ A command sent from the phone becomes a bubble, and the output of the command sh
 - The app shows no exit code.
 - The app cuts a long output to the last 200 lines.
 - A command typed on the machine shows only the end of its screen while it runs.
-- A full-screen program, such as vim, shows the end of its live screen until the shell holds the foreground again.
+- A full-screen program, such as vim, started from the phone shows its whole screen, cut to the last 200 lines, until the shell holds the foreground again.
 - The app expects a one-line prompt with no right-side prompt and no transient prompt. With another kind of prompt, the output can include prompt lines, or can show the whole screen with a note that it is cut.
 
 ## Supported agents
