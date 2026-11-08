@@ -54,6 +54,7 @@ function LoadedSpaceList({
   return (
     <SpaceList
       machineId={MACHINE_ID}
+      kind="desktop"
       list={list}
       spaceOrder={spaceOrder}
       header={<Text>test-box</Text>}
@@ -242,11 +243,11 @@ describe("SpaceList", () => {
 
       fireEvent.press(await screen.findByText("api"));
 
-      await waitFor(async () => expect(await getCollapsedSpaceIds(MACHINE_ID)).toEqual(["s1"]));
+      await waitFor(async () => expect(await getCollapsedSpaceIds(MACHINE_ID, "desktop")).toEqual(["s1"]));
     });
 
     it("shows a space collapsed when the phone remembers it so", async () => {
-      await saveCollapsedSpaceIds(MACHINE_ID, ["s1"]);
+      await saveCollapsedSpaceIds(MACHINE_ID, "desktop", ["s1"]);
       renderSpaces([api, docs]);
 
       expect(await screen.findByText("notes")).toBeTruthy();
@@ -254,10 +255,10 @@ describe("SpaceList", () => {
     });
 
     it("forgets the spaces that no longer exist when the list loads", async () => {
-      await saveCollapsedSpaceIds(MACHINE_ID, ["gone", "s1"]);
+      await saveCollapsedSpaceIds(MACHINE_ID, "desktop", ["gone", "s1"]);
       renderSpaces([api]);
 
-      await waitFor(async () => expect(await getCollapsedSpaceIds(MACHINE_ID)).toEqual(["s1"]));
+      await waitFor(async () => expect(await getCollapsedSpaceIds(MACHINE_ID, "desktop")).toEqual(["s1"]));
     });
   });
 

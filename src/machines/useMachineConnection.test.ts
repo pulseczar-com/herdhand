@@ -260,6 +260,20 @@ describe("useMachineConnection", () => {
     });
   });
 
+  it("does not open the connection until the app is first in use, for example unlocked", async () => {
+    mockBridges(makeBridge(makeBackend()));
+    const { result, rerender } = renderConnection(false);
+    await act(async () => {});
+
+    expect(openBridge).not.toHaveBeenCalled();
+    expect(PermissionsAndroid.request).not.toHaveBeenCalled();
+
+    rerender({ foreground: true });
+
+    await waitFor(() => expect(result.current.status).toMatchObject({ phase: "connected" }));
+    expect(openBridge).toHaveBeenCalledTimes(1);
+  });
+
   describe("on return to the app", () => {
     it("reconnects when the link dropped while the app was away", async () => {
       const first = makeBackend();

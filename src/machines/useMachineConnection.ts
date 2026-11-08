@@ -53,6 +53,9 @@ export function useMachineConnection(id: string, isForeground: boolean) {
   // connection between machines, so a late result for another machine is dropped.
   const servedId = useRef<string | null>(id);
   const isAfterDrop = useRef(false);
+  // The app opens under the lock, so the first connect waits until the app is first in use.
+  const [hasBeenForeground, setHasBeenForeground] = useState(isForeground);
+  if (isForeground && !hasBeenForeground) setHasBeenForeground(true);
 
   /**
    * Shows an open bridge as connected, its drop as a failure the app reconnects on return, and
@@ -139,13 +142,14 @@ export function useMachineConnection(id: string, isForeground: boolean) {
   );
 
   useEffect(() => {
+    if (!hasBeenForeground) return;
     servedId.current = id;
     const kept = getOpenBridge(id);
     void (kept ? showKept(kept) : connect());
     return () => {
       servedId.current = null;
     };
-  }, [id, connect, showKept]);
+  }, [id, hasBeenForeground, connect, showKept]);
 
   useEffect(() => {
     // On the first render the status is still "connecting", so this acts only on a return.
