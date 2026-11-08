@@ -27,11 +27,11 @@ Herdr is a terminal multiplexer: it keeps spaces, tabs and panes running on a ma
 
 ## Shell panes
 
-A command sent from the phone becomes a bubble, and the output of the command shows under it. Commands typed on the machine get no bubble. The limits:
+A command sent from the phone becomes a bubble, and the output of the command shows under it as plain text. Commands typed on the machine get no bubble. The view scrolls back to the pane as it was on open. The limits:
 
 - The app shows no exit code.
 - The app cuts a long output to the last 200 lines.
-- A full-screen program, such as vim, shows the live screen card until the shell holds the foreground again.
+- A full-screen program, such as vim, shows the end of its live screen until the shell holds the foreground again.
 - The app expects a one-line prompt with no right-side prompt and no transient prompt. With another kind of prompt, the output can include prompt lines, or can show the whole screen with a note that it is cut.
 
 ## Supported agents

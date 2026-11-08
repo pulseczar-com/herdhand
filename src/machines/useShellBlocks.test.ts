@@ -41,6 +41,23 @@ describe("useShellBlocks", () => {
     expect(result.current.opening).toBe("old output\n$ ");
   });
 
+  it("keeps the pane as it was when the shell first holds the foreground, so a program running on open shows only once", async () => {
+    const { backend, state } = makeBackend();
+    state.text = "top - 10:00:00 up 1 day\n  PID USER";
+    state.pane = shell(false);
+    const { result } = renderHook(() => useShellBlocks(backend, "t6"));
+    await act(() => jest.advanceTimersByTimeAsync(0));
+
+    expect(result.current.opening).toBeNull();
+    expect(result.current.isRunning).toBe(true);
+
+    state.text = "$ top\n$ ";
+    state.pane = shell(true);
+    await waitForNextRead();
+
+    expect(result.current.opening).toBe("$ top\n$ ");
+  });
+
   it("turns a line sent from the phone into a block that closes with its output", async () => {
     const { backend, state } = makeBackend();
     const { result } = renderHook(() => useShellBlocks(backend, "t6"));

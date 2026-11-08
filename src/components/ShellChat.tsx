@@ -5,51 +5,53 @@ import { READ_LINES } from "@/herdr/backend";
 import type { ShellBlock } from "@/shell/blocks";
 
 import { PromptBubble } from "./ChatView";
-import { getScreenTail, ScreenCard } from "./ScreenCard";
+import { getScreenTail } from "./ScreenCard";
 import { useKeepAtEnd } from "./useKeepAtEnd";
 
 type ShellChatProps = {
   blocks: ShellBlock[];
-  /** The pane as it was on open, or null while it loads. */
+  /** The pane as it was when the shell first held the foreground, or null until then. */
   opening: string | null;
   /** Whether a command runs: the pane's screen then ends the chat. */
   isRunning: boolean;
-  /** The pane's text now. */
+  /** The pane's text now, or null while it loads. */
   text: string | null;
   error: string | null;
 };
 
 /**
  * A shell pane as a chat: the pane as it was on open, then each command sent from the phone as a
- * bubble with its output under it. A running command, whoever started it, ends the chat with the
- * pane's live screen, which also serves a full-screen program.
+ * bubble with its output under it as plain text. A running command, whoever started it, ends the
+ * chat with the pane's live screen, which also serves a full-screen program. All of it scrolls as
+ * one list, back to the pane as it was on open.
  */
 export function ShellChat({ blocks, opening, isRunning, text, error }: ShellChatProps) {
   const { colors } = useTheme();
-  const { scrollRef, trackEnd, keepAtEnd } = useKeepAtEnd();
-  const openingTail = opening === null ? "" : getScreenTail(opening);
+  const { scrollRef, stopFollowing, trackEnd, keepAtEnd } = useKeepAtEnd();
+  const openingText = opening?.trimEnd() ?? "";
 
   return (
     <>
       {error ? <Text style={[styles.message, { color: colors.notification }]}>{error}</Text> : null}
-      {opening === null && !error ? <ActivityIndicator style={styles.message} /> : null}
-      {opening === null ? null : (
+      {text === null && !error ? <ActivityIndicator style={styles.message} /> : null}
+      {text === null ? null : (
         <ScrollView
           testID="shell-chat"
           ref={scrollRef}
           contentContainerStyle={styles.content}
+          onScrollBeginDrag={stopFollowing}
           onScrollEndDrag={trackEnd}
           onMomentumScrollEnd={trackEnd}
           onContentSizeChange={keepAtEnd}
           onLayout={keepAtEnd}
         >
-          {openingTail ? <Output text={openingTail} /> : null}
+          {openingText ? <Output text={openingText} /> : null}
           {blocks.map((block) => (
             <BlockView key={block.id} block={block} />
           ))}
+          {isRunning ? <Output text={getScreenTail(text)} /> : null}
         </ScrollView>
       )}
-      {isRunning && text !== null ? <ScreenCard text={text} /> : null}
     </>
   );
 }
@@ -68,14 +70,10 @@ function BlockView({ block }: { block: ShellBlock }) {
   );
 }
 
+/** Text the pane printed, as a terminal shows it: only the commands sent from the phone get a bubble. */
 function Output({ text }: { text: string }) {
   const { colors } = useTheme();
-
-  return (
-    <View style={[styles.output, { borderColor: colors.border, backgroundColor: colors.card }]}>
-      <Text style={[styles.outputText, { color: colors.text }]}>{text}</Text>
-    </View>
-  );
+  return <Text style={[styles.output, { color: colors.text }]}>{text}</Text>;
 }
 
 const styles = StyleSheet.create({
@@ -84,6 +82,5 @@ const styles = StyleSheet.create({
   content: { flexGrow: 1, justifyContent: "flex-end", padding: 16, gap: 12 },
   block: { gap: 8 },
   note: { alignSelf: "center", fontSize: 12, opacity: 0.6 },
-  output: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, padding: 10 },
-  outputText: { fontFamily: "monospace", fontSize: 12, lineHeight: 16 },
+  output: { fontFamily: "monospace", fontSize: 12, lineHeight: 16 },
 });
