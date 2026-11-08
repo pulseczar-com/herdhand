@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react-native";
+import { act, fireEvent, render, screen, userEvent, waitFor, within } from "@testing-library/react-native";
 import { ActivityIndicator, Text } from "react-native";
 import ReorderableList from "react-native-reorderable-list";
 
@@ -15,6 +15,15 @@ import { StateDot } from "./StatePill";
 jest.mock("@react-native-async-storage/async-storage", () =>
   jest.requireActual("@react-native-async-storage/async-storage/jest/async-storage-mock"),
 );
+
+const mockDrag = jest.fn();
+
+// The library's drag runs on the native UI thread: only whether a long press starts it is checked here.
+jest.mock("react-native-reorderable-list", () => ({
+  ...jest.requireActual("react-native-reorderable-list"),
+  __esModule: true,
+  useReorderableDrag: () => mockDrag,
+}));
 
 jest.mock("expo-router", () => ({
   useTheme: () => ({ dark: false, colors: { text: "#000", border: "#000", background: "#fff", notification: "#f00" } }),
@@ -34,11 +43,9 @@ function makeBackend(listSpaces: Backend["listSpaces"]): Backend {
 /** The list as the machine screen shows it: loaded from the backend by `useSpaces`, with the phone's order. */
 function LoadedSpaceList({
   backend,
-  isReordering = false,
   onOpenPane,
 }: {
   backend: Backend;
-  isReordering?: boolean;
   onOpenPane: (pane: Pane) => void;
 }) {
   const list = useSpaces(backend);
@@ -50,7 +57,6 @@ function LoadedSpaceList({
       spaceOrder={spaceOrder}
       header={<Text>test-box</Text>}
       footer={<Text>home-server</Text>}
-      isReordering={isReordering}
       onOpenPane={onOpenPane}
     />
   );
@@ -58,10 +64,6 @@ function LoadedSpaceList({
 
 function renderSpaces(spaces: Space[], onOpenPane = jest.fn()) {
   render(<LoadedSpaceList backend={makeBackend(jest.fn().mockResolvedValue(spaces))} onOpenPane={onOpenPane} />);
-}
-
-function renderReordering(spaces: Space[]) {
-  render(<LoadedSpaceList backend={makeBackend(jest.fn().mockResolvedValue(spaces))} isReordering onOpenPane={jest.fn()} />);
 }
 
 function makePane(id: string, title: string, fields: Partial<Pane> = {}): Pane {
@@ -293,7 +295,7 @@ describe("SpaceList", () => {
     });
   });
 
-  describe("reorder mode", () => {
+  describe("long press to drag", () => {
     const tabs = Array.from({ length: 30 }, (_, index) => ({
       id: `t${index}`,
       name: `tab ${index}`,
@@ -301,26 +303,46 @@ describe("SpaceList", () => {
     }));
     const tall: Space = { id: "s1", name: "api", tabs };
 
-    // On Android the drag's pan takes the touch from a list under a refresh control, so an
-    // expanded space taller than the screen could not scroll.
-    it("has no drag gesture or handle outside reorder mode, so a tall expanded space scrolls", async () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+      mockDrag.mockClear();
+    });
+
+    afterEach(() => jest.useRealTimers());
+
+    // The drag's pan takes the touch from a list under a refresh control on Android, so an
+    // expanded space taller than the screen could not scroll. The pan waits for a long press
+    // that lasts longer than the row's own, so a swipe goes to the scroll and the refresh.
+    it("scrolls and refreshes a tall expanded space: the drag pan waits for the row's long press", async () => {
       renderSpaces([tall]);
       await screen.findByText("tab 29");
       const list = screen.UNSAFE_getByType(ReorderableList);
 
-      expect(list.props.panEnabled).toBe(false);
       expect(list.props.refreshControl).toBeTruthy();
+      expect(list.props.panGesture.config.activateAfterLongPress).toBeGreaterThan(500);
       expect(screen.queryByLabelText("Drag api")).toBeNull();
     });
 
-    it("shows the handles and turns the drag on in reorder mode, without pull to refresh", async () => {
-      renderReordering([tall]);
+    it("collapses a space on a tap and starts no drag", async () => {
+      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+      renderSpaces([tall]);
       await screen.findByText("tab 29");
-      const list = screen.UNSAFE_getByType(ReorderableList);
 
-      expect(screen.getByLabelText("Drag api")).toBeTruthy();
-      expect(list.props.panEnabled).toBe(true);
-      expect(list.props.refreshControl).toBeUndefined();
+      await user.press(screen.getByText("api"));
+
+      expect(screen.queryByText("tab 29")).toBeNull();
+      expect(mockDrag).not.toHaveBeenCalled();
+    });
+
+    it("starts the drag on a long press and does not collapse the space", async () => {
+      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+      renderSpaces([tall]);
+      await screen.findByText("tab 29");
+
+      await user.longPress(screen.getByText("api"), { duration: 600 });
+
+      expect(mockDrag).toHaveBeenCalledTimes(1);
+      expect(screen.getByText("tab 29")).toBeTruthy();
     });
   });
 

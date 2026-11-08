@@ -2,7 +2,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "expo-router";
 import type { ReactElement } from "react";
 import { ActivityIndicator, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
-import ReorderableList from "react-native-reorderable-list";
+import ReorderableList, { useReorderableDrag } from "react-native-reorderable-list";
 
 import { getBlockedPanes, getMostUrgentState, type LocatedPane } from "@/herdr/agentPanes";
 import type { Pane, Space, Tab } from "@/herdr/backend";
@@ -11,7 +11,7 @@ import { useCollapsedSpaces } from "@/machines/useCollapsedSpaces";
 import type { SpacesState } from "@/machines/useSpaces";
 import type { SpaceOrderState } from "@/spaceOrder/useSpaceOrder";
 
-import { DragHandle } from "./DragHandle";
+import { LiftOnDrag, useDragPan } from "./dragLift";
 import { SpaceBadge } from "./SpaceBadge";
 import { StateDot, StatePill, useToneColor } from "./StatePill";
 
@@ -32,34 +32,28 @@ type SpaceListProps = {
   header: ReactElement;
   /** Below the spaces: the headers of the machines after this one. */
   footer: ReactElement;
-  /** Reorder mode: the handles show and drag; there is no pull to refresh. */
-  isReordering: boolean;
   onOpenPane: (pane: Pane) => void;
 };
 
 /**
  * The machine's spaces, below its header and a card for each blocked agent. Pull to refresh; tap
- * a pane to open it, a space to collapse or expand it; in reorder mode, drag a handle to reorder.
+ * a pane to open it, a space to collapse or expand it; hold a space to drag it to a new place.
  */
-export function SpaceList({ machineId, list, spaceOrder, header, footer, isReordering, onOpenPane }: SpaceListProps) {
+export function SpaceList({ machineId, list, spaceOrder, header, footer, onOpenPane }: SpaceListProps) {
   const { colors } = useTheme();
   const { spaces, error, refreshing, refresh } = list;
   const { collapsedIds, toggle } = useCollapsedSpaces(machineId, spaces);
-  // On Android the drag's pan takes the touch from a list under a refresh control, so the list
-  // could not scroll. Each mode keeps one of the two: refresh outside reorder mode, the pan in it.
-  const refreshControl = isReordering ? undefined : <RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} />;
-  // The list reads panEnabled only when it first builds its gesture, so a mode switch remounts it.
-  const listKey = isReordering ? "reorder" : "browse";
+  const dragPan = useDragPan();
 
   return (
     <ReorderableList
-      key={listKey}
       style={styles.list}
-      panEnabled={isReordering}
+      panGesture={dragPan}
+      shouldUpdateActiveItem
       data={spaceOrder.spaces}
       keyExtractor={(space) => space.id}
       onReorder={({ from, to }) => spaceOrder.moveSpace(from, to)}
-      refreshControl={refreshControl}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} />}
       ListHeaderComponent={
         <View style={styles.header}>
           <NeedsYouCards spaces={spaces ?? []} onOpenPane={onOpenPane} />
@@ -70,13 +64,7 @@ export function SpaceList({ machineId, list, spaceOrder, header, footer, isReord
       ListFooterComponent={footer}
       ListEmptyComponent={<EmptyList isLoaded={spaces !== null} hasError={error !== null} />}
       renderItem={({ item }) => (
-        <SpaceItem
-          space={item}
-          isExpanded={!collapsedIds.includes(item.id)}
-          isReordering={isReordering}
-          onToggle={() => toggle(item.id)}
-          onOpenPane={onOpenPane}
-        />
+        <SpaceItem space={item} isExpanded={!collapsedIds.includes(item.id)} onToggle={() => toggle(item.id)} onOpenPane={onOpenPane} />
       )}
     />
   );
@@ -136,30 +124,29 @@ function NeedsYouCard({ blocked, onPress }: { blocked: LocatedPane; onPress: () 
 type SpaceItemProps = {
   space: Space;
   isExpanded: boolean;
-  isReordering: boolean;
   onToggle: () => void;
   onOpenPane: (pane: Pane) => void;
 };
 
 /** A space's row and, when it is expanded, its tabs: one item of the list, so they move together. */
-function SpaceItem({ space, isExpanded, isReordering, onToggle, onOpenPane }: SpaceItemProps) {
+function SpaceItem({ space, isExpanded, onToggle, onOpenPane }: SpaceItemProps) {
   return (
-    <View>
-      <SpaceRow space={space} isExpanded={isExpanded} isReordering={isReordering} onPress={onToggle} />
+    <LiftOnDrag>
+      <SpaceRow space={space} isExpanded={isExpanded} onPress={onToggle} />
       {isExpanded ? space.tabs.map((tab) => <TabRows key={tab.id} tab={tab} onOpenPane={onOpenPane} />) : null}
-    </View>
+    </LiftOnDrag>
   );
 }
 
-type SpaceRowProps = { space: Space; isExpanded: boolean; isReordering: boolean; onPress: () => void };
+type SpaceRowProps = { space: Space; isExpanded: boolean; onPress: () => void };
 
 /**
  * A space: its badge, name, the dot of its most urgent agent and its tab count. All of it shows
- * when the space is collapsed, so a blocked agent stays in sight. A tap folds it; in reorder mode,
- * its handle drags it.
+ * when the space is collapsed, so a blocked agent stays in sight. A tap folds it; a hold drags it.
  */
-function SpaceRow({ space, isExpanded, isReordering, onPress }: SpaceRowProps) {
+function SpaceRow({ space, isExpanded, onPress }: SpaceRowProps) {
   const { colors } = useTheme();
+  const drag = useReorderableDrag();
   const urgentState = getMostUrgentState(space);
   const chevronName = isExpanded ? "expand-more" : "chevron-right";
 
@@ -169,6 +156,7 @@ function SpaceRow({ space, isExpanded, isReordering, onPress }: SpaceRowProps) {
       accessibilityRole="button"
       accessibilityState={{ expanded: isExpanded }}
       onPress={onPress}
+      onLongPress={drag}
       android_ripple={{ color: colors.border }}
     >
       <SpaceBadge space={space} />
@@ -178,7 +166,6 @@ function SpaceRow({ space, isExpanded, isReordering, onPress }: SpaceRowProps) {
       {urgentState ? <StateDot tone={STATE_TONES[urgentState]} /> : null}
       <Text style={[styles.count, { color: colors.text }]}>{formatTabCount(space)}</Text>
       <MaterialIcons name={chevronName} size={CHEVRON_SIZE} color={colors.text} style={styles.dimmed} />
-      {isReordering ? <DragHandle name={space.name} /> : null}
     </Pressable>
   );
 }

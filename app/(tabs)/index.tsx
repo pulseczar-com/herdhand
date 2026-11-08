@@ -1,11 +1,9 @@
-import { router, Tabs, useTheme } from "expo-router";
-import { type ReactElement, type ReactNode, useCallback, useContext, useState } from "react";
+import { router, useTheme } from "expo-router";
+import { type ReactElement, type ReactNode, useContext, useState } from "react";
 import { ActivityIndicator, Alert, Button, ScrollView, StyleSheet, Text, View } from "react-native";
-import ReorderableList from "react-native-reorderable-list";
-import { scheduleOnRN } from "react-native-worklets";
+import ReorderableList, { useReorderableDrag } from "react-native-reorderable-list";
 
-import { DragHandle, HandleButton } from "@/components/DragHandle";
-import { HeaderActions, ReorderButton } from "@/components/HeaderActions";
+import { LiftOnDrag, useDragPan } from "@/components/dragLift";
 import { MachineHeader } from "@/components/MachineHeader";
 import { MachineSheet } from "@/components/MachineSheet";
 import { NeedsYouCards, SpaceList } from "@/components/SpaceList";
@@ -21,28 +19,19 @@ import { type SpaceOrderState, useSpaceOrder } from "@/spaceOrder/useSpaceOrder"
 // A machine that is not open has no connection; its sheet offers Reconnect, which opens it.
 const NOT_OPEN_STATUS: ConnectionStatus = { phase: "disconnected" };
 
-/**
- * The Spaces tab: the one page of machines, or how to add the first one. Reorder in the header
- * shows the drag handles until Done.
- */
+/** The Spaces tab: the one page of machines, or how to add the first one. */
 export default function SpacesScreen() {
   const { colors } = useTheme();
   const { machines } = useMachines();
   const showLockNotice = useNoScreenLockNotice();
-  const [isReordering, setIsReordering] = useState(false);
-  const hasMachines = machines.length > 0;
-  // With no machine left the button hides, so the mode ends too: the next machine starts in normal mode.
-  if (!hasMachines && isReordering) setIsReordering(false);
-  const reorderButton = hasMachines ? <ReorderButton isReordering={isReordering} onPress={() => setIsReordering(!isReordering)} /> : null;
 
   return (
     <View style={styles.screen}>
-      <Tabs.Screen options={{ headerRight: () => <HeaderActions>{reorderButton}</HeaderActions> }} />
       {showLockNotice ? (
         <Text style={[styles.notice, { color: colors.text }]}>Set a screen lock on this phone to lock Herdhand.</Text>
       ) : null}
-      {hasMachines ? (
-        <MachinesPage isReordering={isReordering} />
+      {machines.length > 0 ? (
+        <MachinesPage />
       ) : (
         <Text style={[styles.empty, { color: colors.text }]}>
           Tap + to add a machine that runs Herdr: a server, a VPS or a Mac you can reach over SSH.
@@ -53,7 +42,7 @@ export default function SpacesScreen() {
 }
 
 /** The machines, and the sheet of the machine whose ⋮ was tapped: Edit, Reconnect, Remove, the Herdr kind. */
-function MachinesPage({ isReordering }: { isReordering: boolean }) {
+function MachinesPage() {
   const { machines } = useMachines();
   const [sheetMachineId, setSheetMachineId] = useState<string | null>(null);
   const confirmRemove = useConfirmRemove();
@@ -61,7 +50,7 @@ function MachinesPage({ isReordering }: { isReordering: boolean }) {
 
   return (
     <>
-      <MachineList isReordering={isReordering} onMore={setSheetMachineId} />
+      <MachineList onMore={setSheetMachineId} />
       <SheetForMachine machine={sheetMachine} onClose={() => setSheetMachineId(null)} onRemove={confirmRemove} />
     </>
   );
@@ -70,32 +59,21 @@ function MachinesPage({ isReordering }: { isReordering: boolean }) {
 /**
  * Every machine as a header with its state. The open machine is the one connected: under its
  * header, its spaces, a host key to trust, or the error. Its Needs you cards sit at the top. A tap
- * on a header folds it or opens that machine. In reorder mode a handle on every header drags the
- * machine to reorder it; every machine folds while it is dragged. The connection is null while no
+ * on a header folds it or opens that machine. While a machine is open its spaces are the list,
+ * so the machines drag only when every machine is folded. The connection is null while no
  * machine is open, as after a Remove of the open machine.
  */
-function MachineList({ isReordering, onMore }: { isReordering: boolean; onMore: (machineId: string) => void }) {
+function MachineList({ onMore }: { onMore: (machineId: string) => void }) {
   const connection = useContext(MachineConnectionContext);
   const { machines, open, toggle } = useMachines();
   const id = connection?.id ?? NO_MACHINE;
   const status = connection?.status ?? NOT_OPEN_STATUS;
   const spaces = connection?.list.spaces ?? null;
   const spaceOrder = useSpaceOrder(id, status.phase === "connected" ? status.kind : null, spaces);
-  // Set by a hold on a handle in the open machine's page: every machine shows folded until the drop.
-  const [draggedId, setDraggedId] = useState<string | null>(null);
-  const isPageFolded = draggedId !== null || open?.isFolded === true;
+  const isPageFolded = open?.isFolded === true;
 
-  // The drop brings the open machine back.
-  const endDrag = useCallback(() => setDraggedId(null), []);
-
-  // A hold on a handle that never became a drag leaves the page folded; a tap on a header brings it back.
-  function pressHeader(machineId: string) {
-    if (draggedId === null) toggle(machineId);
-    else setDraggedId(null);
-  }
-
-  /** A machine's header, with its drag handle in reorder mode. */
-  function renderHeader(machine: Machine, handle: ReactNode) {
+  /** A machine's header. Where the machines drag, a hold on it starts the drag. */
+  function renderHeader(machine: Machine, onLongPress?: () => void) {
     const isOpenMachine = machine.id === id;
     return (
       <MachineHeader
@@ -104,67 +82,58 @@ function MachineList({ isReordering, onMore }: { isReordering: boolean; onMore: 
         state={isOpenMachine ? status.phase : "idle"}
         isExpanded={isOpenMachine && !isPageFolded}
         hasDivider={machine.id !== machines[0]?.id}
-        onPress={() => pressHeader(machine.id)}
+        onPress={() => toggle(machine.id)}
         onMore={() => onMore(machine.id)}
-      >
-        {isReordering ? handle : null}
-      </MachineHeader>
+        onLongPress={onLongPress}
+      />
     );
   }
 
-  /** Headers outside the reorderable list: a short hold on the handle folds the page and starts the drag there. */
   function renderHeaders(machinesToShow: Machine[]) {
-    return (
-      <View>
-        {machinesToShow.map((machine) =>
-          renderHeader(machine, <HandleButton name={machine.name} onLongPress={() => setDraggedId(machine.id)} />),
-        )}
-      </View>
-    );
+    return <View>{machinesToShow.map((machine) => renderHeader(machine))}</View>;
   }
 
   if (!connection || isPageFolded) {
     const cards = <NeedsYouCards spaces={spaces ?? []} onOpenPane={(pane) => openPane(id, pane)} />;
-    return <FoldedMachines cards={cards} draggedId={draggedId} onDragEnd={endDrag} renderHeader={renderHeader} />;
+    return <FoldedMachines cards={cards} renderHeader={renderHeader} />;
   }
   const openIndex = machines.findIndex((machine) => machine.id === id);
   const above = renderHeaders(machines.slice(0, openIndex + 1));
   const below = renderHeaders(machines.slice(openIndex + 1));
-  return <OpenMachinePage connection={connection} spaceOrder={spaceOrder} header={above} footer={below} isReordering={isReordering} />;
+  return <OpenMachinePage connection={connection} spaceOrder={spaceOrder} header={above} footer={below} />;
 }
 
 type FoldedMachinesProps = {
   cards: ReactNode;
-  /** The machine whose drag began on a handle outside this list: it starts here at once. */
-  draggedId: string | null;
-  onDragEnd: () => void;
-  renderHeader: (machine: Machine, handle: ReactNode) => ReactNode;
+  renderHeader: (machine: Machine, onLongPress: () => void) => ReactNode;
 };
 
 /**
- * Every machine folded: the headers are the list's items, so they drag to reorder. The list drags
- * the items of one list, and while a machine is open its spaces are that list. So a drag from the
- * open machine's page shows this list and starts the drag here; the open machine unfolds at the drop.
+ * Every machine folded: the headers are the list's items, so a hold drags one to reorder it. The
+ * list drags the items of one list, and while a machine is open its spaces are that list.
  */
-function FoldedMachines({ cards, draggedId, onDragEnd, renderHeader }: FoldedMachinesProps) {
+function FoldedMachines({ cards, renderHeader }: FoldedMachinesProps) {
   const { machines, move } = useMachines();
-  // The list calls its drag events on the UI thread.
-  const onDragEndOnUi = useCallback(() => {
-    "worklet";
-    scheduleOnRN(onDragEnd);
-  }, [onDragEnd]);
+  const dragPan = useDragPan();
 
   return (
     <ReorderableList
       style={styles.screen}
+      panGesture={dragPan}
+      shouldUpdateActiveItem
       data={machines}
       keyExtractor={(machine) => machine.id}
       onReorder={({ from, to }) => move(from, to)}
-      onDragEnd={onDragEndOnUi}
       ListHeaderComponent={<View style={styles.foldedHeader}>{cards}</View>}
-      renderItem={({ item }) => <>{renderHeader(item, <DragHandle name={item.name} startNow={item.id === draggedId} />)}</>}
+      renderItem={({ item }) => <DraggableHeader machine={item} renderHeader={renderHeader} />}
     />
   );
+}
+
+/** A machine's header in the folded list: it lifts while dragged. */
+function DraggableHeader({ machine, renderHeader }: { machine: Machine; renderHeader: FoldedMachinesProps["renderHeader"] }) {
+  const drag = useReorderableDrag();
+  return <LiftOnDrag>{renderHeader(machine, drag)}</LiftOnDrag>;
 }
 
 type OpenMachinePageProps = {
@@ -174,11 +143,10 @@ type OpenMachinePageProps = {
   header: ReactElement;
   /** The headers of the machines after it. */
   footer: ReactElement;
-  isReordering: boolean;
 };
 
 /** The open machine unfolded between the other headers: its spaces once connected, else its connection's state. */
-function OpenMachinePage({ connection, spaceOrder, header, footer, isReordering }: OpenMachinePageProps) {
+function OpenMachinePage({ connection, spaceOrder, header, footer }: OpenMachinePageProps) {
   const { id, status, list, reconnect, trust } = connection;
   if (status.phase === "connected") {
     return (
@@ -188,7 +156,6 @@ function OpenMachinePage({ connection, spaceOrder, header, footer, isReordering 
         spaceOrder={spaceOrder}
         header={header}
         footer={footer}
-        isReordering={isReordering}
         onOpenPane={(pane) => openPane(id, pane)}
       />
     );
