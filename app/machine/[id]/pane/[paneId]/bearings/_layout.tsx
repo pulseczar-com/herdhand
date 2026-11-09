@@ -23,7 +23,7 @@ export default function BearingsLayout() {
   if (connection?.status.phase !== "connected" || !located || !folder) return stack;
 
   return (
-    <BearingsProvider run={connection.status.run} folder={folder} space={located.space}>
+    <BearingsProvider machineId={connection.id} run={connection.status.run} folder={folder} space={located.space}>
       {stack}
     </BearingsProvider>
   );

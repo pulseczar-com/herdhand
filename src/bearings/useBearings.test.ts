@@ -5,6 +5,7 @@ import type { RunCommand } from "@/ssh/bridge";
 import { AWAY_MARKER } from "@/ssh/commands";
 
 import fixture from "./fixtures/bearings.json";
+import { getLastSeen, resetLastSeen } from "./lastSeen";
 import { REFRESH_INTERVAL_MS, useBearings } from "./useBearings";
 
 const SNAPSHOT = JSON.stringify(fixture);
@@ -22,7 +23,10 @@ function makeRun(...replies: (ReturnType<typeof ok> | Error)[]): jest.MockedFunc
 const waitForNextRead = () => act(() => jest.advanceTimersByTimeAsync(REFRESH_INTERVAL_MS));
 
 describe("useBearings", () => {
-  beforeEach(() => jest.useFakeTimers());
+  beforeEach(() => {
+    jest.useFakeTimers();
+    resetLastSeen();
+  });
   afterEach(() => {
     jest.useRealTimers();
     AppState.currentState = "active";
@@ -30,7 +34,7 @@ describe("useBearings", () => {
 
   it("runs the snapshot on open and shows its sections", async () => {
     const run = makeRun(ok(SNAPSHOT));
-    const { result } = renderHook(() => useBearings(run, "/srv/crew"));
+    const { result } = renderHook(() => useBearings(run, "/srv/crew", getLastSeen("m1", "/srv/crew")));
     expect(result.current.sections).toBeNull();
 
     await act(() => jest.advanceTimersByTimeAsync(0));
@@ -42,7 +46,7 @@ describe("useBearings", () => {
 
   it("runs it again every 30 seconds", async () => {
     const run = makeRun(ok(SNAPSHOT), ok(SNAPSHOT));
-    renderHook(() => useBearings(run, "/srv/crew"));
+    renderHook(() => useBearings(run, "/srv/crew", getLastSeen("m1", "/srv/crew")));
     await act(() => jest.advanceTimersByTimeAsync(0));
 
     await waitForNextRead();
@@ -53,7 +57,7 @@ describe("useBearings", () => {
 
   it("starts no run while the app is in the background, and none after the screen closes", async () => {
     const run = makeRun(ok(SNAPSHOT), ok(SNAPSHOT));
-    const { unmount } = renderHook(() => useBearings(run, "/srv/crew"));
+    const { unmount } = renderHook(() => useBearings(run, "/srv/crew", getLastSeen("m1", "/srv/crew")));
     await act(() => jest.advanceTimersByTimeAsync(0));
     AppState.currentState = "background";
     await waitForNextRead();
@@ -68,7 +72,7 @@ describe("useBearings", () => {
 
   it("keeps the last sections and shows one error line when a refresh fails", async () => {
     const run = makeRun(ok(SNAPSHOT), { output: "", exitCode: 2 }, new Error("Connection closed"), ok(SNAPSHOT));
-    const { result } = renderHook(() => useBearings(run, "/srv/crew"));
+    const { result } = renderHook(() => useBearings(run, "/srv/crew", getLastSeen("m1", "/srv/crew")));
     await act(() => jest.advanceTimersByTimeAsync(0));
     const updatedAt = result.current.updatedAt;
 
@@ -86,7 +90,7 @@ describe("useBearings", () => {
 
   it("shows an error for text that is not JSON and for an unknown schema", async () => {
     const run = makeRun(ok("not json"), ok(JSON.stringify({ schema: "fm-bearings.v2" })));
-    const { result } = renderHook(() => useBearings(run, "/srv/crew"));
+    const { result } = renderHook(() => useBearings(run, "/srv/crew", getLastSeen("m1", "/srv/crew")));
     await act(() => jest.advanceTimersByTimeAsync(0));
     expect(result.current.error).toMatch(/^Could not read the bearings: /);
     expect(result.current.sections).toBeNull();
@@ -97,7 +101,7 @@ describe("useBearings", () => {
 
   it("shows the away line, keeps the data, and clears it when the home returns", async () => {
     const run = makeRun(ok(SNAPSHOT), ok(`${AWAY_MARKER}\n`), ok(SNAPSHOT));
-    const { result } = renderHook(() => useBearings(run, "/srv/crew"));
+    const { result } = renderHook(() => useBearings(run, "/srv/crew", getLastSeen("m1", "/srv/crew")));
     await act(() => jest.advanceTimersByTimeAsync(0));
 
     await waitForNextRead();
@@ -111,7 +115,7 @@ describe("useBearings", () => {
   it("runs once at a time: a refresh during a run waits for that run", async () => {
     let finish: (reply: ReturnType<typeof ok>) => void = () => {};
     const run: jest.MockedFunction<RunCommand> = jest.fn().mockReturnValue(new Promise((resolve) => (finish = resolve)));
-    const { result } = renderHook(() => useBearings(run, "/srv/crew"));
+    const { result } = renderHook(() => useBearings(run, "/srv/crew", getLastSeen("m1", "/srv/crew")));
     await act(() => jest.advanceTimersByTimeAsync(0));
 
     await act(async () => {
@@ -126,7 +130,7 @@ describe("useBearings", () => {
 
   it("runs at once on a refresh and starts the 30 seconds again", async () => {
     const run = makeRun(ok(SNAPSHOT), ok(SNAPSHOT), ok(SNAPSHOT));
-    const { result } = renderHook(() => useBearings(run, "/srv/crew"));
+    const { result } = renderHook(() => useBearings(run, "/srv/crew", getLastSeen("m1", "/srv/crew")));
     await act(() => jest.advanceTimersByTimeAsync(0));
     await act(() => jest.advanceTimersByTimeAsync(20_000));
 
@@ -137,5 +141,46 @@ describe("useBearings", () => {
     expect(run).toHaveBeenCalledTimes(2);
     await act(() => jest.advanceTimersByTimeAsync(10_000));
     expect(run).toHaveBeenCalledTimes(3);
+  });
+
+  it("opens again on the last data at once, with its own fetch time, and refreshes it", async () => {
+    jest.setSystemTime(new Date("2026-11-09T12:00:00Z"));
+    const firstRun = makeRun(ok(SNAPSHOT));
+    const first = renderHook(() => useBearings(firstRun, "/srv/crew", getLastSeen("m1", "/srv/crew")));
+    await act(() => jest.advanceTimersByTimeAsync(0));
+    const fetchedAt = first.result.current.updatedAt;
+    first.unmount();
+    jest.setSystemTime(new Date("2026-11-09T12:05:00Z"));
+
+    const run = makeRun(ok(SNAPSHOT));
+    const second = renderHook(() => useBearings(run, "/srv/crew", getLastSeen("m1", "/srv/crew")));
+
+    expect(second.result.current.sections).toHaveLength(6);
+    expect(second.result.current.updatedAt).toBe(fetchedAt);
+    await act(() => jest.advanceTimersByTimeAsync(0));
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(second.result.current.updatedAt).toBe(Date.parse("2026-11-09T12:05:00Z"));
+  });
+
+  it("keeps the last data on show when the refresh of the next visit fails", async () => {
+    const firstRun = makeRun(ok(SNAPSHOT));
+    const first = renderHook(() => useBearings(firstRun, "/srv/crew", getLastSeen("m1", "/srv/crew")));
+    await act(() => jest.advanceTimersByTimeAsync(0));
+    first.unmount();
+
+    const failingRun = makeRun({ output: "", exitCode: 3 });
+    const second = renderHook(() => useBearings(failingRun, "/srv/crew", getLastSeen("m1", "/srv/crew")));
+    await act(() => jest.advanceTimersByTimeAsync(0));
+
+    expect(second.result.current.sections).toHaveLength(6);
+    expect(second.result.current.error).toBe("Could not refresh (exit 3)");
+  });
+
+  it("shows no data for a home that was not seen yet", () => {
+    const run = makeRun(ok(SNAPSHOT));
+    const { result } = renderHook(() => useBearings(run, "/srv/other", getLastSeen("m1", "/srv/other")));
+
+    expect(result.current.sections).toBeNull();
+    expect(result.current.updatedAt).toBeNull();
   });
 });

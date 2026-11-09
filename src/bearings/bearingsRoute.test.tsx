@@ -13,6 +13,7 @@ import type { Machine } from "@/machines/store";
 import type { HostReader } from "@/ssh/hostReader";
 
 import { getDemoBearings, toToon } from "./fixtures/demo";
+import { resetLastSeen } from "./lastSeen";
 import { resetFirstmateChecks } from "./useIsFirstmate";
 
 const FIRSTMATE_FOLDER = "/srv/crew";
@@ -101,6 +102,7 @@ function renderPane(paneId: string) {
 beforeEach(async () => {
   commands.length = 0;
   resetFirstmateChecks();
+  resetLastSeen();
   await AsyncStorage.clear();
   jest.clearAllMocks();
 });
@@ -175,6 +177,24 @@ describe("Bearings", () => {
     act(() => appRouter.back());
     expect(await screen.findByText("Waiting on you")).toBeTruthy();
     expect(router.getPathname()).toBe("/machine/m1/pane/t6/bearings");
+  });
+
+  it("shows the last data at once when Bearings opens again, and an item shows its record at once", async () => {
+    await openBearings();
+    fireEvent.press(screen.getAllByRole("button", { name: "Add cursor pagination to the orders endpoint" })[0]);
+    await screen.findByText(/The orders endpoint returns every order at once/);
+    act(() => appRouter.back());
+    await screen.findByText("Waiting on you");
+    act(() => appRouter.back());
+    await screen.findByRole("button", { name: "Bearings" });
+
+    fireEvent.press(screen.getByRole("button", { name: "Bearings" }));
+
+    // No wait: the list and its age come from the earlier visit.
+    expect(screen.getByText("Waiting on you")).toBeTruthy();
+    expect(screen.getByText(/^Updated \d+ s ago/)).toBeTruthy();
+    fireEvent.press(screen.getAllByRole("button", { name: "Add cursor pagination to the orders endpoint" })[0]);
+    expect(screen.getByText(/The orders endpoint returns every order at once/)).toBeTruthy();
   });
 
   it("opens the PR in the browser from its chip", async () => {

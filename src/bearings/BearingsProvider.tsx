@@ -1,4 +1,4 @@
-import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from "react";
+import { createContext, type ReactNode, useCallback, useContext, useMemo } from "react";
 
 import { getErrorMessage } from "@/errorMessage";
 import type { Space } from "@/herdr/backend";
@@ -6,6 +6,7 @@ import type { RunCommand } from "@/ssh/bridge";
 import { getNoteCommand } from "@/ssh/commands";
 
 import type { CachedRecord } from "./records";
+import { getLastSeen } from "./lastSeen";
 import { useBearings } from "./useBearings";
 
 type BearingsValue = ReturnType<typeof useBearings> & {
@@ -13,7 +14,7 @@ type BearingsValue = ReturnType<typeof useBearings> & {
   /** The Firstmate's space: its name and badge title the screens. */
   space: Space;
   run: RunCommand;
-  /** The task records fetched in this visit to Bearings. */
+  /** The task records fetched in this session, so an opened item shows at once. */
   recordCache: Map<string, CachedRecord>;
   /** Saves a note in the Firstmate's inbox. Gives null when it was saved, else the error line. */
   sendNote(requestId: string, body: string): Promise<string | null>;
@@ -21,15 +22,16 @@ type BearingsValue = ReturnType<typeof useBearings> & {
 
 const BearingsContext = createContext<BearingsValue | null>(null);
 
-type BearingsProviderProps = { run: RunCommand; folder: string; space: Space; children: ReactNode };
+type BearingsProviderProps = { machineId: string; run: RunCommand; folder: string; space: Space; children: ReactNode };
 
 /**
  * The Firstmate's bearings for the screens of Bearings: the pane's list and each opened item
  * share one snapshot and one poll. It runs only while a Bearings screen is open.
  */
-export function BearingsProvider({ run, folder, space, children }: BearingsProviderProps) {
-  const { sections, updatedAt, error, isAway, isRefreshing, refresh } = useBearings(run, folder);
-  const [recordCache] = useState(() => new Map<string, CachedRecord>());
+export function BearingsProvider({ machineId, run, folder, space, children }: BearingsProviderProps) {
+  const seen = getLastSeen(machineId, folder);
+  const { sections, updatedAt, error, isAway, isRefreshing, refresh } = useBearings(run, folder, seen);
+  const recordCache = seen.records;
 
   const sendNote = useCallback(
     async (requestId: string, body: string) => {
