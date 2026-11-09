@@ -40,7 +40,7 @@ const noFiles: HostReader = {
 };
 
 const connected: Omit<MachineConnection, "id" | "list"> = {
-  status: { phase: "connected", kind: "desktop", availableKinds: ["desktop"], version: "0.1.17", backend, host: noFiles },
+  status: { phase: "connected", kind: "desktop", availableKinds: ["desktop"], version: "0.1.17", backend, host: noFiles, run: jest.fn() },
   reconnect: jest.fn(),
   trust: jest.fn(),
   switchKind: jest.fn(),
@@ -66,7 +66,7 @@ const mockOtherBackend: Backend = {
 
 const mockOtherConnection: Omit<MachineConnection, "id" | "list"> = {
   ...connected,
-  status: { phase: "connected", kind: "desktop", availableKinds: ["desktop"], version: "0.1.17", backend: mockOtherBackend, host: noFiles },
+  status: { phase: "connected", kind: "desktop", availableKinds: ["desktop"], version: "0.1.17", backend: mockOtherBackend, host: noFiles, run: jest.fn() },
 };
 
 let mockConnection = connected;
@@ -506,7 +506,7 @@ describe("Claude chat", () => {
   function connectTo(chosen: Backend, chosenHost: HostReader = host) {
     mockConnection = {
       ...connected,
-      status: { phase: "connected", kind: "desktop", availableKinds: ["desktop"], version: "0.1.18", backend: chosen, host: chosenHost },
+      status: { phase: "connected", kind: "desktop", availableKinds: ["desktop"], version: "0.1.18", backend: chosen, host: chosenHost, run: jest.fn() },
     };
   }
 
@@ -694,7 +694,7 @@ describe("Shell chat", () => {
     };
     mockConnection = {
       ...connected,
-      status: { phase: "connected", kind: "desktop", availableKinds: ["desktop"], version: "0.1.18", backend: shellBackend, host: noFiles },
+      status: { phase: "connected", kind: "desktop", availableKinds: ["desktop"], version: "0.1.18", backend: shellBackend, host: noFiles, run: jest.fn() },
     };
     return state;
   }

@@ -102,6 +102,7 @@ type Terminal = {
   cols?: number;
   state?: string;
   title?: string;
+  cwd?: string;
   argv?: string[];
   foreground?: { pid?: number; name?: string } | null;
   status?: { app?: string; state?: string; kind?: string | null; msg?: string } | null;
@@ -162,7 +163,7 @@ function toPane(terminal: Terminal): Pane {
   const id = String(terminal.address);
   const title = terminal.title ?? "";
   const columns = terminal.cols || null;
-  const shell = { id, title, agent: null, state: null, columns };
+  const shell = { id, title, agent: null, state: null, columns, cwd: terminal.cwd };
   if (terminal.state === "finished") return { ...shell, isFinished: true };
   if (!status) return { ...shell, isFinished: false, isShellForeground: isShellForeground(terminal) };
   return {
@@ -172,6 +173,7 @@ function toPane(terminal: Terminal): Pane {
     state: toAgentState(status.state),
     isFinished: false,
     columns,
+    cwd: terminal.cwd,
     pid: terminal.foreground?.pid,
     message: status.msg,
     blockedKind: toBlockedKind(status.kind),

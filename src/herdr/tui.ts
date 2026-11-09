@@ -129,6 +129,7 @@ type TuiPane = {
   pane_id?: string;
   tab_id?: string;
   label?: string | null;
+  cwd?: string;
   terminal_title_stripped?: string;
   agent?: string;
   agent_status?: string;
@@ -175,8 +176,9 @@ function toTab(tab: TuiTab, panes: TuiPane[], widths: Map<string, number>): Tab 
 function toPane(pane: TuiPane, columns: number | null): Pane {
   const id = String(pane.pane_id);
   const title = pane.label || pane.terminal_title_stripped || "";
-  if (!pane.agent) return { id, title, agent: null, state: null, isFinished: false, columns };
-  const agentPane = { id, title, agent: pane.agent, state: toAgentState(pane.agent_status), isFinished: false, columns };
+  const shell = { id, title, agent: null, state: null, isFinished: false, columns, cwd: pane.cwd };
+  if (!pane.agent) return shell;
+  const agentPane = { ...shell, agent: pane.agent, state: toAgentState(pane.agent_status) };
   const { kind, value } = pane.agent_session ?? {};
   if (!value) return agentPane;
   if (kind === "id") return { ...agentPane, sessionId: value };

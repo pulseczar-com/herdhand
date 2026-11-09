@@ -140,3 +140,38 @@ const FIND_FILES_SCRIPT = 'find -L "$1" -mindepth "$3" -maxdepth "$3" -type f -n
 export function findFilesCommand(folder: string, namePattern: string, depth: number): string {
   return runScript(FIND_FILES_SCRIPT, [folder, namePattern, depth]);
 }
+
+// Runs a Firstmate script through a login shell, so the script finds the tools in the user's
+// PATH (a remote command has a bare one). The script and its arguments stay separate arguments,
+// never joined into a command string. $1 is the Firstmate home; the script is under it.
+const RUN_IN_LOGIN_SHELL = String.raw`exec sh -lc "exec \"\$0\" \"\$@\""`;
+
+/** The line the snapshot command prints, and exits 0, while the Firstmate is in away mode. */
+export const AWAY_MARKER = "herdhand-away-mode";
+
+// The standard flags list every decision and every landed item. `run` drops stderr, so the app
+// cannot read the snapshot's own away-mode refusal; this tests the file the Firstmate keeps then.
+const SNAPSHOT_SCRIPT = `[ -e "$1/state/.afk" ] && { echo ${AWAY_MARKER}; exit 0; }; ${RUN_IN_LOGIN_SHELL} "$1/bin/fm-bearings-snapshot.sh" --json --all-decisions --all-landed`;
+const RECORD_SCRIPT = `${RUN_IN_LOGIN_SHELL} "$1/bin/fm-tasks-axi.sh" show "$2" --full`;
+// `--` keeps a body that starts with a dash from being read as a flag.
+const NOTE_SCRIPT = `${RUN_IN_LOGIN_SHELL} "$1/bin/fm-inbox.sh" note --request-id "$2" -- "$3"`;
+
+/** Exits 0 when the folder is a Firstmate home: it has an executable snapshot script. */
+export function getTestFirstmateCommand(home: string): string {
+  return runScript('test -x "$1/bin/fm-bearings-snapshot.sh"', [home]);
+}
+
+/** Prints the bearings snapshot (JSON, schema fm-bearings.v1), or AWAY_MARKER in away mode. */
+export function getSnapshotCommand(home: string): string {
+  return runScript(SNAPSHOT_SCRIPT, [home]);
+}
+
+/** Prints the full record of one task, in TOON. */
+export function getRecordCommand(home: string, taskId: string): string {
+  return runScript(RECORD_SCRIPT, [home, taskId]);
+}
+
+/** Saves one note in the Firstmate's inbox. The same request id saves the note once. */
+export function getNoteCommand(home: string, requestId: string, body: string): string {
+  return runScript(NOTE_SCRIPT, [home, requestId, body]);
+}
