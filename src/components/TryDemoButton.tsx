@@ -1,10 +1,22 @@
 import { router } from "expo-router";
-import { Button } from "react-native";
+import { Alert, Button } from "react-native";
 
+import { getErrorMessage } from "@/errorMessage";
 import { useMachines } from "@/machines/MachineConnection";
 
 /** Opens the demo machine: sample spaces and panes, with no network. */
 export function TryDemoButton() {
   const { startDemo } = useMachines();
-  return <Button title="Try the demo" onPress={() => void startDemo().then(() => router.navigate("/"))} />;
+
+  async function openDemo() {
+    try {
+      await startDemo();
+    } catch (error) {
+      Alert.alert("Could not open the demo", getErrorMessage(error));
+      return;
+    }
+    router.navigate("/");
+  }
+
+  return <Button title="Try the demo" onPress={() => void openDemo()} />;
 }
