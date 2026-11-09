@@ -1,5 +1,6 @@
-import { render, screen } from "@testing-library/react-native";
+import { fireEvent, render, screen } from "@testing-library/react-native";
 import { useTheme } from "expo-router";
+import { Linking } from "react-native";
 
 import SettingsScreen from "../../app/settings";
 
@@ -46,5 +47,14 @@ describe("the Settings screen", () => {
     render(<SettingsScreen />);
 
     expect(await screen.findByLabelText("PulseCzar")).toHaveProp("source", lockup);
+  });
+
+  it("opens the privacy policy in the browser", async () => {
+    const openURL = jest.spyOn(Linking, "openURL").mockResolvedValue(true);
+
+    render(<SettingsScreen />);
+    fireEvent.press(await screen.findByText("Privacy policy"));
+
+    expect(openURL).toHaveBeenCalledWith("https://pulseczar.com/herdhand/privacy");
   });
 });

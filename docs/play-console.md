@@ -9,7 +9,7 @@ Answers for the Play Console and the steps to make a release build. The facts co
 3. Download the `.aab` from the build page.
 4. In the Play Console, create a release in a testing track and upload the `.aab`. The first upload needs the Play Console store listing, the declarations below and the privacy policy link.
 
-Privacy policy link: `https://github.com/pulseczar-com/herdhand/blob/main/PRIVACY.md`
+Privacy policy link: `https://pulseczar.com/herdhand/privacy`
 
 ## Data safety form
 
