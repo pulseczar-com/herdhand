@@ -23,7 +23,7 @@ Herdr is a terminal multiplexer: it keeps spaces, tabs and panes running on a ma
 - A pane of a [supported agent](#supported-agents) opens as a chat: your prompts, the replies in Markdown, and each tool call as a row. The app reads the agent's own transcript file over SSH and installs nothing on the machine.
 - When Claude asks a question, the chat shows its options as buttons. When an agent waits on something the chat does not record, such as a permission prompt or a sign-in, a live screen card shows the end of the pane. An agent pane with no chat opens on its screen, with a line that says why.
 - A shell pane opens as a chat: each command you send from the phone is a bubble with its output under it. The app knows a command has ended when the shell holds the foreground again. See [Shell panes](#shell-panes).
-- A pane that works in a [Firstmate](https://github.com/kunchenguid/firstmate) home gets a **Bearings** button. See [Firstmate bearings](#firstmate-bearings).
+- A pane that works in a [Firstmate](https://github.com/kunchenguid/firstmate) home gets a **Bearings** button. See [Firstmate](#firstmate).
 - Log in with a password, or pair by scanning a code so the phone logs in with its own key.
 - An app lock with fingerprint, face or the screen lock. It is on by default.
 - A demo with sample spaces, chats and Bearings, and no network. Tap **Try the demo** on the empty machine list, or in Settings.
@@ -38,11 +38,26 @@ A command sent from the phone becomes a bubble, and the output of the command sh
 - A full-screen program, such as vim, started from the phone shows its whole screen, cut to the last 200 lines, until the shell holds the foreground again.
 - The app expects a one-line prompt with no right-side prompt and no transient prompt. With another kind of prompt, the output can include prompt lines, or can show the whole screen with a note that it is cut.
 
-## Firstmate bearings
+## Firstmate
 
-[Firstmate](https://github.com/kunchenguid/firstmate) is an open-source supervisor that runs a team of coding agents. A pane whose folder is a Firstmate home (its `bin/fm-bearings-snapshot.sh` is executable) has a **Bearings** button in its header. Other panes do not change, and the button never shows for a person with no Firstmate. The app tests for the script with one `test -x` command, once for each folder in a session.
+[Firstmate](https://github.com/kunchenguid/firstmate) is an open-source supervisor for coding agents. You talk to one agent, Firstmate. It plans the work, starts other agents in Herdr, watches them, and brings you the decisions and pull requests that need you.
 
-The button opens Bearings over the pane; the back arrow returns to the chat. Bearings shows what Firstmate reports in these sections, which fold with a tap and hide when empty: Waiting on you, In flight, PRs, Secondmates, Queued and Landed. A tap on a card opens the item with all of its data. Its buttons are Discuss and, when the item allows them, Done, Defer, Drop, Stop and Start now. Drop and Stop ask first. When you open Bearings or an item again, it shows the last data at once, with its age, and refreshes it; the app keeps that data in memory for the session only. Each button saves one note in the Firstmate's inbox. The layout and the rules for which button shows come from the Herdr sidebar mod herdr-firstmate-bearings.
+Herdhand lets you keep up with Firstmate from your phone. Open the Firstmate pane to chat with it, as with any agent. Tap **Bearings** in the pane's header to see where the work stands:
+
+- **Waiting on you:** decisions and tasks that need your answer.
+- **In flight:** work that agents are doing now.
+- **PRs:** pull requests that are open for review.
+- **Secondmates:** other Firstmates that this Firstmate supervises.
+- **Queued:** work that waits for its turn or for another task.
+- **Landed:** work that merged recently.
+
+Tap an item to see all of its details. From there, you can **Discuss** it, which sends Firstmate a note about it. You can also act on it: Done, Defer, Drop, Stop or Start now, as the item allows. Drop and Stop ask first. Firstmate reads each note and replies in its chat.
+
+Bearings shows the last data at once, with its age. It refreshes every 30 seconds while it is open, and when you pull down. On the desktop, the Herdr sidebar mod herdr-firstmate-bearings gives the same view.
+
+### How it works
+
+A pane whose folder is a Firstmate home (its `bin/fm-bearings-snapshot.sh` is executable) has a **Bearings** button in its header. Other panes do not change, and the button never shows for a person with no Firstmate. The app tests for the script with one `test -x` command, once for each folder in a session. The app keeps Bearings data in memory for the session only.
 
 The app runs these Firstmate commands only after a tap on Bearings, over the SSH connection that is already open. It installs nothing, and the commands run as the user Herdhand logs in as:
 
