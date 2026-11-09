@@ -4,7 +4,7 @@ import type { Bridge, RunCommand } from "@/ssh/bridge";
 import { getRecordCommand, getSnapshotCommand, getTestFirstmateCommand } from "@/ssh/commands";
 import { FileReadError, type HostReader } from "@/ssh/hostReader";
 
-import { DEMO_FIRSTMATE_FOLDER, DEMO_SCREENS, DEMO_SPACES, getDemoFiles } from "./demoData";
+import { DEMO_FIRSTMATE_FOLDER, DEMO_FIRSTMATE_PID, DEMO_SCREENS, DEMO_SPACES, getDemoFiles } from "./demoData";
 import { DEMO_NOTICE } from "./demoMachine";
 
 const DEMO_VERSION = "demo";
@@ -74,7 +74,7 @@ function makeDemoHost(files: Map<string, string>): HostReader {
 /** Answers the Firstmate commands of Bearings from the sample. Anything else fails with DEMO_NOTICE, so another folder is no Firstmate home. */
 function makeDemoRun(): RunCommand {
   return async (command) => {
-    if (command === getTestFirstmateCommand(DEMO_FIRSTMATE_FOLDER)) return { output: "", exitCode: 0 };
+    if (command === getTestFirstmateCommand(DEMO_FIRSTMATE_FOLDER, DEMO_FIRSTMATE_PID, undefined)) return { output: "", exitCode: 0 };
     const { snapshot, records } = getDemoBearings(Date.now());
     if (command === getSnapshotCommand(DEMO_FIRSTMATE_FOLDER)) return { output: JSON.stringify(snapshot), exitCode: 0 };
     const recordId = Object.keys(records).find((id) => command === getRecordCommand(DEMO_FIRSTMATE_FOLDER, id));

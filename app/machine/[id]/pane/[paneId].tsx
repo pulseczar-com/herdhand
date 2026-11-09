@@ -88,7 +88,7 @@ function PaneScreen({ connection }: { connection: MachineConnection }) {
   // Input goes to the agent when Herdr names one on the pane, else to the shell.
   const composerPlaceholder = shownPane?.agent ? "Message the agent" : "Run a command";
   const shellBackend = getShellBackend(status, located);
-  const isFirstmate = useIsFirstmate(connection.id, status.phase === "connected" ? status.run : undefined, located?.pane.cwd);
+  const isFirstmate = useIsFirstmate(connection.id, status.phase === "connected" ? status.run : undefined, located?.pane);
 
   return (
     <KeyboardAvoidingView style={styles.screen} behavior="padding" keyboardVerticalOffset={headerHeight}>

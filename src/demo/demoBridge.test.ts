@@ -7,7 +7,7 @@ import { getNoteCommand, getRecordCommand, getSnapshotCommand, getTestFirstmateC
 import { FileReadError } from "@/ssh/hostReader";
 
 import { DEMO_NOTICE } from "./demoMachine";
-import { DEMO_FIRSTMATE_FOLDER } from "./demoData";
+import { DEMO_FIRSTMATE_FOLDER, DEMO_FIRSTMATE_PID } from "./demoData";
 import { makeDemoBridge } from "./demoBridge";
 
 const bridge = makeDemoBridge("demo", () => {});
@@ -87,8 +87,8 @@ describe("what would send", () => {
 
 describe("the demo Firstmate", () => {
   it("is a Firstmate home, and no other folder is", async () => {
-    expect((await bridge.run(getTestFirstmateCommand(DEMO_FIRSTMATE_FOLDER))).exitCode).toBe(0);
-    await expect(bridge.run(getTestFirstmateCommand("/work/acme-web"))).rejects.toThrow();
+    expect((await bridge.run(getTestFirstmateCommand(DEMO_FIRSTMATE_FOLDER, DEMO_FIRSTMATE_PID, undefined))).exitCode).toBe(0);
+    await expect(bridge.run(getTestFirstmateCommand("/work/acme-web", DEMO_FIRSTMATE_PID, undefined))).rejects.toThrow();
   });
 
   it("gives a snapshot with the sample's sections", async () => {

@@ -11,13 +11,14 @@ import type { Backend } from "@/herdr/backend";
 import { type MachineConnection, MachinesProvider } from "@/machines/MachineConnection";
 import type { Machine } from "@/machines/store";
 import type { HostReader } from "@/ssh/hostReader";
-import { AWAY_MARKER } from "@/ssh/commands";
+import { AWAY_MARKER, getTestFirstmateCommand } from "@/ssh/commands";
 
 import { getDemoBearings, toToon } from "./fixtures/demo";
 import { resetLastSeen } from "./lastSeen";
 import { resetFirstmateChecks } from "./useIsFirstmate";
 
 const FIRSTMATE_FOLDER = "/srv/crew";
+const FIRSTMATE_PID = 1476;
 const demo = getDemoBearings(Date.now());
 
 const backend: Backend = {
@@ -31,7 +32,8 @@ const backend: Backend = {
           id: "t1",
           name: "main",
           panes: [
-            { id: "t6", title: "zsh", agent: null, state: null, isFinished: false, columns: null, cwd: FIRSTMATE_FOLDER },
+            { id: "t6", title: "zsh", agent: null, state: null, isFinished: false, columns: null, cwd: FIRSTMATE_FOLDER, pid: FIRSTMATE_PID },
+            { id: "t8", title: "claude", agent: "claude-code", state: "idle", isFinished: false, columns: null, cwd: FIRSTMATE_FOLDER, pid: 99 },
             { id: "t7", title: "zsh", agent: null, state: null, isFinished: false, columns: null, cwd: "/srv/other" },
           ],
         },
@@ -51,7 +53,7 @@ let isHomeAway = false;
 const run = jest.fn(async (command: string) => {
   commands.push(command);
   if (isHomeAway && command.includes("fm-bearings-snapshot.sh\" --json")) return { output: AWAY_MARKER, exitCode: 0 };
-  if (command.includes("test -x")) return { output: "", exitCode: command.includes(FIRSTMATE_FOLDER) ? 0 : 1 };
+  if (command.includes("test -x")) return { output: "", exitCode: command === getTestFirstmateCommand(FIRSTMATE_FOLDER, FIRSTMATE_PID, undefined) ? 0 : 1 };
   if (command.includes("fm-bearings-snapshot.sh\" --json")) return { output: JSON.stringify(demo.snapshot), exitCode: 0 };
   if (command.includes("fm-tasks-axi.sh")) {
     const id = / '[^']*' '([^']*)'$/.exec(command)?.[1] ?? "";
@@ -112,6 +114,12 @@ beforeEach(async () => {
 });
 
 describe("a Firstmate pane", () => {
+  it("has no Bearings button on a pane in the folder that does not run the Firstmate", async () => {
+    renderPane("t8");
+    await waitFor(() => expect(run).toHaveBeenCalledWith(getTestFirstmateCommand(FIRSTMATE_FOLDER, 99, undefined)));
+    expect(screen.queryByRole("button", { name: "Firstmate Bearings" })).toBeNull();
+  });
+
   it("has a Bearings button, and a pane in another folder has none", async () => {
     renderPane("t7");
     await screen.findByText("$ ls");

@@ -36,9 +36,59 @@ describe("the Firstmate commands", () => {
   const run = (command: string) => spawnSync("/bin/sh", ["-c", command], { env: { PATH: "/usr/bin:/bin", NODE_ENV: "test" }, encoding: "utf8" });
   const lines = (command: string) => execFileSync("/bin/sh", ["-c", command], { env: { PATH: "/usr/bin:/bin", NODE_ENV: "test" }, encoding: "utf8" }).trim().split("\n");
 
-  it("tells a Firstmate home by its executable snapshot script", () => {
-    expect(run(getTestFirstmateCommand(home)).status).toBe(0);
-    expect(run(getTestFirstmateCommand(base)).status).not.toBe(0);
+  describe("the Firstmate test", () => {
+    const lockPath = () => join(home, "state", ".lock");
+    const sessionPath = () => join(home, "state", ".lock-session");
+    const status = (folder: string, pid?: number, sessionId?: string) => run(getTestFirstmateCommand(folder, pid, sessionId)).status;
+
+    beforeEach(() => {
+      writeFileSync(lockPath(), "1476\n");
+      writeFileSync(sessionPath(), "6ea40615\n");
+    });
+    afterEach(() => {
+      rmSync(lockPath(), { force: true });
+      rmSync(sessionPath(), { force: true });
+    });
+
+    it.each([
+      ["the pid of the lock", 1476, undefined],
+      ["the session id of the lock", undefined, "6ea40615"],
+      ["the pid, with a session id that differs", 1476, "other"],
+      ["the session id, with a pid that differs", 99, "6ea40615"],
+    ])("passes for %s", (_name, pid, sessionId) => {
+      expect(status(home, pid, sessionId)).toBe(0);
+    });
+
+    it.each([
+      ["a pid that differs from the lock", 99, undefined],
+      ["a session id that differs from the lock", undefined, "other"],
+      ["no pid and no session id", undefined, undefined],
+    ])("fails for %s", (_name, pid, sessionId) => {
+      expect(status(home, pid, sessionId)).not.toBe(0);
+    });
+
+    it("fails for a folder without the snapshot script, even with a matching pid", () => {
+      expect(status(base, 1476)).not.toBe(0);
+    });
+
+    it("never matches an empty argument against an empty lock file", () => {
+      writeFileSync(lockPath(), "");
+      writeFileSync(sessionPath(), "");
+      expect(status(home)).not.toBe(0);
+    });
+
+    it("reads only line 1 of the lock files", () => {
+      writeFileSync(lockPath(), "1476\nextra\n");
+      writeFileSync(sessionPath(), "6ea40615\nextra\n");
+      expect(status(home, 1476)).toBe(0);
+      expect(status(home, undefined, "6ea40615")).toBe(0);
+    });
+
+    it("fails when the lock files are missing", () => {
+      rmSync(lockPath());
+      rmSync(sessionPath());
+      expect(status(home, 1476, "6ea40615")).not.toBe(0);
+    });
   });
 
   it("runs the snapshot with the flags that list every decision and landed item", () => {
