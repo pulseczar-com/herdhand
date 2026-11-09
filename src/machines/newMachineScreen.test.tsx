@@ -1,9 +1,10 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 import { router, useLocalSearchParams } from "expo-router";
+import { Linking, Share } from "react-native";
 
 import NewMachineScreen from "../../app/machine/new";
 
-import { PAIR_COMMAND } from "@/pairing/command";
+import { PAIR_COMMAND, PAIR_SCRIPT_URL } from "@/pairing/command";
 import { ConnectError } from "@/ssh/errors";
 import { pairMachine } from "@/ssh/pairing";
 
@@ -54,7 +55,7 @@ jest.mock("./MachineConnection", () => {
 
 function fillIn() {
   fireEvent.press(screen.getByText("Use a password"));
-  fireEvent.changeText(screen.getByLabelText("Address"), "test-box.example.com");
+  fireEvent.changeText(screen.getByLabelText("Host"), "test-box.example.com");
   fireEvent.changeText(screen.getByLabelText("User"), "test-user");
   fireEvent.changeText(screen.getByLabelText("Password"), "secret");
 }
@@ -108,11 +109,11 @@ describe("the Add a machine screen", () => {
   });
 
   describe("the two ways to add a machine", () => {
-    it("starts with the address, then the name, and pairing with a code chosen", () => {
+    it("starts with the host, then the name, and pairing with a code chosen", () => {
       render(<NewMachineScreen />);
 
-      const labels = screen.getAllByLabelText(/^(Address|Name)$/).map((field) => field.props.accessibilityLabel);
-      expect(labels).toEqual(["Address", "Name"]);
+      const labels = screen.getAllByLabelText(/^(Host|Name)$/).map((field) => field.props.accessibilityLabel);
+      expect(labels).toEqual(["Host", "Name"]);
       expect(screen.getByText("Pair with a code")).toBeTruthy();
       expect(screen.getByText("Use a password")).toBeTruthy();
       expect(screen.getByText(PAIR_COMMAND)).toBeTruthy();
@@ -134,14 +135,50 @@ describe("the Add a machine screen", () => {
 
     it("keeps the typed address and name when a code is scanned, and fills the rest", () => {
       render(<NewMachineScreen />);
-      fireEvent.changeText(screen.getByLabelText("Address"), "192.0.2.10");
+      fireEvent.changeText(screen.getByLabelText("Host"), "192.0.2.10");
 
       scan();
 
-      expect(screen.getByLabelText("Address").props.value).toBe("192.0.2.10");
+      expect(screen.getByLabelText("Host").props.value).toBe("192.0.2.10");
       expect(screen.getByLabelText("Name").props.value).toBe("test-box");
       expect(screen.getByLabelText("User").props.value).toBe("test-user");
       expect(screen.getByLabelText("Port").props.value).toBe("2222");
+    });
+
+    it("hints what the host should be, and shows the port in both modes", () => {
+      render(<NewMachineScreen />);
+
+      expect(screen.getByText("Name or IP address this phone can reach")).toBeTruthy();
+      expect(screen.getByLabelText("Port").props.value).toBe("");
+      fireEvent.press(screen.getByText("Use a password"));
+      expect(screen.getByLabelText("Port")).toBeTruthy();
+    });
+
+    it("keeps a typed port when a code is scanned and fills an empty one", () => {
+      render(<NewMachineScreen />);
+      scan();
+      expect(screen.getByLabelText("Port").props.value).toBe("2222");
+
+      fireEvent.press(screen.getByText("Use a password"));
+      fireEvent.press(screen.getByText("Pair with a code"));
+      fireEvent.changeText(screen.getByLabelText("Port"), "2200");
+      scan();
+
+      expect(screen.getByLabelText("Port").props.value).toBe("2200");
+    });
+
+    it("shows the short command as text that can be selected, with Share and a link to the script", () => {
+      const share = jest.spyOn(Share, "share").mockResolvedValue({ action: "sharedAction" });
+      const openUrl = jest.spyOn(Linking, "openURL").mockResolvedValue(undefined);
+      render(<NewMachineScreen />);
+
+      expect(PAIR_COMMAND).toBe("curl -fsSL https://pulseczar.com/herdhand/pair | sh");
+      expect(screen.getByText(PAIR_COMMAND).props.selectable).toBe(true);
+      fireEvent.press(screen.getByText("Share"));
+      fireEvent.press(screen.getByText("View the script on GitHub"));
+
+      expect(share).toHaveBeenCalledWith({ message: PAIR_COMMAND });
+      expect(openUrl).toHaveBeenCalledWith(PAIR_SCRIPT_URL);
     });
 
     it("has nothing to save until a code is scanned", () => {
@@ -158,7 +195,7 @@ describe("the Add a machine screen", () => {
 
       scan();
 
-      expect(screen.getByLabelText("Address").props.value).toBe("test-box.example.com");
+      expect(screen.getByLabelText("Host").props.value).toBe("test-box.example.com");
       expect(screen.getByLabelText("Port").props.value).toBe("2222");
       expect(screen.getByLabelText("User").props.value).toBe("test-user");
       expect(screen.queryByLabelText("Password")).toBeNull();
@@ -169,7 +206,7 @@ describe("the Add a machine screen", () => {
       jest.mocked(addPairedMachine).mockResolvedValue({ id: "m4", ...mockCode, signIn: "phoneKey" });
       render(<NewMachineScreen />);
       scan();
-      fireEvent.changeText(screen.getByLabelText("Address"), "192.0.2.10");
+      fireEvent.changeText(screen.getByLabelText("Host"), "192.0.2.10");
 
       fireEvent.press(screen.getByText("Pair and connect"));
 
@@ -203,7 +240,7 @@ describe("the Add a machine screen", () => {
       fireEvent.press(screen.getByText("Scan another code"));
       fireEvent.press(screen.getByText("Simulate scan"));
 
-      expect(screen.getByLabelText("Address").props.value).toBe("other-box.example.com");
+      expect(screen.getByLabelText("Host").props.value).toBe("other-box.example.com");
       expect(screen.getByLabelText("Port").props.value).toBe("22");
       expect(screen.queryByText("Pairing did not finish. Run the command again.")).toBeNull();
     });
@@ -211,13 +248,13 @@ describe("the Add a machine screen", () => {
     it("keeps an address edited after the first scan when another code is scanned", () => {
       render(<NewMachineScreen />);
       scan();
-      fireEvent.changeText(screen.getByLabelText("Address"), "192.0.2.10");
+      fireEvent.changeText(screen.getByLabelText("Host"), "192.0.2.10");
       mockScannedCode = () => ({ ...mockCode, host: "other-box.example.com", port: 22 });
 
       fireEvent.press(screen.getByText("Scan another code"));
       fireEvent.press(screen.getByText("Simulate scan"));
 
-      expect(screen.getByLabelText("Address").props.value).toBe("192.0.2.10");
+      expect(screen.getByLabelText("Host").props.value).toBe("192.0.2.10");
       expect(screen.getByLabelText("Port").props.value).toBe("22");
     });
   });
@@ -242,7 +279,7 @@ describe("the Add a machine screen", () => {
     it("fills the form with the machine's details and password", async () => {
       renderEdit(null);
 
-      await waitFor(() => expect(screen.getByLabelText("Address").props.value).toBe("test-box.example.com"));
+      await waitFor(() => expect(screen.getByLabelText("Host").props.value).toBe("test-box.example.com"));
       expect(screen.getByLabelText("Name").props.value).toBe("test-box");
       expect(screen.getByLabelText("Port").props.value).toBe("2222");
       expect(screen.getByLabelText("User").props.value).toBe("test-user");
@@ -251,7 +288,7 @@ describe("the Add a machine screen", () => {
 
     it("keeps a machine paired by code without a password field", async () => {
       renderEdit(null, { ...saved, signIn: "phoneKey" }, null);
-      await waitFor(() => expect(screen.getByLabelText("Address").props.value).toBe("test-box.example.com"));
+      await waitFor(() => expect(screen.getByLabelText("Host").props.value).toBe("test-box.example.com"));
 
       fireEvent.press(screen.getByText("Save"));
 
@@ -262,7 +299,7 @@ describe("the Add a machine screen", () => {
 
     it("updates the machine in place and goes back, without adding one", async () => {
       renderEdit(null);
-      await waitFor(() => expect(screen.getByLabelText("Address").props.value).toBe("test-box.example.com"));
+      await waitFor(() => expect(screen.getByLabelText("Host").props.value).toBe("test-box.example.com"));
 
       fireEvent.changeText(screen.getByLabelText("Name"), "renamed");
       fireEvent.press(screen.getByText("Save"));
@@ -275,7 +312,7 @@ describe("the Add a machine screen", () => {
 
     it("reconnects the machine when it is the open one", async () => {
       renderEdit("m3");
-      await waitFor(() => expect(screen.getByLabelText("Address").props.value).toBe("test-box.example.com"));
+      await waitFor(() => expect(screen.getByLabelText("Host").props.value).toBe("test-box.example.com"));
 
       fireEvent.press(screen.getByText("Save"));
 
@@ -284,7 +321,7 @@ describe("the Add a machine screen", () => {
 
     it("does not reconnect when another machine is open", async () => {
       renderEdit("m9");
-      await waitFor(() => expect(screen.getByLabelText("Address").props.value).toBe("test-box.example.com"));
+      await waitFor(() => expect(screen.getByLabelText("Host").props.value).toBe("test-box.example.com"));
 
       fireEvent.press(screen.getByText("Save"));
 
