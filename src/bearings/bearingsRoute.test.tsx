@@ -11,6 +11,7 @@ import type { Backend } from "@/herdr/backend";
 import { type MachineConnection, MachinesProvider } from "@/machines/MachineConnection";
 import type { Machine } from "@/machines/store";
 import type { HostReader } from "@/ssh/hostReader";
+import { AWAY_MARKER } from "@/ssh/commands";
 
 import { getDemoBearings, toToon } from "./fixtures/demo";
 import { resetLastSeen } from "./lastSeen";
@@ -46,8 +47,10 @@ const noFiles: HostReader = { readFile: jest.fn(), findFiles: jest.fn().mockReso
 
 /** The commands the app ran, and what the fake machine answers to each. */
 const commands: string[] = [];
+let isHomeAway = false;
 const run = jest.fn(async (command: string) => {
   commands.push(command);
+  if (isHomeAway && command.includes("fm-bearings-snapshot.sh\" --json")) return { output: AWAY_MARKER, exitCode: 0 };
   if (command.includes("test -x")) return { output: "", exitCode: command.includes(FIRSTMATE_FOLDER) ? 0 : 1 };
   if (command.includes("fm-bearings-snapshot.sh\" --json")) return { output: JSON.stringify(demo.snapshot), exitCode: 0 };
   if (command.includes("fm-tasks-axi.sh")) {
@@ -101,6 +104,7 @@ function renderPane(paneId: string) {
 
 beforeEach(async () => {
   commands.length = 0;
+  isHomeAway = false;
   resetFirstmateChecks();
   resetLastSeen();
   await AsyncStorage.clear();
@@ -125,6 +129,19 @@ describe("a Firstmate pane", () => {
     await screen.findByText("Waiting on you");
 
     expect(commands.filter((command) => command.includes("fm-bearings-snapshot.sh\" --json"))).toHaveLength(1);
+  });
+});
+
+describe("Bearings of a Firstmate in away mode with no data yet", () => {
+  it("shows the away line and no loading state", async () => {
+    isHomeAway = true;
+    renderPane("t6");
+    fireEvent.press(await screen.findByRole("button", { name: "Bearings" }));
+
+    await screen.findByText(/is in away mode/);
+
+    expect(screen.queryByLabelText("Loading")).toBeNull();
+    expect(screen.queryByText("Loading…")).toBeNull();
   });
 });
 

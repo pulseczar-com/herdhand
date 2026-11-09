@@ -16,8 +16,9 @@ export function BearingsTitle() {
   const now = useClock();
   if (!bearings) return null;
 
-  const { space, updatedAt } = bearings;
-  const age = updatedAt === null ? "Loading…" : `Updated ${getAgeText(updatedAt, now)} · pull to refresh`;
+  const { space, updatedAt, isAway } = bearings;
+  const age =
+    updatedAt !== null ? `Updated ${getAgeText(updatedAt, now)} · pull to refresh` : isAway ? "Away · pull to refresh" : "Loading…";
 
   return (
     <View style={styles.title}>

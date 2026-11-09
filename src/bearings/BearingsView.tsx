@@ -42,7 +42,7 @@ export function BearingsView({ onOpen }: { onOpen: (section: Section, row: Row) 
     >
       {isAway ? <AwayLine name={space.name} updatedAt={updatedAt} /> : null}
       {error ? <ErrorLine text={error} updatedAt={updatedAt} /> : null}
-      {shown === null && !error ? <ActivityIndicator style={styles.message} /> : null}
+      {shown === null && !error && !isAway ? <ActivityIndicator accessibilityLabel="Loading" style={styles.message} /> : null}
       {shown?.length === 0 ? <Message text="Nothing to show yet." /> : null}
       {shown?.map((section) => (
         <SectionBlock key={section.id} section={section} isFolded={folded.has(section.id)} onToggle={toggle} onOpen={onOpen} />

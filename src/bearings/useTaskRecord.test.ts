@@ -66,7 +66,42 @@ describe("useTaskRecord", () => {
     await waitFor(() => expect(result.current.hasFailed).toBe(true));
 
     expect(result.current.record).toBeUndefined();
-    expect(cache.get("t-1")?.failedAt).toBeDefined();
+    expect(cache.get("in-flight\nt-1")?.failedAt).toBeDefined();
     expect(RETRY_MS).toBeGreaterThan(0);
+  });
+
+  it.each([
+    ["an exit code", { output: "", exitCode: 1 }],
+    ["a thrown error", new Error("Connection closed")],
+  ])("keeps the record it had when a fetch for a changed row fails with %s", async (_name, reply) => {
+    const run = makeRun({ output: SHOW, exitCode: 0 }, reply);
+    const cache = new Map<string, CachedRecord>();
+    const { result, rerender } = renderHook(({ doing }) => useTaskRecord({ recordCache: cache, run, folder: "/srv/crew" }, "in-flight", row(doing)), {
+      initialProps: { doing: "a" },
+    });
+    await waitFor(() => expect(result.current.record).toBeDefined());
+
+    rerender({ doing: "b" });
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(cache.get("in-flight\nt-1")?.failedAt).toBeDefined());
+
+    expect(result.current.record).toEqual({ id: "t-1", title: "Add widget cache", kind: "ship" });
+    expect(result.current.hasFailed).toBe(false);
+  });
+
+  it("keeps a record for each section of an item that is in two sections", async () => {
+    const run = makeRun({ output: SHOW, exitCode: 0 }, { output: SHOW, exitCode: 0 });
+    const cache = new Map<string, CachedRecord>();
+    const source = { recordCache: cache, run, folder: "/srv/crew" };
+    const inFlight = renderHook(() => useTaskRecord(source, "in-flight", row("a")));
+    await waitFor(() => expect(inFlight.result.current.record).toBeDefined());
+    inFlight.unmount();
+    const prs = renderHook(() => useTaskRecord(source, "prs", row("a")));
+    await waitFor(() => expect(prs.result.current.record).toBeDefined());
+    prs.unmount();
+
+    renderHook(() => useTaskRecord(source, "in-flight", row("a")));
+
+    expect(run).toHaveBeenCalledTimes(2);
   });
 });
