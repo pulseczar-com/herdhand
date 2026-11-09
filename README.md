@@ -80,7 +80,7 @@ The chat view reads the agent's own session file. Herdr gives the app the sessio
 
 ## How it connects
 
-1. You add a machine with its address, SSH port, user name and password, or you [pair it with a code](#pair-with-a-code).
+1. You add a machine with its host, SSH port, user name and password, or you [pair it with a code](#pair-with-a-code).
 2. On the first connection with a password, the app shows the machine's SHA-256 host key fingerprint. Compare it with the machine's own (`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`), then tap **Trust and connect**. A pairing code carries the host keys, so the app checks them for you. The app pins that key; a different key later blocks the connection.
 3. The app logs in with the password or the phone key and runs Herdr's own bridge as a plain command: `hc connect` for Herdr App, or `herdr remote-api-bridge` for Herdr TUI. The bridge speaks JSON over the SSH channel. A second channel of the same connection runs Herdr's event subscription, which is how the app learns of changes.
 
