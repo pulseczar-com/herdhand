@@ -1,4 +1,4 @@
-import { getTranscriptPath } from "@/claude/paths";
+import { getSessionPath, getTranscriptPath } from "@/claude/paths";
 import type { Pane, Space } from "@/herdr/backend";
 
 // Everything here is invented: no real machine, person, host or folder.
@@ -101,7 +101,7 @@ const SESSIONS: Session[] = [
 export function getDemoFiles(): Map<string, string> {
   const files = new Map<string, string>();
   for (const { pid, sessionId, cwd, lines } of SESSIONS) {
-    files.set(`.claude/sessions/${pid}.json`, `${JSON.stringify({ sessionId, cwd })}\n`);
+    files.set(getSessionPath(pid), `${JSON.stringify({ sessionId, cwd })}\n`);
     files.set(getTranscriptPath({ sessionId, cwd }), `${lines.join("\n")}\n`);
   }
   return files;
