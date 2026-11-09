@@ -1,19 +1,16 @@
-import * as Application from "expo-application";
 import { type BarcodeScanningResult, CameraView, useCameraPermissions } from "expo-camera";
 import { useTheme } from "expo-router";
 import { useRef, useState } from "react";
 import { Linking, Modal, Pressable, ScrollView, StyleSheet, Text } from "react-native";
 
 import { type PairingCode, parsePairingCode } from "./code";
-import { makePairCommand } from "./command";
+import { PAIR_COMMAND } from "./command";
 
 type PairingScannerProps = {
   visible: boolean;
   onScanned: (code: PairingCode) => void;
   onClose: () => void;
 };
-
-const PAIR_COMMAND = makePairCommand(Application.nativeApplicationVersion!);
 
 /**
  * Shows the command to run on the machine and the camera to scan the code it prints. A code it
