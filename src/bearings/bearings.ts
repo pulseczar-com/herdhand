@@ -60,8 +60,8 @@ function facts(values: Record<string, string | undefined>): Fact[] {
 }
 
 const STATUS_TONES: Record<string, BadgeTone> = {
-  working: "active",
-  blocked: "attention",
+  working: "attention",
+  blocked: "danger",
   paused: "neutral",
   held: "neutral",
   merged: "success",
@@ -93,7 +93,7 @@ function decisionStatus(decision: Entry): Status {
   const text = `${decision.summary} ${decision.question}`;
   if (/hand task/i.test(text)) return { text: "hand task", tone: "neutral" };
   if (/deferred/i.test(text)) return { text: "deferred", tone: "neutral" };
-  return { text: "decision", tone: "attention" };
+  return { text: "decision", tone: "danger" };
 }
 
 function decisionRow(decision: Entry): Omit<Row, "itemId"> {
@@ -179,7 +179,7 @@ type SectionSpec = {
 };
 
 const SECTIONS: SectionSpec[] = [
-  { id: "decisions", title: "Waiting on you", tone: "attention", highlight: true, items: (b) => list(b.decisions_open), row: decisionRow },
+  { id: "decisions", title: "Waiting on you", tone: "danger", highlight: true, items: (b) => list(b.decisions_open), row: decisionRow },
   { id: "in-flight", title: "In flight", tone: "active", items: (b) => list(b.in_flight), row: inFlightRow },
   { id: "prs", title: "PRs", tone: "active", items: (b) => list(b.recorded_prs), row: prRow },
   { id: "secondmates", title: "Secondmates", tone: "neutral", hasTask: false, items: (b) => list(b.secondmates), row: secondmateRow },

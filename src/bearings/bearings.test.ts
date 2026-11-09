@@ -21,7 +21,7 @@ describe("readBearings", () => {
   });
 
   it("gives each section the tone of its accent bar", () => {
-    expect(readBearings(fixtureText).sections.map((section) => section.tone)).toEqual(["attention", "active", "active", "neutral", "neutral", "success"]);
+    expect(readBearings(fixtureText).sections.map((section) => section.tone)).toEqual(["danger", "active", "active", "neutral", "neutral", "success"]);
   });
 
   it("highlights Waiting on you only when it has rows", () => {
@@ -78,7 +78,7 @@ describe("rows", () => {
     expect(rows[0].title).toBe("Add widget cache");
     expect(rows[0].repo).toBe("example/widgets");
     expect(rows.map((row) => row.status)).toEqual([
-      { text: "working", tone: "active" },
+      { text: "working", tone: "attention" },
       { text: "paused", tone: "neutral" },
     ]);
   });
@@ -143,6 +143,7 @@ describe("rows", () => {
       "Gizmo: patch acme-web and retire two old sites",
     ]);
     expect(rows.map((row) => row.status?.text)).toEqual(["decision", "hand task", "decision"]);
+    expect(rows.map((row) => row.status?.tone)).toEqual(["danger", "neutral", "danger"]);
     expect(rows.some((row) => row.facts.some(([, value]) => value.includes("(main)")))).toBe(false);
   });
 });
@@ -188,7 +189,7 @@ describe("getItem", () => {
 
   it("leaves out the fields the item shows in its own way", () => {
     const row = rowOf({
-      status: { text: "working", tone: "active" },
+      status: { text: "working", tone: "attention" },
       pr: { label: "PR #1", repo: "o/r" },
       url: "https://github.com/o/r/pull/1",
       facts: [["Repo", "o/r"], ["State", "working"], ["Doing", "x"]],
@@ -210,7 +211,7 @@ describe("getItem", () => {
   });
 
   it("drops a field that repeats the pill or the repo, whatever its key", () => {
-    const row = rowOf({ status: { text: "working", tone: "active" }, repo: "acme-api" });
+    const row = rowOf({ status: { text: "working", tone: "attention" }, repo: "acme-api" });
     expect(getItem(row, { id: "t-1", phase: "working", home: "acme-api", kind: "ship" }).fields).toEqual([["id", "t-1"], ["kind", "ship"]]);
   });
 
