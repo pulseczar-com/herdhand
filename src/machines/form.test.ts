@@ -56,12 +56,24 @@ describe("fillFormFromCode", () => {
     { case: "a typed name and address", values: { ...typed, name: "My box", host: "typed.example.com" }, name: "My box", host: "typed.example.com" },
     { case: "only spaces", values: { ...typed, name: " ", host: " " }, name: "code-box", host: "code-box.example.com" },
   ])("keeps what was typed and fills the rest: $case", ({ values, name, host }) => {
-    expect(fillFormFromCode(values, code)).toMatchObject({ name, host });
+    expect(fillFormFromCode(values, code, null)).toMatchObject({ name, host });
   });
 
   it("always takes the user and port from the code and drops the password", () => {
     const values = { ...typed, user: "typed-user", port: "2200", password: "secret" };
 
-    expect(fillFormFromCode(values, code)).toMatchObject({ user: "code-user", port: "2222", password: null });
+    expect(fillFormFromCode(values, code, null)).toMatchObject({ user: "code-user", port: "2222", password: null });
+  });
+
+  describe("after an earlier scan", () => {
+    const previous: PairingCode = { ...code, name: "old-box", host: "old-box.example.com" };
+
+    it.each([
+      { case: "values copied from the earlier code", values: { ...typed, name: "old-box", host: "old-box.example.com" }, name: "code-box", host: "code-box.example.com" },
+      { case: "an address edited after the scan", values: { ...typed, name: "old-box", host: "typed.example.com" }, name: "code-box", host: "typed.example.com" },
+      { case: "a name edited after the scan", values: { ...typed, name: "My box", host: "old-box.example.com" }, name: "My box", host: "code-box.example.com" },
+    ])("replaces only what the earlier code filled: $case", ({ values, name, host }) => {
+      expect(fillFormFromCode(values, code, previous)).toMatchObject({ name, host });
+    });
   });
 });

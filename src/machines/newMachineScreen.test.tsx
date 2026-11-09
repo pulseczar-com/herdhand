@@ -192,7 +192,7 @@ describe("the Add a machine screen", () => {
       expect(router.back).not.toHaveBeenCalled();
     });
 
-    it("takes the port from a new scan after pairing failed, and keeps the address", async () => {
+    it("takes the address and port from a new scan after pairing failed", async () => {
       jest.mocked(pairMachine).mockRejectedValue(new ConnectError("pairingNotFinished", "late"));
       render(<NewMachineScreen />);
       scan();
@@ -203,10 +203,22 @@ describe("the Add a machine screen", () => {
       fireEvent.press(screen.getByText("Scan another code"));
       fireEvent.press(screen.getByText("Simulate scan"));
 
-      // The address and name are kept once filled; the port comes from the new code.
-      expect(screen.getByLabelText("Address").props.value).toBe("test-box.example.com");
+      expect(screen.getByLabelText("Address").props.value).toBe("other-box.example.com");
       expect(screen.getByLabelText("Port").props.value).toBe("22");
       expect(screen.queryByText("Pairing did not finish. Run the command again.")).toBeNull();
+    });
+
+    it("keeps an address edited after the first scan when another code is scanned", () => {
+      render(<NewMachineScreen />);
+      scan();
+      fireEvent.changeText(screen.getByLabelText("Address"), "192.0.2.10");
+      mockScannedCode = () => ({ ...mockCode, host: "other-box.example.com", port: 22 });
+
+      fireEvent.press(screen.getByText("Scan another code"));
+      fireEvent.press(screen.getByText("Simulate scan"));
+
+      expect(screen.getByLabelText("Address").props.value).toBe("192.0.2.10");
+      expect(screen.getByLabelText("Port").props.value).toBe("22");
     });
   });
 

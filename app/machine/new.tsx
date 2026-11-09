@@ -32,7 +32,7 @@ type FieldProps = {
 /**
  * The "Add a machine" form: the address and name, then a choice. Pair with a code shows the
  * command to run on the machine and the scan button; Use a password shows the user and password.
- * A scanned code fills only the empty name and address, and replaces the password with the phone
+ * A scanned code fills the name and address the person did not type, and replaces the password with the phone
  * key. Saving goes back to the page with the machine open, to connect.
  * With an `id` param it edits that machine instead: the form starts with its details, Save
  * updates it in place, and the open machine reconnects with them.
@@ -47,12 +47,15 @@ export default function NewMachineScreen() {
   const [mode, setMode] = useState<SignInMode>("code");
   const [code, setCode] = useState<PairingCode | null>(null);
   const [isScanning, setIsScanning] = useState(false);
+  const lastScanned = useRef<PairingCode | null>(null);
   const { save, error, clearError, isPairing } = useSaveMachine(editId, code);
 
   function fillFromCode(scanned: PairingCode) {
+    const previous = lastScanned.current;
+    lastScanned.current = scanned;
     setCode(scanned);
     clearError();
-    setValues((current) => fillFormFromCode(current, scanned));
+    setValues((current) => fillFormFromCode(current, scanned, previous));
   }
 
   function chooseMode(chosen: SignInMode) {
