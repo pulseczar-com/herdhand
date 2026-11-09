@@ -9,6 +9,7 @@ import { makeRequestId, getNoteBody } from "./ask";
 import { getRepo, type Row, type Section, type SectionId } from "./bearings";
 import { DiscussSheet } from "./DiscussSheet";
 import { ItemActions } from "./ItemActions";
+import { getFirstmateName } from "./firstmateName";
 import { ItemView } from "./ItemView";
 import { NotReady } from "./NotReady";
 import { useBearingsContext } from "./BearingsProvider";
@@ -41,6 +42,7 @@ type ItemContentProps = {
 function ItemContent({ section, row, sectionId, itemId, bearings }: ItemContentProps) {
   const { colors } = useTheme();
   const { space, sendNote } = bearings;
+  const firstmateName = getFirstmateName(space.name);
   const { record, hasFailed } = useTaskRecord(bearings, sectionId, row);
   // Fixed for the visit: a relative date counts whole days.
   const [now] = useState(Date.now);
@@ -61,11 +63,10 @@ function ItemContent({ section, row, sectionId, itemId, bearings }: ItemContentP
 
   async function sendDiscuss(text: string) {
     const failure = await sendNote(requestId, getNoteBody(sectionId, itemId, text));
-    if (!failure) {
-      setIsDiscussing(false);
-      setNotice({ text: `Note sent to ${space.name}.`, tone: "success" });
-    }
-    return failure;
+    if (failure) return `Could not send: ${failure}`;
+    setIsDiscussing(false);
+    setNotice({ text: `Note sent to ${firstmateName}.`, tone: "success" });
+    return null;
   }
 
   async function runAction(action: ActionId) {
@@ -73,7 +74,7 @@ function ItemContent({ section, row, sectionId, itemId, bearings }: ItemContentP
     setNotice(null);
     const failure = await sendNote(makeRequestId(), getActionBody(action, sectionId, itemId));
     setIsSending(false);
-    setNotice(failure ? { text: failure, tone: "danger" } : { text: `Sent to ${space.name}.`, tone: "success" });
+    setNotice(failure ? { text: `Could not send to ${firstmateName}: ${failure}`, tone: "danger" } : { text: `Sent to ${firstmateName}.`, tone: "success" });
   }
 
   return (
@@ -91,11 +92,12 @@ function ItemContent({ section, row, sectionId, itemId, bearings }: ItemContentP
       <ItemActions
         actions={getActions(sectionId, row)}
         itemTitle={row.title}
+        firstmateName={firstmateName}
         isDisabled={isSending}
         onDiscuss={openDiscuss}
         onAction={(action) => void runAction(action)}
       />
-      <DiscussSheet visible={isDiscussing} homeName={space.name} onSend={sendDiscuss} onClose={() => setIsDiscussing(false)} />
+      <DiscussSheet visible={isDiscussing} firstmateName={firstmateName} onSend={sendDiscuss} onClose={() => setIsDiscussing(false)} />
     </View>
   );
 }

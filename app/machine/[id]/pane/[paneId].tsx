@@ -166,7 +166,7 @@ function getHeaderOptions(located: LocatedPane | undefined, title: string, shown
 function BearingsButton({ onPress }: { onPress: () => void }) {
   const { colors } = useTheme();
   return (
-    <Pressable style={[styles.bearings, { borderColor: colors.primary }]} accessibilityRole="button" accessibilityLabel="Bearings" onPress={onPress}>
+    <Pressable style={[styles.bearings, { borderColor: colors.primary }]} accessibilityRole="button" accessibilityLabel="Firstmate Bearings" onPress={onPress}>
       <Feather name="anchor" size={14} color={colors.primary} />
       <Text style={[styles.bearingsLabel, { color: colors.primary }]}>Bearings</Text>
     </Pressable>

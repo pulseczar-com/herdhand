@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 const TICK_MS = 1_000;
 
-/** The time now in milliseconds, renewed every second, so "12 s ago" counts up. */
+/** The time now in milliseconds, renewed every second, so "12s ago" counts up. */
 export function useClock(): number {
   const [now, setNow] = useState(Date.now);
   useEffect(() => {

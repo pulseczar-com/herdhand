@@ -77,12 +77,12 @@ describe("useBearings", () => {
     const updatedAt = result.current.updatedAt;
 
     await waitForNextRead();
-    expect(result.current.error).toBe("Could not refresh (exit 2)");
+    expect(result.current.error).toBe("Refresh failed: exit code 2");
     expect(result.current.sections).toHaveLength(6);
     expect(result.current.updatedAt).toBe(updatedAt);
 
     await waitForNextRead();
-    expect(result.current.error).toBe("Could not refresh: Connection closed");
+    expect(result.current.error).toBe("Refresh failed: Connection closed");
 
     await waitForNextRead();
     expect(result.current.error).toBeNull();
@@ -173,7 +173,7 @@ describe("useBearings", () => {
     await act(() => jest.advanceTimersByTimeAsync(0));
 
     expect(second.result.current.sections).toHaveLength(6);
-    expect(second.result.current.error).toBe("Could not refresh (exit 3)");
+    expect(second.result.current.error).toBe("Refresh failed: exit code 3");
   });
 
   it("shows no data for a home that was not seen yet", () => {

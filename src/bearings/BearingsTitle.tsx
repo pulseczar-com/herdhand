@@ -6,9 +6,10 @@ import { useToneColor } from "@/components/StatePill";
 
 import { getAgeText } from "./age";
 import { useBearingsContext } from "./BearingsProvider";
+import { getFirstmateName } from "./firstmateName";
 import { useClock } from "./useClock";
 
-/** The header of Bearings: the space's badge, "<space> · Bearings", and how old the data is. */
+/** The header of Bearings: the space's badge, "Firstmate (<space>)", and "Bearings" with how old the data is. */
 export function BearingsTitle() {
   const { colors } = useTheme();
   const muted = useToneColor("neutral");
@@ -24,7 +25,7 @@ export function BearingsTitle() {
       <SpaceBadge space={space} />
       <View style={styles.text}>
         <Text numberOfLines={1} style={[styles.name, { color: colors.text }]}>
-          {`${space.name} · Bearings`}
+          {getFirstmateName(space.name)}
         </Text>
         <Text numberOfLines={1} style={[styles.age, { color: muted }]}>
           {age}
@@ -35,9 +36,9 @@ export function BearingsTitle() {
 }
 
 function getAgeLine(updatedAt: number | null, isAway: boolean, now: number): string {
-  if (updatedAt !== null) return `Updated ${getAgeText(updatedAt, now)} · pull to refresh`;
-  if (isAway) return "Away · pull to refresh";
-  return "Loading…";
+  if (updatedAt !== null) return `Bearings · updated ${getAgeText(updatedAt, now)}`;
+  if (isAway) return "Bearings · away";
+  return "Bearings · loading…";
 }
 
 const styles = StyleSheet.create({
