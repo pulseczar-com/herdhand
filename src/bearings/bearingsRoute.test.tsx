@@ -302,4 +302,35 @@ describe("an opened item", () => {
     expect(await screen.findByText("Could not send (exit 4)")).toBeTruthy();
     expect(screen.getByLabelText("Note")).toBeTruthy();
   });
+
+  it("shows no old error when the sheet opens again after Cancel", async () => {
+    await openItem("Add a dark mode toggle");
+    fireEvent.press(await screen.findByRole("button", { name: "Discuss" }));
+    run.mockImplementationOnce(async () => ({ output: "", exitCode: 4 }));
+    fireEvent.changeText(screen.getByLabelText("Note"), "hello");
+    fireEvent.press(screen.getByRole("button", { name: "Send" }));
+    await screen.findByText("Could not send (exit 4)");
+
+    fireEvent.press(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.press(await screen.findByRole("button", { name: "Discuss" }));
+
+    await screen.findByLabelText("Note");
+    expect(screen.queryByText("Could not send (exit 4)")).toBeNull();
+  });
+
+  it("keeps the sheet open on Cancel while the note is sending, so a late error is not hidden", async () => {
+    await openItem("Add a dark mode toggle");
+    fireEvent.press(await screen.findByRole("button", { name: "Discuss" }));
+    let finish: (reply: { output: string; exitCode: number }) => void = () => {};
+    run.mockImplementationOnce(() => new Promise((resolve) => (finish = resolve)));
+    fireEvent.changeText(screen.getByLabelText("Note"), "hello");
+    fireEvent.press(screen.getByRole("button", { name: "Send" }));
+
+    fireEvent.press(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.getByLabelText("Note")).toBeTruthy();
+
+    await act(async () => finish({ output: "", exitCode: 4 }));
+
+    expect(await screen.findByText("Could not send (exit 4)")).toBeTruthy();
+  });
 });

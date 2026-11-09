@@ -36,6 +36,7 @@ export function DiscussSheet({ visible, homeName, onSend, onClose }: DiscussShee
   }
 
   function close() {
+    if (isSending) return;
     setError(null);
     onClose();
   }
