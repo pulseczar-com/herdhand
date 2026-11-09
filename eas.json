@@ -10,9 +10,21 @@
       "autoIncrement": true,
       "environment": "development"
     },
+    "preview": {
+      "distribution": "internal",
+      "autoIncrement": true,
+      "environment": "production"
+    },
     "production": {
       "autoIncrement": true,
       "environment": "production"
+    }
+  },
+  "submit": {
+    "production": {
+      "android": {
+        "track": "alpha"
+      }
     }
   }
 }

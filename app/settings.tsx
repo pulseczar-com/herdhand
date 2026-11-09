@@ -9,6 +9,7 @@ import { getAppLockEnabled, saveAppLockEnabled } from "@/settings/store";
 import { getPhoneKey, type PhoneKeyInfo } from "@/ssh/pairing";
 
 const REPOSITORY_URL = "https://github.com/pulseczar-com/herdhand";
+const PRIVACY_POLICY_URL = "https://pulseczar.com/herdhand/privacy";
 const MS_PER_MINUTE = 60_000;
 const RELOCK_AFTER_MINUTES = RELOCK_AFTER_MS / MS_PER_MINUTE;
 const APP_ICON = require("../assets/icon.png");
@@ -90,7 +91,7 @@ function PhoneKeySection() {
   );
 }
 
-/** The app's version, who made it, its license and a link to its source. */
+/** The app's version, who made it, its license, and links to its privacy policy and source. */
 function AboutSection() {
   const { colors, dark } = useTheme();
   const lockup = dark ? DARK_LOCKUP : LIGHT_LOCKUP;
@@ -113,6 +114,9 @@ function AboutSection() {
         We use Herdr every day at PulseCzar. There was no solid, simple Herdr app on Google Play, so we built one.
       </Text>
       <Text style={[styles.rowDetail, { color: colors.text }]}>Apache License 2.0</Text>
+      <Pressable accessibilityRole="link" onPress={() => void Linking.openURL(PRIVACY_POLICY_URL)}>
+        <Text style={[styles.link, { color: colors.primary }]}>Privacy policy</Text>
+      </Pressable>
       <Pressable accessibilityRole="link" onPress={() => void Linking.openURL(REPOSITORY_URL)}>
         <Text style={[styles.link, { color: colors.primary }]}>Source code on GitHub</Text>
       </Pressable>
