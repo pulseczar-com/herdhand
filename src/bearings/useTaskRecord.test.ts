@@ -3,7 +3,7 @@ import { renderHook, waitFor } from "@testing-library/react-native";
 import type { RunCommand } from "@/ssh/bridge";
 
 import type { Row } from "./bearings";
-import { RETRY_MS, type CachedRecord } from "./records";
+import type { CachedRecord } from "./records";
 import { useTaskRecord } from "./useTaskRecord";
 
 const SHOW = 'task:\n  id: t-1\n  title: "Add widget cache"\n  kind: ship\n';
@@ -58,16 +58,21 @@ describe("useTaskRecord", () => {
   it.each([
     ["an exit code", { output: "", exitCode: 1 }],
     ["a thrown error", new Error("Connection closed")],
-  ])("shows the failure of %s, and waits before it tries again", async (_name, reply) => {
+  ])("shows the failure of %s, and does not fetch again when the item opens again", async (_name, reply) => {
     const run = makeRun(reply);
     const cache = new Map<string, CachedRecord>();
-    const { result } = renderHook(() => useTaskRecord({ recordCache: cache, run, folder: "/srv/crew" }, "in-flight", row("a")));
+    const { result, unmount } = renderHook(() => useTaskRecord({ recordCache: cache, run, folder: "/srv/crew" }, "in-flight", row("a")));
 
     await waitFor(() => expect(result.current.hasFailed).toBe(true));
 
     expect(result.current.record).toBeUndefined();
     expect(cache.get("in-flight\nt-1")?.failedAt).toBeDefined();
-    expect(RETRY_MS).toBeGreaterThan(0);
+    unmount();
+
+    const reopened = renderHook(() => useTaskRecord({ recordCache: cache, run, folder: "/srv/crew" }, "in-flight", row("a")));
+
+    expect(reopened.result.current.hasFailed).toBe(true);
+    expect(run).toHaveBeenCalledTimes(1);
   });
 
   it.each([

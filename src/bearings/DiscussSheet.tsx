@@ -35,10 +35,15 @@ export function DiscussSheet({ visible, homeName, onSend, onClose }: DiscussShee
     if (!failure) setText("");
   }
 
+  function close() {
+    setError(null);
+    onClose();
+  }
+
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={close}>
       <KeyboardAvoidingView style={styles.root} behavior="padding">
-        <Pressable style={styles.scrim} accessibilityLabel="Close" onPress={onClose} />
+        <Pressable style={styles.scrim} accessibilityLabel="Close" onPress={close} />
         <View style={[styles.sheet, { backgroundColor: colors.card }]}>
           <View style={[styles.handle, { backgroundColor: colors.border }]} />
           <Text style={[styles.title, { color: colors.text }]}>{`Discuss with ${homeName}`}</Text>
@@ -54,7 +59,7 @@ export function DiscussSheet({ visible, homeName, onSend, onClose }: DiscussShee
           />
           {error ? <Text style={[styles.error, { color: dangerColor }]}>{error}</Text> : null}
           <View style={styles.buttons}>
-            <Pressable style={styles.button} accessibilityRole="button" onPress={onClose}>
+            <Pressable style={styles.button} accessibilityRole="button" onPress={close}>
               <Text style={{ color: colors.text }}>Cancel</Text>
             </Pressable>
             <Pressable
