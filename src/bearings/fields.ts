@@ -1,7 +1,7 @@
 // Ported from the herdr-firstmate-bearings sidebar mod (MIT, same author): fields.js.
 // Sorts the fields of an opened item by type: short values become badges, long text stays a
 // paragraph, and a URL becomes a link chip, never raw text.
-import { type Fact, prChip } from "./bearings";
+import { type Fact, fieldKey, prChip } from "./bearings";
 import { splitUrls } from "./urls";
 
 // Fields that are always long free text, however short one value is.
@@ -14,12 +14,11 @@ const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 // Text labels that read better than the raw key. Any other key shows as its words with a capital first letter.
 const LABEL_NAMES: Record<string, string> = { body: "Description" };
 
-const keyOf = (label: string) => label.toLowerCase().replace(/[^a-z0-9]/g, "");
 const wordsOf = (label: string) => label.toLowerCase().replace(/[_-]/g, " ");
 
 /** "Description" for the key "body"; "Hold reason" for "hold_reason". */
 export function getLabel(label: string): string {
-  const named = LABEL_NAMES[keyOf(label)];
+  const named = LABEL_NAMES[fieldKey(label)];
   if (named) return named;
   const words = wordsOf(label);
   return words.charAt(0).toUpperCase() + words.slice(1);
@@ -84,9 +83,9 @@ export function getTypedFields(fields: Fact[], now: number): { badges: Badge[]; 
   const badges: Badge[] = [];
   const texts: Text[] = [];
   const links = new Map<string, Link>();
-  const filed = fields.find(([label]) => keyOf(label) === "filed")?.[1];
+  const filed = fields.find(([label]) => fieldKey(label) === "filed")?.[1];
   for (const [label, value] of fields) {
-    const key = keyOf(label);
+    const key = fieldKey(label);
     if (isFalse(value) || (key === "created" && value === filed)) continue;
     const urls = urlsIn(value);
     if (urls.length > 0 && !TEXT_KEYS.has(key)) urls.forEach((url) => links.set(url, getLink(url)));

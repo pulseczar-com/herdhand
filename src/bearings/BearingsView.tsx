@@ -7,7 +7,7 @@ import type { BadgeTone } from "@/herdr/badges";
 import { getPillBackground, StatePill, useToneColor } from "@/components/StatePill";
 
 import { getAgeText } from "./age";
-import { type Row, type Section, withoutEmptySections } from "./bearings";
+import { getRepo, type Row, type Section, withoutEmptySections } from "./bearings";
 import { LinkChip, RepoLabel } from "./Chips";
 import { useBearingsContext } from "./BearingsProvider";
 import { useClock } from "./useClock";
@@ -89,7 +89,7 @@ function Card({ tone, row, onPress }: CardProps) {
   const barColor = useToneColor(tone);
   const dangerColor = useToneColor("danger");
   const muted = useToneColor("neutral");
-  const repo = row.repo?.split("/").pop();
+  const repo = getRepo(row, undefined);
   const hasSecondLine = Boolean(repo) || row.pr !== undefined;
 
   return (

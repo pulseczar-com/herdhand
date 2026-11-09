@@ -215,7 +215,7 @@ export function hasTaskRecord(sectionId: SectionId): boolean {
 // --- The opened item ---
 
 const isEmptyField = (value: string) => !hasValue(value) || value === "none";
-const fieldKey = (label: string) => label.toLowerCase().replace(/[^a-z0-9]/g, "");
+export const fieldKey = (label: string) => label.toLowerCase().replace(/[^a-z0-9]/g, "");
 
 // Fields the item shows in its own way, so the list leaves them out: the repo, and the title
 // (also named name, summary or what).

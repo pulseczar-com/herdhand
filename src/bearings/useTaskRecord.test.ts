@@ -22,7 +22,7 @@ describe("useTaskRecord", () => {
   it("fetches the record of the item once and parses it", async () => {
     const run = makeRun({ output: SHOW, exitCode: 0 });
     const cache = new Map<string, CachedRecord>();
-    const { result } = renderHook(() => useTaskRecord(cache, run, "/srv/crew", "in-flight", row("a")));
+    const { result } = renderHook(() => useTaskRecord({ recordCache: cache, run, folder: "/srv/crew" }, "in-flight", row("a")));
     expect(result.current.record).toBeUndefined();
 
     await waitFor(() => expect(result.current.record).toEqual({ id: "t-1", title: "Add widget cache", kind: "ship" }));
@@ -33,24 +33,24 @@ describe("useTaskRecord", () => {
   it("uses the cache for an unchanged row, and fetches again when the row changed", async () => {
     const run = makeRun({ output: SHOW, exitCode: 0 }, { output: SHOW, exitCode: 0 });
     const cache = new Map<string, CachedRecord>();
-    const first = renderHook(() => useTaskRecord(cache, run, "/srv/crew", "in-flight", row("a")));
+    const first = renderHook(() => useTaskRecord({ recordCache: cache, run, folder: "/srv/crew" }, "in-flight", row("a")));
     await waitFor(() => expect(first.result.current.record).toBeDefined());
     first.unmount();
 
-    const same = renderHook(() => useTaskRecord(cache, run, "/srv/crew", "in-flight", row("a")));
+    const same = renderHook(() => useTaskRecord({ recordCache: cache, run, folder: "/srv/crew" }, "in-flight", row("a")));
     expect(same.result.current.record).toBeDefined();
     expect(run).toHaveBeenCalledTimes(1);
     same.unmount();
 
-    renderHook(() => useTaskRecord(cache, run, "/srv/crew", "in-flight", row("b")));
+    renderHook(() => useTaskRecord({ recordCache: cache, run, folder: "/srv/crew" }, "in-flight", row("b")));
     await waitFor(() => expect(run).toHaveBeenCalledTimes(2));
   });
 
   it("runs no command for a secondmate or a missing row", () => {
     const run = makeRun();
     const cache = new Map<string, CachedRecord>();
-    const secondmate = renderHook(() => useTaskRecord(cache, run, "/srv/crew", "secondmates", row("a")));
-    const missing = renderHook(() => useTaskRecord(cache, run, "/srv/crew", "in-flight", undefined));
+    const secondmate = renderHook(() => useTaskRecord({ recordCache: cache, run, folder: "/srv/crew" }, "secondmates", row("a")));
+    const missing = renderHook(() => useTaskRecord({ recordCache: cache, run, folder: "/srv/crew" }, "in-flight", undefined));
     expect(run).not.toHaveBeenCalled();
     expect([secondmate.result.current.record, missing.result.current.record]).toEqual([undefined, undefined]);
   });
@@ -61,7 +61,7 @@ describe("useTaskRecord", () => {
   ])("shows the failure of %s, and waits before it tries again", async (_name, reply) => {
     const run = makeRun(reply);
     const cache = new Map<string, CachedRecord>();
-    const { result } = renderHook(() => useTaskRecord(cache, run, "/srv/crew", "in-flight", row("a")));
+    const { result } = renderHook(() => useTaskRecord({ recordCache: cache, run, folder: "/srv/crew" }, "in-flight", row("a")));
 
     await waitFor(() => expect(result.current.hasFailed).toBe(true));
 

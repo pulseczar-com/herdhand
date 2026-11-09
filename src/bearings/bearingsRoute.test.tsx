@@ -151,6 +151,9 @@ describe("Bearings", () => {
     const [card] = screen.getAllByRole("button", { name: "Add cursor pagination to the orders endpoint" });
     expect(within(card).getByText("working")).toBeTruthy();
     expect(within(card).getByText("acme-api")).toBeTruthy();
+    // The PR row has no repo of its own: its card shows the one from the PR URL.
+    const [, prCard] = screen.getAllByRole("button", { name: "Add cursor pagination to the orders endpoint" });
+    expect(within(prCard).getByText("acme-api")).toBeTruthy();
   });
 
   it("folds a section with a tap on its title", async () => {

@@ -5,7 +5,7 @@ import { useToneColor } from "@/components/StatePill";
 
 import { getItem, getRepo, type Row, type TaskRecord } from "./bearings";
 import { BadgeChip, LinkChip, LinkedText, RepoLabel } from "./Chips";
-import { getLabel, getLink, getTypedFields } from "./fields";
+import { getLabel, getTypedFields } from "./fields";
 
 type ItemViewProps = {
   row: Row;
@@ -61,7 +61,7 @@ export function ItemView({ row, record, hasFailed, now }: ItemViewProps) {
       {otherLinks.length > 0 ? (
         <View style={styles.wrapRow}>
           {otherLinks.map((link) => (
-            <LinkChip key={link.url} link={getLink(link.url)} />
+            <LinkChip key={link.url} link={link} />
           ))}
         </View>
       ) : null}

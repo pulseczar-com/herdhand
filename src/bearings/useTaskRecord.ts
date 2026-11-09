@@ -7,12 +7,14 @@ import { getRecordSignature, hasTaskRecord, type Row, type SectionId, type TaskR
 import { type CachedRecord, shouldFetchRecord } from "./records";
 import { parseTaskRecord } from "./toon";
 
+type RecordSource = { recordCache: Map<string, CachedRecord>; run: RunCommand; folder: string };
+
 /**
  * The full task record of an item, from `fm-tasks-axi.sh show --full`. It is fetched when the
  * item opens, once for each version of its row, and kept in `cache` for the session. A secondmate
  * has no record. A failed fetch leaves the snapshot fields alone to show.
  */
-export function useTaskRecord(cache: Map<string, CachedRecord>, run: RunCommand, folder: string, sectionId: SectionId, row: Row | undefined) {
+export function useTaskRecord({ recordCache: cache, run, folder }: RecordSource, sectionId: SectionId, row: Row | undefined) {
   const wantsRecord = row !== undefined && hasTaskRecord(sectionId);
   const signature = row ? getRecordSignature(sectionId, row) : "";
   const itemId = row?.itemId ?? "";

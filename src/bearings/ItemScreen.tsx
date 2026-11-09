@@ -40,8 +40,8 @@ type ItemContentProps = {
 
 function ItemContent({ section, row, sectionId, itemId, bearings }: ItemContentProps) {
   const { colors } = useTheme();
-  const { recordCache, run, folder, space, sendNote } = bearings;
-  const { record, hasFailed } = useTaskRecord(recordCache, run, folder, sectionId, row);
+  const { space, sendNote } = bearings;
+  const { record, hasFailed } = useTaskRecord(bearings, sectionId, row);
   // Fixed for the visit: a relative date counts whole days.
   const [now] = useState(Date.now);
   const [isDiscussing, setIsDiscussing] = useState(false);

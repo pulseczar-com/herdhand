@@ -1,5 +1,5 @@
 // Ported from the herdr-firstmate-bearings sidebar mod (MIT, same author): demo.js.
-// A sample Firstmate for tests and the web preview. Every name and URL is invented. The
+// A sample Firstmate for tests. Every name and URL is invented. The
 // snapshot has the shape of `fm-bearings-snapshot.sh --json`; the records have the fields of
 // `fm-tasks-axi.sh show <id> --full`.
 
