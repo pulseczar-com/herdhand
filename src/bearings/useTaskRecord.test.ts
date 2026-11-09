@@ -81,7 +81,7 @@ describe("useTaskRecord", () => {
   ])("keeps the record it had when a fetch for a changed row fails with %s", async (_name, reply) => {
     const run = makeRun({ output: SHOW, exitCode: 0 }, reply);
     const cache = new Map<string, CachedRecord>();
-    const { result, rerender } = renderHook(({ doing }) => useTaskRecord({ recordCache: cache, run, folder: "/srv/crew" }, "in-flight", row(doing)), {
+    const { result, rerender } = renderHook(({ doing }: { doing: string }) => useTaskRecord({ recordCache: cache, run, folder: "/srv/crew" }, "in-flight", row(doing)), {
       initialProps: { doing: "a" },
     });
     await waitFor(() => expect(result.current.record).toBeDefined());
