@@ -17,8 +17,7 @@ export function BearingsTitle() {
   if (!bearings) return null;
 
   const { space, updatedAt, isAway } = bearings;
-  const age =
-    updatedAt !== null ? `Updated ${getAgeText(updatedAt, now)} · pull to refresh` : isAway ? "Away · pull to refresh" : "Loading…";
+  const age = getAgeLine(updatedAt, isAway, now);
 
   return (
     <View style={styles.title}>
@@ -33,6 +32,12 @@ export function BearingsTitle() {
       </View>
     </View>
   );
+}
+
+function getAgeLine(updatedAt: number | null, isAway: boolean, now: number): string {
+  if (updatedAt !== null) return `Updated ${getAgeText(updatedAt, now)} · pull to refresh`;
+  if (isAway) return "Away · pull to refresh";
+  return "Loading…";
 }
 
 const styles = StyleSheet.create({

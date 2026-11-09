@@ -132,15 +132,15 @@ describe("rows", () => {
 
   it("titles a hold by its title alone, with a plain pill", () => {
     const decisions = [
-      { id: "a", owner: "(main)", summary: "Captain: Stripe setup for billing launch (priority): Captain does the Stripe setup by hand…", question: "Q" },
-      { id: "b", owner: "(main)", summary: "PHP2Shell: patch the sites (captain hand task): Captain…", question: "Q" },
-      { id: "c", owner: "(main)", summary: "PHP2Shell: patch fnContact and retire two PHP 5.6 sites", question: "Q" },
+      { id: "a", owner: "(main)", summary: "Captain: Widget setup for launch (priority): Captain does the widget setup by hand…", question: "Q" },
+      { id: "b", owner: "(main)", summary: "Gizmo: patch the sites (captain hand task): Captain…", question: "Q" },
+      { id: "c", owner: "(main)", summary: "Gizmo: patch acme-web and retire two old sites", question: "Q" },
     ];
     const rows = sectionsOf(snapshotText({ decisions_open: decisions })).decisions.rows;
     expect(rows.map((row) => row.title)).toEqual([
-      "Stripe setup for billing launch (priority)",
-      "PHP2Shell: patch the sites (captain hand task)",
-      "PHP2Shell: patch fnContact and retire two PHP 5.6 sites",
+      "Widget setup for launch (priority)",
+      "Gizmo: patch the sites (captain hand task)",
+      "Gizmo: patch acme-web and retire two old sites",
     ]);
     expect(rows.map((row) => row.status?.text)).toEqual(["decision", "hand task", "decision"]);
     expect(rows.some((row) => row.facts.some(([, value]) => value.includes("(main)")))).toBe(false);

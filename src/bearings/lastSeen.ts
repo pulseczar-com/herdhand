@@ -7,7 +7,7 @@ export type LastSeen = {
   sections: Section[] | null;
   /** When that snapshot arrived, in milliseconds since 1970. */
   updatedAt: number | null;
-  /** The task records fetched so far, by item id. */
+  /** The task records fetched so far, by section and item id. */
   records: Map<string, CachedRecord>;
 };
 
