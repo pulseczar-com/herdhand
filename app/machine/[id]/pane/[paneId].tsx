@@ -1,9 +1,11 @@
-import { Stack, useLocalSearchParams, useTheme } from "expo-router";
+import { Feather } from "@expo/vector-icons";
+import { router, Stack, useLocalSearchParams, useTheme } from "expo-router";
 import { useHeaderHeight } from "expo-router/react-navigation";
 import { useContext, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,6 +13,7 @@ import {
   View,
 } from "react-native";
 
+import { useIsFirstmate } from "@/bearings/useIsFirstmate";
 import { getAdapter } from "@/chat/adapters";
 import { AnswerCard } from "@/components/AnswerCard";
 import { ChatView } from "@/components/ChatView";
@@ -85,10 +88,11 @@ function PaneScreen({ connection }: { connection: MachineConnection }) {
   // Input goes to the agent when Herdr names one on the pane, else to the shell.
   const composerPlaceholder = shownPane?.agent ? "Message the agent" : "Run a command";
   const shellBackend = getShellBackend(status, located);
+  const isFirstmate = useIsFirstmate(connection.id, status.phase === "connected" ? status.run : undefined, located?.pane.cwd);
 
   return (
     <KeyboardAvoidingView style={styles.screen} behavior="padding" keyboardVerticalOffset={headerHeight}>
-      <Stack.Screen options={getHeaderOptions(located, title ?? "", shownPane)} />
+      <Stack.Screen options={getHeaderOptions(located, title ?? "", shownPane, isFirstmate ? () => openBearings(connection.id, paneId) : undefined)} />
       {shellBackend ? (
         <ShellPane backend={shellBackend} paneId={paneId} paneColumns={paneColumns} onPaneChange={setFreshPane} />
       ) : null}
@@ -137,16 +141,36 @@ function getShellBackend(status: ConnectionStatus, located: LocatedPane | undefi
   return canReadChat(status.backend) ? status.backend : null;
 }
 
-/** The title, and the state pill of the pane on show at the trailing edge. */
-function getHeaderOptions(located: LocatedPane | undefined, title: string, shownPane: Pane | undefined) {
+/** Opens the Firstmate's Bearings over the pane. */
+function openBearings(machineId: string, paneId: string) {
+  router.push({ pathname: "/machine/[id]/pane/[paneId]/bearings", params: { id: machineId, paneId } });
+}
+
+/**
+ * The title, and at the trailing edge the state pill of the pane on show and, on a Firstmate's
+ * pane, the Bearings button.
+ */
+function getHeaderOptions(located: LocatedPane | undefined, title: string, shownPane: Pane | undefined, onOpenBearings: (() => void) | undefined) {
   const headerRight = () => (
     <View style={styles.headerRight}>
       {shownPane ? <StatePill badge={getPaneBadge(shownPane)} /> : null}
+      {onOpenBearings ? <BearingsButton onPress={onOpenBearings} /> : null}
     </View>
   );
   // The space and the place once the list has the pane; until then the pane's title.
   if (!located) return { title, headerRight };
   return { headerTitle: () => <PaneTitle located={located} />, headerRight };
+}
+
+/** The Bearings button of a Firstmate's pane: an anchor and the word, outlined in the accent. */
+function BearingsButton({ onPress }: { onPress: () => void }) {
+  const { colors } = useTheme();
+  return (
+    <Pressable style={[styles.bearings, { borderColor: colors.primary }]} accessibilityRole="button" accessibilityLabel="Bearings" onPress={onPress}>
+      <Feather name="anchor" size={14} color={colors.primary} />
+      <Text style={[styles.bearingsLabel, { color: colors.primary }]}>Bearings</Text>
+    </Pressable>
+  );
 }
 
 /** The space's badge and name, and where the pane is in it. */
@@ -349,5 +373,7 @@ const styles = StyleSheet.create({
   titleText: { flexShrink: 1 },
   spaceName: { fontSize: 16, fontWeight: "600" },
   place: { fontSize: 12, opacity: 0.7 },
-  headerRight: { flexDirection: "row", alignItems: "center", gap: 8 },
+  headerRight: { flexDirection: "row", alignItems: "center", gap: 8, marginEnd: 8 },
+  bearings: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderRadius: 8 },
+  bearingsLabel: { fontSize: 13, fontWeight: "600" },
 });

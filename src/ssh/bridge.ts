@@ -1,4 +1,4 @@
-import Ssh from "../../modules/ssh";
+import Ssh, { type RunResult } from "../../modules/ssh";
 
 import type { Backend } from "@/herdr/backend";
 import { makeDesktopBackend, makeDesktopClient } from "@/herdr/desktop";
@@ -24,6 +24,9 @@ type OpenBridgeOptions = {
   trustedFingerprint: string | null;
 };
 
+/** Runs one short command and gives its output and exit code. */
+export type RunCommand = (command: string) => Promise<RunResult>;
+
 /** A running Herdr bridge on a machine, its version, and the kinds the machine offers. */
 export type Bridge = {
   machineId: string;
@@ -33,6 +36,8 @@ export type Bridge = {
   backend: Backend;
   /** Reads the machine's files over another command channel of the same connection. */
   host: HostReader;
+  /** Runs one command on the machine over the same connection. It can change the machine. */
+  run: RunCommand;
   /**
    * Resolves with the reason when the bridge ends without `close`: the command exited, the
    * link dropped, or the person disconnected (DISCONNECT_REQUESTED). The connection is closed
@@ -163,6 +168,7 @@ async function startKindBridge(machineId: string, { kind, availableKinds }: Conn
     await stop();
     throw error;
   });
+  const runCommand: RunCommand = (command) => Ssh.run(command);
   const events = startEvents(kind);
   const backend = { ...baseBackend, onChange: events.onChange };
   let closing: Promise<void> | undefined;
@@ -172,7 +178,8 @@ async function startKindBridge(machineId: string, { kind, availableKinds }: Conn
     availableKinds,
     version,
     backend,
-    host: makeHostReader((command) => Ssh.run(command)),
+    host: makeHostReader(runCommand),
+    run: runCommand,
     get endReason() {
       return getEndReason();
     },

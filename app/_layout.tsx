@@ -32,6 +32,7 @@ export default function RootLayout() {
                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                 <Stack.Screen name="machine/new" options={{ title: "Add a machine" }} />
                 <Stack.Screen name="machine/[id]/pane/[paneId]" options={{ title: "" }} />
+                <Stack.Screen name="machine/[id]/pane/[paneId]/bearings" options={{ headerShown: false }} />
                 <Stack.Screen name="settings" options={{ title: "Settings" }} />
               </Stack>
             </MachinesProvider>

@@ -40,7 +40,8 @@ export type Tab = { id: string; name: string; panes: Pane[] };
  * the TUI has `sessionId`, the agent's own session id, or `sessionPath`, the path of its session
  * file, when the agent's Herdr integration is installed. A plain shell pane has
  * `isShellForeground`: true when the shell itself is in the foreground, so no command runs.
- * The other fields stay unset where the kind gives none.
+ * `cwd` is the folder the pane's shell works in, when Herdr gives it. The other fields stay
+ * unset where the kind gives none.
  */
 export type Pane = {
   id: string;
@@ -49,6 +50,7 @@ export type Pane = {
   state: AgentState | null;
   isFinished: boolean;
   columns: number | null;
+  cwd?: string;
   pid?: number;
   sessionId?: string;
   sessionPath?: string;

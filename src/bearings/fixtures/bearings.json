@@ -1,0 +1,28 @@
+{
+  "schema": "fm-bearings.v1",
+  "home": "example-home",
+  "generated": "2026-01-01T00:00:00Z",
+  "prs": "not requested",
+  "in_flight": [
+    { "id": "t-1", "kind": "task", "state": "working", "repo": "example/widgets", "name": "Add widget cache", "doing": "writing tests" },
+    { "id": "t-2", "kind": "task", "state": "paused", "repo": "example/widgets", "name": "Fix widget label", "doing": "waiting on CI" }
+  ],
+  "secondmates": [
+    { "id": "sm-a", "state": "working", "doing": "triage", "provenance": "live", "freshness": "fresh", "age_seconds": 4, "contradiction": false, "reason": "-" },
+    { "id": "sm-b", "state": "unknown", "doing": "-", "provenance": "none", "freshness": "unavailable", "age_seconds": null, "contradiction": false, "reason": "no ledger" }
+  ],
+  "decisions_open": [
+    { "id": "d-1", "key": "pick-name", "verb": "choose", "summary": "Which name for the widget?", "question": "Which name for the widget? A or B.", "owner": "captain" }
+  ],
+  "landed": [
+    { "id": "t-0", "what": "Widget docs", "artifact": "https://example.com/pull/1", "owner": "fleet" }
+  ],
+  "gates": [
+    { "id": "g-1", "title": "Plan the widget export", "blocked_by": "", "reason": "", "owner": "fleet", "filed": "2026-01-01" },
+    { "id": "g-2", "title": "Review widget colors", "blocked_by": "", "reason": "", "owner": "fleet", "filed": "2025-12-31" }
+  ],
+  "reports": [{ "id": "r-1", "path": "reports/r-1.md" }],
+  "recorded_prs": [{ "id": "t-1", "url": "https://example.com/widgets/pull/7" }],
+  "omitted": [{ "surface": "landed showing 1 of 4", "reveal": "--all-landed" }],
+  "unhealthy_endpoints": [{ "id": "sm-b/t-9", "backend": "secondmate-home", "target": "-", "exists": false, "agent": false }]
+}

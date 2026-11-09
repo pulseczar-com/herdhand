@@ -23,6 +23,7 @@ Herdr is a terminal multiplexer: it keeps spaces, tabs and panes running on a ma
 - A pane of a [supported agent](#supported-agents) opens as a chat: your prompts, the replies in Markdown, and each tool call as a row. The app reads the agent's own transcript file over SSH and installs nothing on the machine.
 - When Claude asks a question, the chat shows its options as buttons. When an agent waits on something the chat does not record, such as a permission prompt or a sign-in, a live screen card shows the end of the pane. An agent pane with no chat opens on its screen, with a line that says why.
 - A shell pane opens as a chat: each command you send from the phone is a bubble with its output under it. The app knows a command has ended when the shell holds the foreground again. See [Shell panes](#shell-panes).
+- A pane that works in a [Firstmate](https://github.com/kunchenguid/firstmate) home gets a **Bearings** button. See [Firstmate bearings](#firstmate-bearings).
 - Log in with a password, or pair by scanning a code so the phone logs in with its own key.
 - An app lock with fingerprint, face or the screen lock. It is on by default.
 
@@ -35,6 +36,18 @@ A command sent from the phone becomes a bubble, and the output of the command sh
 - A command typed on the machine shows only the end of its screen while it runs.
 - A full-screen program, such as vim, started from the phone shows its whole screen, cut to the last 200 lines, until the shell holds the foreground again.
 - The app expects a one-line prompt with no right-side prompt and no transient prompt. With another kind of prompt, the output can include prompt lines, or can show the whole screen with a note that it is cut.
+
+## Firstmate bearings
+
+[Firstmate](https://github.com/kunchenguid/firstmate) is an open-source supervisor that runs a team of coding agents. A pane whose folder is a Firstmate home (its `bin/fm-bearings-snapshot.sh` is executable) has a **Bearings** button in its header. Other panes do not change, and the button never shows for a person with no Firstmate. The app tests for the script with one `test -x` command, once for each folder in a session.
+
+The button opens Bearings over the pane; the back arrow returns to the chat. Bearings shows what Firstmate reports in these sections, which fold with a tap and hide when empty: Waiting on you, In flight, PRs, Secondmates, Queued and Landed. A tap on a card opens the item with all of its data. Its buttons are Discuss and, when the item allows them, Done, Defer, Drop, Stop and Start now. Drop and Stop ask first. Each button saves one note in the Firstmate's inbox. The layout and the rules for which button shows come from the Herdr sidebar mod herdr-firstmate-bearings.
+
+The app runs these Firstmate commands only after a tap on Bearings, over the SSH connection that is already open. It installs nothing, and the commands run as the user Herdhand logs in as:
+
+- `bin/fm-bearings-snapshot.sh --json --all-decisions --all-landed`, when Bearings opens and every 30 seconds while it shows, and on a pull down. While the file `state/.afk` exists (away mode), the app runs nothing and shows an away line.
+- `bin/fm-tasks-axi.sh show <task id> --full`, when an item opens.
+- `bin/fm-inbox.sh note --request-id <id> -- <note>`, when you send Discuss or an action. The note holds the section and the item id, never the item's text.
 
 ## Supported agents
 
@@ -150,6 +163,7 @@ For a signed Google Play bundle, run `just build-release` and follow [`docs/play
 | `src/chat/` | The chat view and the adapter interface that turns an agent's transcript into it |
 | `src/claude/`, `src/codex/`, `src/copilot/`, `src/pi/` | One adapter for each agent: where its transcript is, and how its records become chat items |
 | `src/machines/` | The saved machines and the open connection |
+| `src/bearings/` | The Firstmate bearings: the snapshot and task record readers, the actions and the screens |
 | `src/pairing/`, `scripts/pair.sh` | Pairing with a code: the scanner in the app and the script on the machine |
 
 ## Contributing

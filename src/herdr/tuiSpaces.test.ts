@@ -12,15 +12,15 @@ describe("snapshotToSpaces (TUI)", () => {
   });
 
   it.each([
-    { where: "a working agent", tab: 0, pane: 0, expected: { id: "w4:p1", agent: "claude", state: "working", title: "Run the tests", isFinished: false, columns: null } },
-    { where: "a blocked agent in the same tab", tab: 0, pane: 1, expected: { id: "w4:p2", agent: "codex", state: "blocked", title: "codex", isFinished: false, columns: null } },
-    { where: "a done agent", tab: 1, pane: 0, expected: { id: "w4:pH", agent: "claude", state: "done", title: "Update the readme", isFinished: false, columns: null, sessionId: "00000000-0000-0000-0000-000000000000" } },
+    { where: "a working agent", tab: 0, pane: 0, expected: { id: "w4:p1", agent: "claude", state: "working", title: "Run the tests", isFinished: false, columns: null, cwd: "/home/test-user/api" } },
+    { where: "a blocked agent in the same tab", tab: 0, pane: 1, expected: { id: "w4:p2", agent: "codex", state: "blocked", title: "codex", isFinished: false, columns: null, cwd: "/home/test-user/api" } },
+    { where: "a done agent", tab: 1, pane: 0, expected: { id: "w4:pH", agent: "claude", state: "done", title: "Update the readme", isFinished: false, columns: null, cwd: "/home/test-user/api", sessionId: "00000000-0000-0000-0000-000000000000" } },
   ])("reads $where", ({ tab, pane, expected }) => {
     expect(spaces[0].tabs[tab].panes[pane]).toEqual(expected);
   });
 
   it("shows a pane with no agent as a plain shell", () => {
-    expect(spaces[1].tabs[0].panes).toEqual([{ id: "w7:p1", agent: null, state: null, title: "test-user@test-box: ~", isFinished: false, columns: null }]);
+    expect(spaces[1].tabs[0].panes).toEqual([{ id: "w7:p1", agent: null, state: null, title: "test-user@test-box: ~", isFinished: false, columns: null, cwd: "/home/test-user" }]);
   });
 
   it.each([

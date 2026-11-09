@@ -15,7 +15,7 @@ jest.mock("expo-router", () => ({
 const machine: Machine = { id: "m1", name: "test-box", host: "test-box.example.com", port: 22, user: "test-user" };
 
 function connected(kind: HerdrKind, availableKinds: HerdrKind[]): ConnectionStatus {
-  return { phase: "connected", kind, availableKinds, version: "0.1.17", backend: {} as Backend, host: {} as HostReader };
+  return { phase: "connected", kind, availableKinds, version: "0.1.17", backend: {} as Backend, host: {} as HostReader, run: jest.fn() };
 }
 
 function makeActions() {
