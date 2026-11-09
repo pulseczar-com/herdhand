@@ -1,3 +1,5 @@
+import type { PairingCode } from "@/pairing/code";
+
 import type { NewMachine } from "./store";
 
 export type MachineFormValues = {
@@ -32,4 +34,19 @@ export function parseMachineForm(values: MachineFormValues): ParsedMachineForm {
 
 export function isPort(value: number): boolean {
   return Number.isInteger(value) && value >= MIN_PORT && value <= MAX_PORT;
+}
+
+/**
+ * The form after a pairing code is scanned. A name or address the person already typed stays;
+ * only an empty one is filled from the code. The user and port always come from the code, and the
+ * password goes, because the phone key replaces it.
+ */
+export function fillFormFromCode(values: MachineFormValues, code: PairingCode): MachineFormValues {
+  return {
+    name: values.name.trim() ? values.name : code.name,
+    host: values.host.trim() ? values.host : code.host,
+    port: String(code.port),
+    user: code.user,
+    password: null,
+  };
 }

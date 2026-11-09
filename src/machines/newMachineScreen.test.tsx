@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from "expo-router";
 
 import NewMachineScreen from "../../app/machine/new";
 
+import { PAIR_COMMAND } from "@/pairing/command";
 import { ConnectError } from "@/ssh/errors";
 import { pairMachine } from "@/ssh/pairing";
 
@@ -52,6 +53,7 @@ jest.mock("./MachineConnection", () => {
 });
 
 function fillIn() {
+  fireEvent.press(screen.getByText("Use a password"));
   fireEvent.changeText(screen.getByLabelText("Address"), "test-box.example.com");
   fireEvent.changeText(screen.getByLabelText("User"), "test-user");
   fireEvent.changeText(screen.getByLabelText("Password"), "secret");
@@ -105,6 +107,51 @@ describe("the Add a machine screen", () => {
     expect(router.back).not.toHaveBeenCalled();
   });
 
+  describe("the two ways to add a machine", () => {
+    it("starts with the address, then the name, and pairing with a code chosen", () => {
+      render(<NewMachineScreen />);
+
+      const labels = screen.getAllByLabelText(/^(Address|Name)$/).map((field) => field.props.accessibilityLabel);
+      expect(labels).toEqual(["Address", "Name"]);
+      expect(screen.getByText("Pair with a code")).toBeTruthy();
+      expect(screen.getByText("Use a password")).toBeTruthy();
+      expect(screen.getByText(PAIR_COMMAND)).toBeTruthy();
+      expect(screen.getByText("Scan pairing code")).toBeTruthy();
+      expect(screen.queryByLabelText("User")).toBeNull();
+      expect(screen.queryByLabelText("Password")).toBeNull();
+    });
+
+    it("shows the user and password fields, and no scan button, when Use a password is chosen", () => {
+      render(<NewMachineScreen />);
+
+      fireEvent.press(screen.getByText("Use a password"));
+
+      expect(screen.getByLabelText("User")).toBeTruthy();
+      expect(screen.getByLabelText("Password")).toBeTruthy();
+      expect(screen.queryByText("Scan pairing code")).toBeNull();
+      expect(screen.queryByText(PAIR_COMMAND)).toBeNull();
+    });
+
+    it("keeps the typed address and name when a code is scanned, and fills the rest", () => {
+      render(<NewMachineScreen />);
+      fireEvent.changeText(screen.getByLabelText("Address"), "192.0.2.10");
+
+      scan();
+
+      expect(screen.getByLabelText("Address").props.value).toBe("192.0.2.10");
+      expect(screen.getByLabelText("Name").props.value).toBe("test-box");
+      expect(screen.getByLabelText("User").props.value).toBe("test-user");
+      expect(screen.getByLabelText("Port").props.value).toBe("2222");
+    });
+
+    it("has nothing to save until a code is scanned", () => {
+      render(<NewMachineScreen />);
+
+      expect(screen.queryByText("Pair and connect")).toBeNull();
+      expect(screen.queryByText("Connect")).toBeNull();
+    });
+  });
+
   describe("pairing by code", () => {
     it("fills the form from the code, with no password field", () => {
       render(<NewMachineScreen />);
@@ -145,7 +192,7 @@ describe("the Add a machine screen", () => {
       expect(router.back).not.toHaveBeenCalled();
     });
 
-    it("replaces the loaded code with a new scan after pairing failed", async () => {
+    it("takes the port from a new scan after pairing failed, and keeps the address", async () => {
       jest.mocked(pairMachine).mockRejectedValue(new ConnectError("pairingNotFinished", "late"));
       render(<NewMachineScreen />);
       scan();
@@ -156,7 +203,8 @@ describe("the Add a machine screen", () => {
       fireEvent.press(screen.getByText("Scan another code"));
       fireEvent.press(screen.getByText("Simulate scan"));
 
-      expect(screen.getByLabelText("Address").props.value).toBe("other-box.example.com");
+      // The address and name are kept once filled; the port comes from the new code.
+      expect(screen.getByLabelText("Address").props.value).toBe("test-box.example.com");
       expect(screen.getByLabelText("Port").props.value).toBe("22");
       expect(screen.queryByText("Pairing did not finish. Run the command again.")).toBeNull();
     });
