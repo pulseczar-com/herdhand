@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PermissionsAndroid } from "react-native";
 
+import { isDemoMachine } from "@/demo/demoMachine";
 import type { Backend } from "@/herdr/backend";
 import type { HerdrKind } from "@/herdr/kinds";
 import { getNotificationPermissionAsked, saveNotificationPermissionAsked } from "@/settings/store";
@@ -129,7 +130,8 @@ export function useMachineConnection(id: string, isForeground: boolean) {
       // screen. The next `openBridge` call, for another machine, closes it.
       if (isOutdated()) return;
       showOpen(opened, saved);
-      void askNotificationPermissionOnce();
+      // The demo holds no connection, so it has no notice to ask for.
+      if (!isDemoMachine(saved)) void askNotificationPermissionOnce();
     } catch (error) {
       if (isOutdated()) return;
       const connectError = toConnectError(error);

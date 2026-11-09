@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 
 import type { Backend } from "@/herdr/backend";
+import { DEMO_MACHINE } from "@/demo/demoMachine";
 import type { HerdrKind } from "@/herdr/kinds";
 import type { Machine } from "@/machines/store";
 import type { ConnectionStatus } from "@/machines/useMachineConnection";
@@ -23,8 +24,8 @@ function makeActions() {
 }
 
 /** Renders the sheet, then lets the icon fonts finish loading, which updates the icons once. */
-async function renderSheet(status: ConnectionStatus, actions = makeActions(), onClose = jest.fn()) {
-  render(<MachineSheet machine={machine} status={status} onClose={onClose} actions={actions} />);
+async function renderSheet(status: ConnectionStatus, actions = makeActions(), onClose = jest.fn(), shown = machine) {
+  render(<MachineSheet machine={shown} status={status} onClose={onClose} actions={actions} />);
   await act(async () => {});
   return { actions, onClose };
 }
@@ -37,6 +38,16 @@ describe("MachineSheet", () => {
 
     expect(onClose).toHaveBeenCalled();
     expect(actions.edit).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers Leave the demo, and no Edit, for the demo machine", async () => {
+    const { actions } = await renderSheet(connected("desktop", ["desktop"]), makeActions(), jest.fn(), DEMO_MACHINE);
+
+    expect(screen.queryByText("Edit")).toBeNull();
+    expect(screen.queryByText("Remove machine")).toBeNull();
+    fireEvent.press(screen.getByText("Leave the demo"));
+
+    expect(actions.remove).toHaveBeenCalledTimes(1);
   });
 
   it("offers Edit before the machine has connected", async () => {

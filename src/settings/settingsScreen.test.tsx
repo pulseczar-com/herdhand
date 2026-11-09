@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { useTheme } from "expo-router";
 import { Linking } from "react-native";
 
@@ -6,9 +6,12 @@ import SettingsScreen from "../../app/settings";
 
 import { getPhoneKey } from "@/ssh/pairing";
 
-jest.mock("expo-router", () => ({ useTheme: jest.fn() }));
+const mockNavigate = jest.fn();
+jest.mock("expo-router", () => ({ useTheme: jest.fn(), router: { navigate: (...args: unknown[]) => mockNavigate(...args) } }));
 jest.mock("expo-application", () => ({ nativeApplicationVersion: "0.1.0" }));
 jest.mock("@/ssh/pairing", () => ({ getPhoneKey: jest.fn() }));
+const mockStartDemo = jest.fn().mockResolvedValue(undefined);
+jest.mock("@/machines/MachineConnection", () => ({ useMachines: () => ({ startDemo: mockStartDemo }) }));
 jest.mock("./store", () => ({ getAppLockEnabled: jest.fn().mockResolvedValue(false), saveAppLockEnabled: jest.fn() }));
 
 const colors = { text: "#000", border: "#000", primary: "#000", background: "#fff", notification: "#f00" };
@@ -56,5 +59,15 @@ describe("the Settings screen", () => {
     fireEvent.press(await screen.findByText("Privacy policy"));
 
     expect(openURL).toHaveBeenCalledWith("https://pulseczar.com/herdhand/privacy");
+  });
+
+  it("opens the demo from the Demo section, and goes to the page", async () => {
+    render(<SettingsScreen />);
+
+    fireEvent.press(await screen.findByText("Try the demo"));
+    await act(async () => {});
+
+    expect(mockStartDemo).toHaveBeenCalledTimes(1);
+    expect(mockNavigate).toHaveBeenCalledWith("/");
   });
 });

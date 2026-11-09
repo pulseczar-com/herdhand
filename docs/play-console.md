@@ -33,7 +33,7 @@ Text for the declaration form:
 ## Declaration video and app access
 
 - Declaration video: record the user starting a connection to a machine, leaving the app, and the service notification. Add the video link to the foreground service declaration.
-- App access: reviewers need a reachable Herdr machine. Supply a demo machine (address, port, user name and password) in the App access instructions.
+- App access: no login is needed. Each user connects to their own machine, and the app has no accounts. Reviewers can tap "Try the demo" on the machine list, or under Settings, to see the app with sample data and no server. In the App access instructions, say that the app needs no login and name this demo.
 
 ## Other declarations
 

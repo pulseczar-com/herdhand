@@ -1,6 +1,8 @@
 import Ssh, { type RunResult } from "../../modules/ssh";
 
 import type { Backend } from "@/herdr/backend";
+import { makeDemoBridge } from "@/demo/demoBridge";
+import { isDemoMachine } from "@/demo/demoMachine";
 import { makeDesktopBackend, makeDesktopClient } from "@/herdr/desktop";
 import type { HerdrKind } from "@/herdr/kinds";
 import { makeTuiBackend, makeTuiClient } from "@/herdr/tui";
@@ -92,6 +94,7 @@ export function openBridge(options: OpenBridgeOptions): Promise<Bridge> {
 }
 
 async function attemptOpen({ machine, password, trustedFingerprint }: OpenBridgeOptions): Promise<Bridge> {
+  if (isDemoMachine(machine)) return openDemoBridge(machine.id);
   let attempt: ConnectAttempt | undefined;
   let wasDisconnectRequested = false;
   const watchDisconnect = Ssh.addListener("onClosed", (event) => {
@@ -122,6 +125,16 @@ async function attemptOpen({ machine, password, trustedFingerprint }: OpenBridge
   } finally {
     watchDisconnect.remove();
   }
+}
+
+/** The demo machine's bridge: it takes the place of the open bridge, and uses no network. */
+async function openDemoBridge(machineId: string): Promise<Bridge> {
+  await current?.close();
+  const bridge: Bridge = makeDemoBridge(machineId, () => {
+    if (current === bridge) current = null;
+  });
+  current = bridge;
+  return bridge;
 }
 
 /**

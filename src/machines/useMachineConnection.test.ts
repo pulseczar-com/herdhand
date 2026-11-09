@@ -78,8 +78,8 @@ function mockBridges(...bridges: Bridge[]) {
   });
 }
 
-function renderConnection(isForeground = true) {
-  return renderHook(({ foreground }: { foreground: boolean }) => useMachineConnection("m1", foreground), {
+function renderConnection(isForeground = true, id = "m1") {
+  return renderHook(({ foreground }: { foreground: boolean }) => useMachineConnection(id, foreground), {
     initialProps: { foreground: isForeground },
   });
 }
@@ -244,6 +244,17 @@ describe("useMachineConnection", () => {
       await act(() => result.current.disconnect());
 
       expect(closeOpenBridge).toHaveBeenCalledWith("m1");
+    });
+
+    it("does not ask for the notice's permission on the demo machine, which holds no connection", async () => {
+      jest.mocked(getMachine).mockResolvedValue({ ...machine, id: "demo" });
+      mockBridges(makeBridge(makeBackend()));
+      const { result } = renderConnection(true, "demo");
+      await waitFor(() => expect(result.current.status).toMatchObject({ phase: "connected" }));
+      await act(async () => {});
+
+      expect(getNotificationPermissionAsked).not.toHaveBeenCalled();
+      expect(PermissionsAndroid.request).not.toHaveBeenCalled();
     });
 
     it("asks to show the notice that holds the connection on the first connect only", async () => {

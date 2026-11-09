@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
 
 import {
+  addDemoMachine,
   addMachine,
   addPairedMachine,
   getMachine,
@@ -15,6 +16,7 @@ import {
   saveTrustedFingerprint,
   updateMachine,
 } from "./store";
+import { DEMO_MACHINE } from "@/demo/demoMachine";
 import { getSpaceOrder, saveSpaceOrder } from "@/spaceOrder/store";
 
 import { getCollapsedSpaceIds, saveCollapsedSpaceIds } from "./collapsedSpaces";
@@ -43,6 +45,17 @@ async function allAsyncStorageText(): Promise<string> {
 describe("machines store", () => {
   beforeEach(async () => {
     await AsyncStorage.clear();
+  });
+
+  it("saves the demo machine once, with no password, and removes it like any machine", async () => {
+    await addMachine(newMachine, "secret");
+    await addDemoMachine();
+    await addDemoMachine();
+
+    expect((await listMachines()).map((machine) => machine.id)).toEqual([expect.any(String), "demo"]);
+    expect(await getSignInPassword({ ...DEMO_MACHINE })).toBe("");
+    await removeMachine("demo");
+    expect(await listMachines()).toHaveLength(1);
   });
 
   it("adds, lists and removes a machine", async () => {

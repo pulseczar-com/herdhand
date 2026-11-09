@@ -3,6 +3,7 @@ import * as SecureStore from "expo-secure-store";
 
 import type { HerdrKind } from "@/herdr/kinds";
 
+import { DEMO_MACHINE, isDemoMachine } from "@/demo/demoMachine";
 import { removeSpaceOrder } from "@/spaceOrder/store";
 
 import { removeCollapsedSpaceIds } from "./collapsedSpaces";
@@ -55,6 +56,13 @@ export async function addPairedMachine(input: NewMachine, fingerprint: string): 
   const machines = await listMachines();
   await saveMachines([...machines, machine]);
   return machine;
+}
+
+/** Saves the demo machine, unless it is saved already. It has no password and no host key to keep. */
+export async function addDemoMachine(): Promise<void> {
+  const machines = await listMachines();
+  if (machines.some(isDemoMachine)) return;
+  await saveMachines([...machines, DEMO_MACHINE]);
 }
 
 /**

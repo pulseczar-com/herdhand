@@ -1,6 +1,7 @@
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from "react";
 import { reorderItems } from "react-native-reorderable-list";
 
+import { DEMO_MACHINE_ID } from "@/demo/demoMachine";
 import { ForegroundContext } from "@/lock/useIsForeground";
 
 import {
@@ -12,7 +13,7 @@ import {
   saveOpenMachine,
   toggleMachine,
 } from "./openMachine";
-import { listMachines, type Machine, moveMachine } from "./store";
+import { addDemoMachine, listMachines, type Machine, moveMachine } from "./store";
 import { useMachineConnection } from "./useMachineConnection";
 import { type SpacesState, useSpaces } from "./useSpaces";
 
@@ -79,6 +80,13 @@ function useMachineList() {
   const openMachine = useCallback((id: string) => saveOpen({ id, isFolded: false }), [saveOpen]);
   const closeOpen = useCallback(() => saveOpen(NONE_OPEN), [saveOpen]);
 
+  /** Saves the demo machine and opens it. */
+  const startDemo = useCallback(async () => {
+    await addDemoMachine();
+    await reload();
+    openMachine(DEMO_MACHINE_ID);
+  }, [reload, openMachine]);
+
   function move(from: number, to: number) {
     setMachines((current) => reorderItems(current, from, to));
     void moveMachine(from, to);
@@ -94,6 +102,7 @@ function useMachineList() {
     /** A tap on a machine's header. */
     toggle: (id: string) => saveOpen(toggleMachine(open, id)),
     openMachine,
+    startDemo,
     /** After a remove of the open machine: no machine is open, and none connects by itself. */
     closeOpen,
   };
