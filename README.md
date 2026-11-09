@@ -26,6 +26,7 @@ Herdr is a terminal multiplexer: it keeps spaces, tabs and panes running on a ma
 - A pane that works in a [Firstmate](https://github.com/kunchenguid/firstmate) home gets a **Bearings** button. See [Firstmate bearings](#firstmate-bearings).
 - Log in with a password, or pair by scanning a code so the phone logs in with its own key.
 - An app lock with fingerprint, face or the screen lock. It is on by default.
+- A demo with sample spaces, chats and Bearings, and no network. Tap **Try the demo** on the empty machine list, or in Settings.
 
 ## Shell panes
 

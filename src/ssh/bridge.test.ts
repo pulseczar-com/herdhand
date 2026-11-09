@@ -1,3 +1,5 @@
+import { DEMO_MACHINE } from "@/demo/demoMachine";
+
 import { closeOpenBridge, DISCONNECT_REQUESTED, getOpenBridge, openBridge } from "./bridge";
 import { CHANGE_WINDOW_MS } from "./events";
 import { ConnectError } from "./errors";
@@ -368,5 +370,31 @@ describe("openBridge", () => {
 
       expect(mockSsh.state.events).toEqual([]);
     });
+  });
+});
+
+describe("openBridge for the demo machine", () => {
+  const openDemo = () => openBridge({ machine: DEMO_MACHINE, password: "", trustedFingerprint: null });
+
+  it("opens with no network call, and is the open bridge until it closes", async () => {
+    const bridge = await openDemo();
+
+    expect(mockSsh.state.log).toEqual([]);
+    expect(getOpenBridge(DEMO_MACHINE.id)).toBe(bridge);
+    await bridge.close();
+    expect(getOpenBridge(DEMO_MACHINE.id)).toBeNull();
+  });
+
+  it("closes the bridge of a real machine that was open, and a real machine closes the demo", async () => {
+    const real = await open("a.example.com");
+    const demo = await openDemo();
+    expect(getOpenBridge("a.example.com")).toBeNull();
+    expect(real.machineId).toBe("a.example.com");
+    expect(getOpenBridge(DEMO_MACHINE.id)).toBe(demo);
+
+    const next = await open("b.example.com");
+    expect(demo.endReason).not.toBeNull();
+    expect(getOpenBridge("b.example.com")).toBe(next);
+    await next.close();
   });
 });

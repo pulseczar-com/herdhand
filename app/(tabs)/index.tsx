@@ -7,6 +7,8 @@ import { useDragPan } from "@/components/dragPan";
 import { MachineHeader } from "@/components/MachineHeader";
 import { MachineSheet } from "@/components/MachineSheet";
 import { NeedsYouCards, SpaceList } from "@/components/SpaceList";
+import { TryDemoButton } from "@/components/TryDemoButton";
+import { isDemoMachine } from "@/demo/demoMachine";
 import type { HerdrKind } from "@/herdr/kinds";
 import { useNoScreenLockNotice } from "@/lock/useNoScreenLockNotice";
 import { type MachineConnection, MachineConnectionContext, useMachines } from "@/machines/MachineConnection";
@@ -33,9 +35,12 @@ export default function SpacesScreen() {
       {machines.length > 0 ? (
         <MachinesPage />
       ) : (
-        <Text style={[styles.empty, { color: colors.text }]}>
-          Tap + to add a machine that runs Herdr: a server, a VPS or a Mac you can reach over SSH.
-        </Text>
+        <View style={styles.empty}>
+          <Text style={[styles.emptyText, { color: colors.text }]}>
+            Tap + to add a machine that runs Herdr: a server, a VPS or a Mac you can reach over SSH.
+          </Text>
+          <TryDemoButton />
+        </View>
       )}
     </View>
   );
@@ -187,9 +192,12 @@ function useConfirmRemove() {
   }
 
   return function confirmRemove(machine: Machine) {
-    Alert.alert(`Remove ${machine.name}?`, "Its password and host key are deleted from this phone.", [
+    const [title, message, action] = isDemoMachine(machine)
+      ? ["Leave the demo?", "The sample machine goes away. You can open it again from Settings.", "Leave"]
+      : [`Remove ${machine.name}?`, "Its password and host key are deleted from this phone.", "Remove"];
+    Alert.alert(title, message, [
       { text: "Cancel", style: "cancel" },
-      { text: "Remove", style: "destructive", onPress: () => void removeOne(machine) },
+      { text: action, style: "destructive", onPress: () => void removeOne(machine) },
     ]);
   };
 }
@@ -300,7 +308,8 @@ function Failed({ status, onReconnect }: { status: Extract<ConnectionStatus, { p
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   notice: { paddingHorizontal: 16, paddingVertical: 12, opacity: 0.8 },
-  empty: { padding: 16, fontSize: 16, opacity: 0.8 },
+  empty: { padding: 16, gap: 16 },
+  emptyText: { fontSize: 16, opacity: 0.8 },
   statusContent: { paddingVertical: 8, gap: 16 },
   foldedHeader: { paddingTop: 8 },
   block: { gap: 12, paddingHorizontal: 16 },

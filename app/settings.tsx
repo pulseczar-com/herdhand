@@ -3,6 +3,7 @@ import { useTheme } from "expo-router";
 import { useEffect, useState } from "react";
 import { Image, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 
+import { TryDemoButton } from "@/components/TryDemoButton";
 import { getErrorMessage } from "@/errorMessage";
 import { RELOCK_AFTER_MS } from "@/lock/appLock";
 import { getAppLockEnabled, saveAppLockEnabled } from "@/settings/store";
@@ -23,6 +24,7 @@ export default function SettingsScreen() {
     <ScrollView contentContainerStyle={styles.content}>
       <AppLockSection />
       <PhoneKeySection />
+      <DemoSection />
       <AboutSection />
     </ScrollView>
   );
@@ -87,6 +89,21 @@ function PhoneKeySection() {
         </>
       ) : null}
       {error ? <Text style={[styles.rowDetail, { color: colors.notification }]}>{error}</Text> : null}
+    </View>
+  );
+}
+
+/** Opens the demo machine, to see the app with sample data and no server. */
+function DemoSection() {
+  const { colors } = useTheme();
+
+  return (
+    <View style={styles.section}>
+      <Text style={[styles.sectionTitle, { color: colors.primary }]}>Demo</Text>
+      <Text style={[styles.rowDetail, { color: colors.text }]}>
+        See Herdhand with sample spaces and chats. It needs no machine and no network, and nothing is sent.
+      </Text>
+      <TryDemoButton />
     </View>
   );
 }

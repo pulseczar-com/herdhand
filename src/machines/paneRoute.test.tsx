@@ -83,6 +83,9 @@ jest.mock("./useMachineConnection", () => ({
 jest.mock("./store", () => ({
   listMachines: jest.fn(async () => [...mockSavedMachines]),
   moveMachine: jest.fn(),
+  addDemoMachine: jest.fn(async () => {
+    mockSavedMachines = [...mockSavedMachines, jest.requireActual("@/demo/demoMachine").DEMO_MACHINE];
+  }),
   removeMachine: jest.fn(async (id: string) => {
     mockSavedMachines = mockSavedMachines.filter((machine) => machine.id !== id);
   }),
@@ -154,6 +157,24 @@ describe("machine routes", () => {
     expect(await screen.findByText(PANE_TEXT)).toBeTruthy();
     expect(router.getPathname()).toBe("/machine/m1/pane/t6");
     expect(backend.readPane).toHaveBeenCalledWith("t6");
+  });
+
+  it("opens the demo machine from the empty page, and leaves it with Leave the demo", async () => {
+    mockSavedMachines = [];
+    const alert = jest.spyOn(Alert, "alert");
+    renderMachine();
+
+    fireEvent.press(await screen.findByText("Try the demo"));
+    expect(await screen.findByText("Demo machine")).toBeTruthy();
+    expect(mockUseMachineConnection).toHaveBeenLastCalledWith("demo");
+
+    fireEvent.press(await screen.findByRole("button", { name: "Demo machine actions" }));
+    fireEvent.press(screen.getByText("Leave the demo"));
+    const leave = alert.mock.calls.at(-1)?.[2]?.find((button) => button.text === "Leave");
+    await act(async () => leave?.onPress?.());
+
+    expect(removeMachine).toHaveBeenCalledWith("demo");
+    expect(await screen.findByText(/Tap \+ to add a machine/)).toBeTruthy();
   });
 
   it("shows the machine's row with its state, and opens its sheet with Reconnect", async () => {

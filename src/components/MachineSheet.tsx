@@ -3,6 +3,7 @@ import { useTheme } from "expo-router";
 import type { ComponentProps } from "react";
 import { type ColorValue, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 
+import { isDemoMachine } from "@/demo/demoMachine";
 import { HERDR_KINDS, type HerdrKind, KIND_LABELS } from "@/herdr/kinds";
 import type { Machine } from "@/machines/store";
 import type { ConnectionStatus } from "@/machines/useMachineConnection";
@@ -23,7 +24,7 @@ type MachineSheetProps = {
 
 /**
  * The machine's details and actions, in a sheet that slides up from the bottom: its address,
- * the Herdr kind and version, the kind choice when it runs both, Edit, Reconnect and Remove.
+ * the Herdr kind and version, the kind choice when it runs both, Edit, Reconnect and Remove (Leave the demo for the demo machine, which has no Edit).
  * A tap outside or the back button closes it.
  */
 export function MachineSheet({ machine, status, onClose, actions }: MachineSheetProps) {
@@ -32,6 +33,8 @@ export function MachineSheet({ machine, status, onClose, actions }: MachineSheet
   const kinds = getKinds(status);
   const canSwitchKind = kinds !== null && kinds.available.length > 1;
   const canReconnect = status.phase !== "connecting";
+  // The demo machine has no address to edit; removing it leaves the demo.
+  const isDemo = isDemoMachine(machine);
 
   function closeThenRun(action: () => void) {
     onClose();
@@ -48,11 +51,11 @@ export function MachineSheet({ machine, status, onClose, actions }: MachineSheet
         {canSwitchKind ? (
           <KindToggle selected={kinds.selected} onSelect={(kind) => closeThenRun(() => actions.switchKind(kind))} />
         ) : null}
-        <SheetAction icon="edit" label="Edit" color={colors.text} onPress={() => closeThenRun(actions.edit)} />
+        {isDemo ? null : <SheetAction icon="edit" label="Edit" color={colors.text} onPress={() => closeThenRun(actions.edit)} />}
         {canReconnect ? (
           <SheetAction icon="refresh" label="Reconnect" color={colors.text} onPress={() => closeThenRun(actions.reconnect)} />
         ) : null}
-        <SheetAction icon="delete-outline" label="Remove machine" color={destructiveColor} onPress={() => closeThenRun(actions.remove)} />
+        <SheetAction icon="delete-outline" label={isDemo ? "Leave the demo" : "Remove machine"} color={destructiveColor} onPress={() => closeThenRun(actions.remove)} />
       </View>
     </Modal>
   );
