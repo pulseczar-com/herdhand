@@ -4,9 +4,9 @@ import type { Pane } from "@/herdr/backend";
 import type { RunCommand } from "@/ssh/bridge";
 import { getTestFirstmateCommand } from "@/ssh/commands";
 
-// What the check found for each pane, kept for the session so a pane is checked once. A failed
-// check is not kept, so the next open of the pane tries again.
-const found = new Map<string, boolean>();
+// The panes found to run the Firstmate, kept for the session so such a pane is checked once. Only a
+// pass is kept: the lock changes over time, so a pane that fails is checked again on its next open.
+const found = new Set<string>();
 
 type PaneIdentity = Pick<Pane, "cwd" | "pid" | "sessionId">;
 
@@ -23,7 +23,7 @@ export function resetFirstmateChecks() {
 export function useIsFirstmate(machineId: string, run: RunCommand | undefined, pane: PaneIdentity | undefined): boolean {
   const { cwd: folder, pid, sessionId } = pane ?? {};
   const key = `${machineId}\n${folder}\n${pid ?? ""}\n${sessionId ?? ""}`;
-  // Counts the checks that ended, so the pane renders again with what they found.
+  // Counts the checks that passed, so the pane renders again with what they found.
   const [, setChecks] = useState(0);
 
   useEffect(() => {
@@ -31,7 +31,8 @@ export function useIsFirstmate(machineId: string, run: RunCommand | undefined, p
     let isOpen = true;
     run(getTestFirstmateCommand(folder, pid, sessionId)).then(
       ({ exitCode }) => {
-        found.set(key, exitCode === 0);
+        if (exitCode !== 0) return;
+        found.add(key);
         if (isOpen) setChecks((count) => count + 1);
       },
       () => undefined,
@@ -41,5 +42,5 @@ export function useIsFirstmate(machineId: string, run: RunCommand | undefined, p
     };
   }, [key, run, folder, pid, sessionId]);
 
-  return Boolean(folder && run && found.get(key));
+  return Boolean(folder && run && found.has(key));
 }

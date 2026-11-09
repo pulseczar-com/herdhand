@@ -156,12 +156,12 @@ const RECORD_SCRIPT = `${RUN_IN_LOGIN_SHELL} "$1/bin/fm-tasks-axi.sh" show "$2" 
 // `--` keeps a body that starts with a dash from being read as a flag.
 const NOTE_SCRIPT = `${RUN_IN_LOGIN_SHELL} "$1/bin/fm-inbox.sh" note --request-id "$2" -- "$3"`;
 
-// The Firstmate writes the pid and the Claude session id of the session that holds its lock.
+// The Firstmate writes the pid and the Claude session id of the session that holds its lock, on line 1.
 // An empty argument never matches, so a backend that reports only one of them is not fooled.
 const TEST_FIRSTMATE_SCRIPT = [
   'test -x "$1/bin/fm-bearings-snapshot.sh"',
-  '&& { { [ -n "$2" ] && [ "$(cat "$1/state/.lock" 2>/dev/null)" = "$2" ]; }',
-  '|| { [ -n "$3" ] && [ "$(cat "$1/state/.lock-session" 2>/dev/null)" = "$3" ]; }; }',
+  '&& { { [ -n "$2" ] && [ "$(sed -n 1p "$1/state/.lock" 2>/dev/null)" = "$2" ]; }',
+  '|| { [ -n "$3" ] && [ "$(sed -n 1p "$1/state/.lock-session" 2>/dev/null)" = "$3" ]; }; }',
 ].join(" ");
 
 /**

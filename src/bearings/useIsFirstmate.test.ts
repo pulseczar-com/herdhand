@@ -61,6 +61,22 @@ describe("useIsFirstmate", () => {
     await waitFor(() => expect(check).toHaveBeenCalledTimes(2));
   });
 
+  it("checks a pane again on its next open after it failed, so a lock that came later shows the button", async () => {
+    const check: jest.MockedFunction<RunCommand> = jest
+      .fn()
+      .mockResolvedValueOnce({ output: "", exitCode: 1 })
+      .mockResolvedValue({ output: "", exitCode: 0 });
+    const first = renderHook(() => useIsFirstmate("m1", check, firstmate));
+    await waitFor(() => expect(check).toHaveBeenCalledTimes(1));
+    expect(first.result.current).toBe(false);
+    first.unmount();
+
+    const second = renderHook(() => useIsFirstmate("m1", check, firstmate));
+
+    await waitFor(() => expect(second.result.current).toBe(true));
+    expect(check).toHaveBeenCalledTimes(2);
+  });
+
   it("does not keep a failed check, so the next open tries again", async () => {
     const check: jest.MockedFunction<RunCommand> = jest
       .fn()

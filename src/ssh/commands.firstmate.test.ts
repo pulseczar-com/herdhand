@@ -77,6 +77,13 @@ describe("the Firstmate commands", () => {
       expect(status(home)).not.toBe(0);
     });
 
+    it("reads only line 1 of the lock files", () => {
+      writeFileSync(lockPath(), "1476\nextra\n");
+      writeFileSync(sessionPath(), "6ea40615\nextra\n");
+      expect(status(home, 1476)).toBe(0);
+      expect(status(home, undefined, "6ea40615")).toBe(0);
+    });
+
     it("fails when the lock files are missing", () => {
       rmSync(lockPath());
       rmSync(sessionPath());
