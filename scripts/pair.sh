@@ -3,7 +3,7 @@
 #
 # Run it on the machine, as the user the phone should sign in as:
 #
-#   curl -fsSL https://raw.githubusercontent.com/pulseczar-com/herdhand/<tag>/scripts/pair.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/pulseczar-com/herdhand/main/scripts/pair.sh | sh
 #
 # It adds a one-time key to ~/.ssh/authorized_keys. That key can do one thing, once, for five
 # minutes: hand over the phone's public key. It cannot open a shell or a tunnel. The script shows a

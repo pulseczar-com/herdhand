@@ -74,13 +74,11 @@ Herdhand installs nothing on the machine. Pairing leaves one line there: the pho
 ### Pair with a code
 
 1. In Herdhand, tap **Add machine**, then **Scan pairing code**. The app shows a command.
-2. Run the command in a terminal on the machine, as the user Herdhand logs in as. It looks like this, with the tag of your Herdhand version:
+2. Run the command in a terminal on the machine, as the user Herdhand logs in as. It looks like this:
 
    ```sh
-   curl -fsSL https://raw.githubusercontent.com/pulseczar-com/herdhand/<tag>/scripts/pair.sh | sh
+   curl -fsSL https://raw.githubusercontent.com/pulseczar-com/herdhand/main/scripts/pair.sh | sh
    ```
-
-   The command works only for a released version of Herdhand, whose tag holds `scripts/pair.sh`. On a version with no such release, such as a development build, copy `scripts/pair.sh` from your clone to the machine and run `sh pair.sh` there.
 
 3. Scan the code it shows, check the address, and tap **Pair and connect**. The terminal prints `Paired:` and the name of the phone key.
 
