@@ -5,6 +5,7 @@ import type { Pane, Space } from "@/herdr/backend";
 
 /** The folder of the demo Firstmate. The demo machine answers Bearings for this folder only. */
 export const DEMO_FIRSTMATE_FOLDER = "/work/firstmate";
+export const DEMO_FIRSTMATE_PID = 4104;
 
 type Session = { pid: number; sessionId: string; cwd: string; branch: string; lines: string[] };
 
@@ -86,7 +87,7 @@ const SESSIONS: Session[] = [
     ],
   },
   {
-    pid: 4104,
+    pid: DEMO_FIRSTMATE_PID,
     sessionId: "demo-firstmate",
     cwd: DEMO_FIRSTMATE_FOLDER,
     branch: "main",
@@ -198,6 +199,6 @@ export const DEMO_SPACES: Space[] = [
   {
     id: "demo-s3",
     name: "firstmate",
-    tabs: [{ id: "demo-t5", name: "main", panes: [agentPane({ id: "demo-firstmate", title: "Firstmate", state: "working", pid: 4104, cwd: DEMO_FIRSTMATE_FOLDER })] }],
+    tabs: [{ id: "demo-t5", name: "main", panes: [agentPane({ id: "demo-firstmate", title: "Firstmate", state: "working", pid: DEMO_FIRSTMATE_PID, cwd: DEMO_FIRSTMATE_FOLDER })] }],
   },
 ];

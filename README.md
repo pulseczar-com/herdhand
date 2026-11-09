@@ -57,7 +57,7 @@ Bearings shows the last data at once, with its age. It refreshes every 30 second
 
 ### How it works
 
-A pane whose folder is a Firstmate home (its `bin/fm-bearings-snapshot.sh` is executable) has a **Bearings** button in its header. Other panes do not change, and the button never shows for a person with no Firstmate. The app tests for the script with one `test -x` command, once for each folder in a session. The app keeps Bearings data in memory for the session only.
+The pane that runs the Firstmate has a **Bearings** button in its header. The pane's folder must be a Firstmate home (its `bin/fm-bearings-snapshot.sh` is executable), and the pane's process id or Claude session id must be the one the home records in `state/.lock` or `state/.lock-session`. A Claude session or a shell that only starts in that folder gets no button. Other panes do not change, and the button never shows for a person with no Firstmate. The app tests all of this with one shell command, once for each pane in a session. The app keeps Bearings data in memory for the session only.
 
 The app runs these Firstmate commands only after a tap on Bearings, over the SSH connection that is already open. It installs nothing, and the commands run as the user Herdhand logs in as:
 
