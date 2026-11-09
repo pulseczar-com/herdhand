@@ -177,6 +177,13 @@ function OpenMachinePage({ connection, spaceOrder, header, footer }: OpenMachine
   );
 }
 
+function getRemoveCopy(machine: Machine): { title: string; message: string; action: string } {
+  if (isDemoMachine(machine)) {
+    return { title: "Leave the demo?", message: "The sample machine goes away. You can open it again from Settings.", action: "Leave" };
+  }
+  return { title: `Remove ${machine.name}?`, message: "Its password and host key are deleted from this phone.", action: "Remove" };
+}
+
 /** Asks before a machine is removed. Removing the open machine closes its connection first. */
 function useConfirmRemove() {
   const connection = useContext(MachineConnectionContext);
@@ -192,9 +199,7 @@ function useConfirmRemove() {
   }
 
   return function confirmRemove(machine: Machine) {
-    const [title, message, action] = isDemoMachine(machine)
-      ? ["Leave the demo?", "The sample machine goes away. You can open it again from Settings.", "Leave"]
-      : [`Remove ${machine.name}?`, "Its password and host key are deleted from this phone.", "Remove"];
+    const { title, message, action } = getRemoveCopy(machine);
     Alert.alert(title, message, [
       { text: "Cancel", style: "cancel" },
       { text: action, style: "destructive", onPress: () => void removeOne(machine) },

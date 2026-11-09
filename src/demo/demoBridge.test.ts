@@ -110,12 +110,15 @@ describe("the demo Firstmate", () => {
 });
 
 describe("closing", () => {
-  it("settles `closed` once, and calls `onClose`", async () => {
+  it("calls `onClose` once and leaves `closed` unsettled", async () => {
     const onClose = jest.fn();
     const own = makeDemoBridge("demo", onClose);
     await own.close();
     await own.close();
-    await expect(own.closed).resolves.toEqual(expect.any(String));
+    const settled = jest.fn();
+    void own.closed.then(settled, settled);
+    await Promise.resolve();
+    expect(settled).not.toHaveBeenCalled();
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(own.endReason).not.toBeNull();
   });

@@ -35,6 +35,7 @@ export function MachineSheet({ machine, status, onClose, actions }: MachineSheet
   const canReconnect = status.phase !== "connecting";
   // The demo machine has no address to edit; removing it leaves the demo.
   const isDemo = isDemoMachine(machine);
+  const removeLabel = isDemo ? "Leave the demo" : "Remove machine";
 
   function closeThenRun(action: () => void) {
     onClose();
@@ -55,7 +56,7 @@ export function MachineSheet({ machine, status, onClose, actions }: MachineSheet
         {canReconnect ? (
           <SheetAction icon="refresh" label="Reconnect" color={colors.text} onPress={() => closeThenRun(actions.reconnect)} />
         ) : null}
-        <SheetAction icon="delete-outline" label={isDemo ? "Leave the demo" : "Remove machine"} color={destructiveColor} onPress={() => closeThenRun(actions.remove)} />
+        <SheetAction icon="delete-outline" label={removeLabel} color={destructiveColor} onPress={() => closeThenRun(actions.remove)} />
       </View>
     </Modal>
   );

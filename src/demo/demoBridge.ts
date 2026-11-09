@@ -17,8 +17,7 @@ const DEMO_VERSION = "demo";
  */
 export function makeDemoBridge(machineId: string, onClose: () => void): Bridge {
   let endReason: string | null = null;
-  let resolveClosed: (reason: string) => void = () => {};
-  const closed = new Promise<string>((resolve) => (resolveClosed = resolve));
+  const closed = new Promise<string>(() => {});
 
   return {
     machineId,
@@ -36,7 +35,6 @@ export function makeDemoBridge(machineId: string, onClose: () => void): Bridge {
       if (endReason !== null) return;
       endReason = "demo closed";
       onClose();
-      resolveClosed(endReason);
     },
   };
 }
