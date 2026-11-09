@@ -15,6 +15,8 @@ type ItemActionsProps = {
   actions: ActionId[];
   /** The item's title, for the question that Drop and Stop ask first. */
   itemTitle: string;
+  /** "Firstmate (crew)", for the spoken label of Discuss. */
+  firstmateName: string;
   isDisabled: boolean;
   onDiscuss: () => void;
   onAction: (action: ActionId) => void;
@@ -24,14 +26,14 @@ type ItemActionsProps = {
  * The item's actions as icon buttons with a short name under each, since a phone has no
  * tooltip: Discuss first, then the actions its row allows. Drop and Stop ask first.
  */
-export function ItemActions({ actions, itemTitle, isDisabled, onDiscuss, onAction }: ItemActionsProps) {
+export function ItemActions({ actions, itemTitle, firstmateName, isDisabled, onDiscuss, onAction }: ItemActionsProps) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
 
   function press(action: ActionId) {
     const { label, confirm } = ACTIONS[action];
     if (!confirm) return onAction(action);
-    Alert.alert(`${label} this item?`, itemTitle, [
+    Alert.alert(`${label} ${itemTitle}?`, undefined, [
       { text: "Cancel", style: "cancel" },
       { text: label, style: "destructive", onPress: () => onAction(action) },
     ]);
@@ -39,7 +41,7 @@ export function ItemActions({ actions, itemTitle, isDisabled, onDiscuss, onActio
 
   return (
     <View style={[styles.bar, { borderTopColor: colors.border, paddingBottom: 8 + insets.bottom }]}>
-      <ActionButton icon="message-square" label="Discuss" isAccent isDisabled={isDisabled} onPress={onDiscuss} />
+      <ActionButton icon="message-square" label="Discuss" spokenLabel={`Discuss with ${firstmateName}`} isAccent isDisabled={isDisabled} onPress={onDiscuss} />
       {actions.map((action) => (
         <ActionButton key={action} icon={ACTIONS[action].icon} label={ACTIONS[action].label} isDisabled={isDisabled} onPress={() => press(action)} />
       ))}
@@ -50,19 +52,21 @@ export function ItemActions({ actions, itemTitle, isDisabled, onDiscuss, onActio
 type ActionButtonProps = {
   icon: React.ComponentProps<typeof Feather>["name"];
   label: string;
+  /** What a screen reader says, when it differs from the visible label. */
+  spokenLabel?: string;
   isAccent?: boolean;
   isDisabled: boolean;
   onPress: () => void;
 };
 
-function ActionButton({ icon, label, isAccent, isDisabled, onPress }: ActionButtonProps) {
+function ActionButton({ icon, label, spokenLabel, isAccent, isDisabled, onPress }: ActionButtonProps) {
   const theme = useTheme();
   const { colors } = theme;
   const muted = useToneColor("neutral");
   const color = isAccent ? colors.primary : muted;
 
   return (
-    <Pressable style={[styles.action, isDisabled && styles.disabled]} accessibilityRole="button" accessibilityLabel={label} disabled={isDisabled} onPress={onPress}>
+    <Pressable style={[styles.action, isDisabled && styles.disabled]} accessibilityRole="button" accessibilityLabel={spokenLabel ?? label} disabled={isDisabled} onPress={onPress}>
       <View style={[styles.icon, isAccent && { backgroundColor: getPillBackground(getAccentColor(theme)) }]}>
         <Feather name={icon} size={ICON_SIZE} color={color} />
       </View>

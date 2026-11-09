@@ -76,11 +76,11 @@ export function useBearings(run: RunCommand, folder: string, seen: LastSeen) {
 async function readSnapshot(run: RunCommand, folder: string, seen: LastSeen): Promise<(last: BearingsState) => BearingsState> {
   try {
     const { output, exitCode } = await run(getSnapshotCommand(folder));
-    if (exitCode !== 0) return failed(`Could not refresh (exit ${exitCode})`);
+    if (exitCode !== 0) return failed(`Refresh failed: exit code ${exitCode}`);
     if (output.trim() === AWAY_MARKER) return (last) => ({ ...last, error: null, isAway: true });
     return readSnapshotText(output, seen);
   } catch (failure) {
-    return failed(`Could not refresh: ${getErrorMessage(failure)}`);
+    return failed(`Refresh failed: ${getErrorMessage(failure)}`);
   }
 }
 

@@ -57,7 +57,7 @@ export function ItemView({ row, record, hasFailed, now }: ItemViewProps) {
           </View>
         </View>
       ))}
-      {hasFailed ? <Text style={[styles.detail, { color: muted }]}>Task details unavailable.</Text> : null}
+      {hasFailed ? <Text style={[styles.detail, { color: muted }]}>Details unavailable</Text> : null}
       {otherLinks.length > 0 ? (
         <View style={styles.wrapRow}>
           {otherLinks.map((link) => (

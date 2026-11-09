@@ -9,6 +9,7 @@ import { getPillBackground, StatePill, useToneColor } from "@/components/StatePi
 import { getAgeText } from "./age";
 import { getRepo, type Row, type Section, withoutEmptySections } from "./bearings";
 import { LinkChip, RepoLabel } from "./Chips";
+import { getFirstmateName } from "./firstmateName";
 import { useBearingsContext } from "./BearingsProvider";
 import { useClock } from "./useClock";
 
@@ -120,31 +121,31 @@ function Card({ tone, row, onPress }: CardProps) {
   );
 }
 
-/** "Showing data from 12 s ago.", or nothing before the first data. */
-function useStaleText(updatedAt: number | null): string {
+/** "12s ago", or null before the first data. */
+function useDataAge(updatedAt: number | null): string | null {
   const now = useClock();
-  return updatedAt === null ? "" : `Showing data from ${getAgeText(updatedAt, now)}.`;
+  return updatedAt === null ? null : getAgeText(updatedAt, now);
 }
 
 /** A calm card while the Firstmate is in away mode. The data from before stays under it. */
 function AwayLine({ name, updatedAt }: { name: string; updatedAt: number | null }) {
   const { colors } = useTheme();
   const muted = useToneColor("neutral");
-  const staleText = useStaleText(updatedAt);
+  const age = useDataAge(updatedAt);
   return (
     <View style={[styles.away, { backgroundColor: colors.card }]}>
-      <Text style={[styles.awayTitle, { color: colors.text }]}>{`${name} is in away mode. Bearings shows again after it returns.`}</Text>
-      {staleText ? <Text style={[styles.awayDetail, { color: muted }]}>{staleText}</Text> : null}
+      <Text style={[styles.awayTitle, { color: colors.text }]}>{`${getFirstmateName(name)} is in away mode. Bearings shows again after it returns.`}</Text>
+      {age ? <Text style={[styles.awayDetail, { color: muted }]}>{`Showing data from ${age}.`}</Text> : null}
     </View>
   );
 }
 
 function ErrorLine({ text, updatedAt }: { text: string; updatedAt: number | null }) {
   const color = useToneColor("danger");
-  const staleText = useStaleText(updatedAt);
+  const age = useDataAge(updatedAt);
   return (
     <Text style={[styles.error, { color }]} accessibilityLiveRegion="polite">
-      {staleText ? `${text}. ${staleText}` : text}
+      {age ? `${text} (showing data from ${age})` : text}
     </Text>
   );
 }

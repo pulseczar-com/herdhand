@@ -116,16 +116,16 @@ describe("a Firstmate pane", () => {
     renderPane("t7");
     await screen.findByText("$ ls");
     await waitFor(() => expect(run).toHaveBeenCalled());
-    expect(screen.queryByRole("button", { name: "Bearings" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Firstmate Bearings" })).toBeNull();
   });
 
   it("runs no Firstmate command until the Bearings button is tapped", async () => {
     renderPane("t6");
-    await screen.findByRole("button", { name: "Bearings" });
+    await screen.findByRole("button", { name: "Firstmate Bearings" });
 
     expect(commands.filter((command) => command.includes("fm-bearings-snapshot.sh\" --json"))).toEqual([]);
 
-    fireEvent.press(screen.getByRole("button", { name: "Bearings" }));
+    fireEvent.press(screen.getByRole("button", { name: "Firstmate Bearings" }));
     await screen.findByText("Waiting on you");
 
     expect(commands.filter((command) => command.includes("fm-bearings-snapshot.sh\" --json"))).toHaveLength(1);
@@ -136,9 +136,9 @@ describe("Bearings of a Firstmate in away mode with no data yet", () => {
   it("shows the away line and no loading state", async () => {
     isHomeAway = true;
     renderPane("t6");
-    fireEvent.press(await screen.findByRole("button", { name: "Bearings" }));
+    fireEvent.press(await screen.findByRole("button", { name: "Firstmate Bearings" }));
 
-    await screen.findByText(/is in away mode/);
+    expect(await screen.findByText("Firstmate (crew) is in away mode. Bearings shows again after it returns.")).toBeTruthy();
 
     expect(screen.queryByLabelText("Loading")).toBeNull();
     expect(screen.queryByText("Loading…")).toBeNull();
@@ -148,7 +148,7 @@ describe("Bearings of a Firstmate in away mode with no data yet", () => {
 describe("Bearings", () => {
   async function openBearings() {
     const router = renderPane("t6");
-    fireEvent.press(await screen.findByRole("button", { name: "Bearings" }));
+    fireEvent.press(await screen.findByRole("button", { name: "Firstmate Bearings" }));
     await screen.findByText("Waiting on you");
     return router;
   }
@@ -162,8 +162,8 @@ describe("Bearings", () => {
     expect(screen.getByRole("button", { name: "Queued, 3" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Landed, 4" })).toBeTruthy();
     expect(screen.queryByText("Secondmates")).toBeNull();
-    expect(screen.getByText("crew · Bearings")).toBeTruthy();
-    expect(screen.getByText(/^Updated \d+ s ago · pull to refresh$/)).toBeTruthy();
+    expect(screen.getByText("Firstmate (crew)")).toBeTruthy();
+    expect(screen.getByText(/^Bearings · updated \d+s ago$/)).toBeTruthy();
     // The task is in flight and has a PR: the first card is the task's.
     const [card] = screen.getAllByRole("button", { name: "Add cursor pagination to the orders endpoint" });
     expect(within(card).getByText("working")).toBeTruthy();
@@ -206,13 +206,13 @@ describe("Bearings", () => {
     act(() => appRouter.back());
     await screen.findByText("Waiting on you");
     act(() => appRouter.back());
-    await screen.findByRole("button", { name: "Bearings" });
+    await screen.findByRole("button", { name: "Firstmate Bearings" });
 
-    fireEvent.press(screen.getByRole("button", { name: "Bearings" }));
+    fireEvent.press(screen.getByRole("button", { name: "Firstmate Bearings" }));
 
     // No wait: the list and its age come from the earlier visit.
     expect(screen.getByText("Waiting on you")).toBeTruthy();
-    expect(screen.getByText(/^Updated \d+ s ago/)).toBeTruthy();
+    expect(screen.getByText(/^Bearings · updated \d+s ago/)).toBeTruthy();
     fireEvent.press(screen.getAllByRole("button", { name: "Add cursor pagination to the orders endpoint" })[0]);
     expect(screen.getByText(/The orders endpoint returns every order at once/)).toBeTruthy();
   });
@@ -228,10 +228,12 @@ describe("Bearings", () => {
   });
 });
 
+const DISCUSS = "Discuss with Firstmate (crew)";
+
 describe("an opened item", () => {
   async function openItem(title: string) {
     renderPane("t6");
-    fireEvent.press(await screen.findByRole("button", { name: "Bearings" }));
+    fireEvent.press(await screen.findByRole("button", { name: "Firstmate Bearings" }));
     await screen.findByText("Waiting on you");
     fireEvent.press(screen.getAllByRole("button", { name: title })[0]);
   }
@@ -245,7 +247,7 @@ describe("an opened item", () => {
     await openItem(title);
     await screen.findByText("Discuss");
 
-    const names = expected.filter((name) => screen.queryByRole("button", { name }));
+    const names = expected.filter((name) => screen.queryByRole("button", { name: name === "Discuss" ? DISCUSS : name }));
     expect(names).toEqual(expected);
     expect(screen.queryByRole("button", { name: "Done" })).toBeNull();
   });
@@ -258,7 +260,7 @@ describe("an opened item", () => {
 
     fireEvent.press(screen.getByRole("button", { name: "Defer" }));
 
-    expect(await screen.findByText("Sent to crew.")).toBeTruthy();
+    expect(await screen.findByText("Sent to Firstmate (crew).")).toBeTruthy();
     const note = commands.find((command) => command.includes("fm-inbox.sh"));
     expect(note).toContain("'[bearings panel] defer decisions acme-web-empty-search'");
     expect(note).toContain("/srv/crew");
@@ -272,7 +274,7 @@ describe("an opened item", () => {
 
     fireEvent.press(screen.getByRole("button", { name: "Drop" }));
 
-    expect(alert.mock.calls[0][0]).toBe("Drop this item?");
+    expect(alert.mock.calls[0][0]).toBe("Drop Search empty state wording?");
     expect(commands.some((command) => command.includes("fm-inbox.sh"))).toBe(false);
     const drop = alert.mock.calls[0][2]?.find((button) => button.text === "Drop");
     drop?.onPress?.();
@@ -281,46 +283,69 @@ describe("an opened item", () => {
 
   it("sends a Discuss note typed in the sheet", async () => {
     await openItem("Add a dark mode toggle");
-    fireEvent.press(await screen.findByRole("button", { name: "Discuss" }));
+    fireEvent.press(await screen.findByRole("button", { name: DISCUSS }));
 
     fireEvent.changeText(screen.getByLabelText("Note"), "start   with\nthe header");
     fireEvent.press(screen.getByRole("button", { name: "Send" }));
 
-    expect(await screen.findByText("Note sent to crew.")).toBeTruthy();
+    expect(await screen.findByText("Note sent to Firstmate (crew).")).toBeTruthy();
     const note = commands.find((command) => command.includes("fm-inbox.sh"));
     expect(note).toContain("'[bearings panel] discuss queued acme-web-dark-mode - start with the header'");
   });
 
   it("keeps the sheet open and shows the error when the note fails", async () => {
     await openItem("Add a dark mode toggle");
-    fireEvent.press(await screen.findByRole("button", { name: "Discuss" }));
+    fireEvent.press(await screen.findByRole("button", { name: DISCUSS }));
     run.mockImplementationOnce(async () => ({ output: "", exitCode: 4 }));
 
     fireEvent.changeText(screen.getByLabelText("Note"), "hello");
     fireEvent.press(screen.getByRole("button", { name: "Send" }));
 
-    expect(await screen.findByText("Could not send (exit 4)")).toBeTruthy();
+    expect(await screen.findByText("Could not send: exit code 4")).toBeTruthy();
     expect(screen.getByLabelText("Note")).toBeTruthy();
+    expect(screen.getByText("Discuss with Firstmate (crew)")).toBeTruthy();
+    expect(screen.getByPlaceholderText("Your note (optional)")).toBeTruthy();
+  });
+
+  it("shows Sending… on the Send button while the note is sending", async () => {
+    await openItem("Add a dark mode toggle");
+    fireEvent.press(await screen.findByRole("button", { name: DISCUSS }));
+    run.mockImplementationOnce(() => new Promise(() => {}));
+
+    fireEvent.changeText(screen.getByLabelText("Note"), "hello");
+    fireEvent.press(screen.getByRole("button", { name: "Send" }));
+
+    expect(await screen.findByText("Sending…")).toBeTruthy();
+  });
+
+  it("names the Firstmate when an action fails", async () => {
+    await openItem("Search empty state wording");
+    await screen.findByText("Discuss");
+    run.mockImplementationOnce(async () => ({ output: "", exitCode: 4 }));
+
+    fireEvent.press(screen.getByRole("button", { name: "Defer" }));
+
+    expect(await screen.findByText("Could not send to Firstmate (crew): exit code 4")).toBeTruthy();
   });
 
   it("shows no old error when the sheet opens again after Cancel", async () => {
     await openItem("Add a dark mode toggle");
-    fireEvent.press(await screen.findByRole("button", { name: "Discuss" }));
+    fireEvent.press(await screen.findByRole("button", { name: DISCUSS }));
     run.mockImplementationOnce(async () => ({ output: "", exitCode: 4 }));
     fireEvent.changeText(screen.getByLabelText("Note"), "hello");
     fireEvent.press(screen.getByRole("button", { name: "Send" }));
-    await screen.findByText("Could not send (exit 4)");
+    await screen.findByText("Could not send: exit code 4");
 
     fireEvent.press(screen.getByRole("button", { name: "Cancel" }));
-    fireEvent.press(await screen.findByRole("button", { name: "Discuss" }));
+    fireEvent.press(await screen.findByRole("button", { name: DISCUSS }));
 
     await screen.findByLabelText("Note");
-    expect(screen.queryByText("Could not send (exit 4)")).toBeNull();
+    expect(screen.queryByText("Could not send: exit code 4")).toBeNull();
   });
 
   it("keeps the sheet open on Cancel while the note is sending, so a late error is not hidden", async () => {
     await openItem("Add a dark mode toggle");
-    fireEvent.press(await screen.findByRole("button", { name: "Discuss" }));
+    fireEvent.press(await screen.findByRole("button", { name: DISCUSS }));
     let finish: (reply: { output: string; exitCode: number }) => void = () => {};
     run.mockImplementationOnce(() => new Promise((resolve) => (finish = resolve)));
     fireEvent.changeText(screen.getByLabelText("Note"), "hello");
@@ -331,6 +356,6 @@ describe("an opened item", () => {
 
     await act(async () => finish({ output: "", exitCode: 4 }));
 
-    expect(await screen.findByText("Could not send (exit 4)")).toBeTruthy();
+    expect(await screen.findByText("Could not send: exit code 4")).toBeTruthy();
   });
 });

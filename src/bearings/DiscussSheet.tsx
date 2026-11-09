@@ -12,14 +12,14 @@ type DiscussSheetProps = {
   /** The sheet shows while it is true. */
   visible: boolean;
   /** The Firstmate's name, for the title. */
-  homeName: string;
+  firstmateName: string;
   /** Sends the note. Gives null when it was sent, else the error line. */
   onSend: (text: string) => Promise<string | null>;
   onClose: () => void;
 };
 
 /** A sheet from the bottom with a multi-line field. Send saves a note in the Firstmate's inbox. */
-export function DiscussSheet({ visible, homeName, onSend, onClose }: DiscussSheetProps) {
+export function DiscussSheet({ visible, firstmateName, onSend, onClose }: DiscussSheetProps) {
   const theme = useTheme();
   const { colors } = theme;
   const dangerColor = useToneColor("danger");
@@ -47,12 +47,12 @@ export function DiscussSheet({ visible, homeName, onSend, onClose }: DiscussShee
         <Pressable style={styles.scrim} accessibilityLabel="Close" onPress={close} />
         <View style={[styles.sheet, { backgroundColor: colors.card }]}>
           <View style={[styles.handle, { backgroundColor: colors.border }]} />
-          <Text style={[styles.title, { color: colors.text }]}>{`Discuss with ${homeName}`}</Text>
+          <Text style={[styles.title, { color: colors.text }]}>{`Discuss with ${firstmateName}`}</Text>
           <TextInput
             style={[styles.input, { color: colors.text, borderColor: colors.border }]}
             value={text}
             onChangeText={setText}
-            placeholder="Write a note"
+            placeholder="Your note (optional)"
             placeholderTextColor={colors.border}
             multiline
             autoFocus
@@ -69,7 +69,7 @@ export function DiscussSheet({ visible, homeName, onSend, onClose }: DiscussShee
               disabled={isSending}
               onPress={() => void send()}
             >
-              <Text style={{ color: getAccentInk(theme) }}>Send</Text>
+              <Text style={{ color: getAccentInk(theme) }}>{isSending ? "Sending…" : "Send"}</Text>
             </Pressable>
           </View>
         </View>

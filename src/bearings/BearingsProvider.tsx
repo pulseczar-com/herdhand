@@ -16,7 +16,7 @@ type BearingsValue = ReturnType<typeof useBearings> & {
   run: RunCommand;
   /** The task records fetched in this session, so an opened item shows at once. */
   recordCache: Map<string, CachedRecord>;
-  /** Saves a note in the Firstmate's inbox. Gives null when it was saved, else the error line. */
+  /** Saves a note in the Firstmate's inbox. Gives null when it was saved, else why it failed. */
   sendNote(requestId: string, body: string): Promise<string | null>;
 };
 
@@ -37,9 +37,9 @@ export function BearingsProvider({ machineId, run, folder, space, children }: Be
     async (requestId: string, body: string) => {
       try {
         const { exitCode } = await run(getNoteCommand(folder, requestId, body));
-        if (exitCode !== 0) return `Could not send (exit ${exitCode})`;
+        if (exitCode !== 0) return `exit code ${exitCode}`;
       } catch (failure) {
-        return `Could not send: ${getErrorMessage(failure)}`;
+        return getErrorMessage(failure);
       }
       // The list shows what the note changed.
       void refresh();
