@@ -80,7 +80,7 @@ The chat view reads the agent's own session file. Herdr gives the app the sessio
 
 ## How it connects
 
-1. You add a machine with its address, SSH port, user name and password, or you [pair it with a code](#pair-with-a-code).
+1. You add a machine with its host, SSH port, user name and password, or you [pair it with a code](#pair-with-a-code).
 2. On the first connection with a password, the app shows the machine's SHA-256 host key fingerprint. Compare it with the machine's own (`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`), then tap **Trust and connect**. A pairing code carries the host keys, so the app checks them for you. The app pins that key; a different key later blocks the connection.
 3. The app logs in with the password or the phone key and runs Herdr's own bridge as a plain command: `hc connect` for Herdr App, or `herdr remote-api-bridge` for Herdr TUI. The bridge speaks JSON over the SSH channel. A second channel of the same connection runs Herdr's event subscription, which is how the app learns of changes.
 
@@ -88,20 +88,20 @@ Herdhand installs nothing on the machine. Pairing leaves one line there: the pho
 
 ### Pair with a code
 
-1. In Herdhand, tap **Add machine**, then **Scan pairing code**. The app shows a command.
+1. In Herdhand, tap **Add machine** and type the machine's host, as the phone reaches it. Keep **Pair with a code**, then read the command the app shows.
 2. On the machine, open this README in a browser, copy the command below and run it in a terminal, as the user Herdhand logs in as:
 
    ```sh
-   curl -fsSL https://raw.githubusercontent.com/pulseczar-com/herdhand/main/scripts/pair.sh | sh
+   curl -fsSL https://pulseczar.com/herdhand/pair | sh
    ```
 
-   The phone shows the same command, for reference only.
+   If that address does not work, the same script is at `https://raw.githubusercontent.com/pulseczar-com/herdhand/main/scripts/pair.sh`. The phone shows the same command, with a Share button and a link to the script.
 
-3. Scan the code it shows, check the address, and tap **Pair and connect**. The terminal prints `Paired:` and the name of the phone key.
+3. Tap **Scan pairing code**, scan the code the script shows, check the details, and tap **Pair and connect**. The terminal prints `Paired:` and the name of the phone key.
 
 The machine must run OpenSSH (`sshd` and `ssh-keygen`); other SSH servers, such as Dropbear, cannot pair. The [script](scripts/pair.sh) needs `sh`, `awk` and `ssh-keygen`, and draws the code itself, so it runs on most Linux systems (BusyBox and Alpine too) and on macOS. It adds a one-time key that can only hand over the phone's public key, works once and expires after 5 minutes. When the phone's key arrives, the script adds it, removes the one-time key and stops. It also removes the one-time key on Ctrl-C or when time runs out. The code lets one phone log in, so show it only where you would type a password.
 
-The phone must still reach the machine over the network. If the address in the code does not work from the phone, change it before you pair.
+The phone must still reach the machine over the network. The host you type before the scan stays, so the code cannot replace it with one the phone cannot reach. The name and port work the same way. A code fills them only when they are empty.
 
 ### Lost your phone?
 
